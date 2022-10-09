@@ -1,6 +1,10 @@
 {
-  "type": "module",
   "dependencies": {
-    "musictheoryjs": "^2.0.2"
+    "http-server": "^14.1.1",
+    "musictheoryjs": "^2.0.2",
+    "webpack": "^5.74.0"
+  },
+  "devDependencies": {
+    "webpack-cli": "^4.10.0"
   }
 }

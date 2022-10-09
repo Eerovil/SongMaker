@@ -78,10 +78,10 @@ const getTension = (fromChord, toChord, currentScale) => {
             tension += (1/noteCount) * 2.0;
         }
         if (toIntervals[i] === 2) {
-            tension += (1/noteCount) * 0.5;
+            tension += (1/noteCount) * 1.0;
         }
         if (toIntervals[i] === 5) {
-            tension += (1/noteCount) * 0.1;
+            tension += (1/noteCount) * 1.0;
         }
         if (toIntervals[i] === 6) {
             tension += (1/noteCount) * 1.0;
@@ -127,26 +127,8 @@ const chords = () => {
     // build the string tables
     buildTables();
 
-    // create a note
-    const note = new Note("D4");
-
-    // create a scale
-    const scale = new Scale("C5(major)");
-    console.log(scale.getNoteNames()); // --> ["C5", "D5", "E5", "F5", "G5", "A5", "B5"]
-
-    // create a chord
-    const chord = new Chord("(Ab3)maj7");
-    console.log(chord.notes); // --> array of notes in the chord
-
-    // get the frequency of the scales 3rd degree
-    const instrument = new Instrument();
-    const freq = instrument.getFrequency(scale.degree(3)); // --> 659.26
-
-    // get the midi key for the scales 3rd degree
-    const midiKey = instrument.getMidiKey(scale.degree(3)); // --> 76
-
     // generate a progression
-    const maxBeats = 4;
+    const maxBeats = 4 * 4;
     const maxTensions = 1
     const baseTension = 0.1;
     const highTension = 0.5;
@@ -157,7 +139,7 @@ const chords = () => {
     let currentTension = 0;
 
     for (let i=0; i<maxTensions; i++) {
-        tensionBeats.push(Math.floor(Math.random() * (maxBeats - 1)) + 1);
+        tensionBeats.push(Math.floor(Math.random() * (maxBeats - 4)) + 4);
     }
 
     while (currentBeat < maxBeats) {
@@ -170,6 +152,7 @@ const chords = () => {
             iterations++;
             if (iterations > 12 * 12) {
                 console.log("Not found!")
+                a += 1;
                 break;
             }
             newChord = randomChord(currentScale, randomChords);
@@ -195,6 +178,10 @@ const chords = () => {
         currentBeat += 1;
     }
     console.log(result.map(chord => chord.toString()));
+    window.result = result;
+
+    const instrument = new Instrument();
+    window.chords = result.map(chord => (chord.notes.map(note => instrument.getFrequency(note))))
 }
 export { chords }
 

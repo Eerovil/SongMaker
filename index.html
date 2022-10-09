@@ -1,0 +1,41 @@
+<html>
+
+<head>
+    <title>My First Web Page</title>
+    <script src="dist/bundle.js"></script>
+</head>
+
+<body>
+
+</body>
+<script>
+    const beep = (freq = 320, duration = 100, vol = 5) => {
+        const oscillator = context.createOscillator();
+        const gain = context.createGain();
+        oscillator.connect(gain);
+        oscillator.frequency.value = freq;
+        oscillator.type = "square";
+        gain.connect(context.destination);
+        gain.gain.value = vol * 0.01;
+        oscillator.start(context.currentTime);
+        oscillator.stop(context.currentTime + duration * 0.001);
+    }
+    const playChord = (notes, length) => {
+        context = new AudioContext();
+        return new Promise((resolve) => {
+            for (const note of notes) {
+                const freq = note
+                beep(freq, length)
+            }
+            setTimeout(resolve, length)
+        })
+    }
+    const runChords = async function() {
+        for (const chord of window.chords) {
+            await playChord(chord, 2000)
+        }
+    }
+    runChords();
+</script>
+
+</html>
