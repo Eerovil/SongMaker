@@ -1,0 +1,6 @@
+{
+  "type": "module",
+  "dependencies": {
+    "musictheoryjs": "^2.0.2"
+  }
+}
