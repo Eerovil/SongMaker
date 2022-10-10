@@ -109,10 +109,12 @@ const getTension = (fromChord, toChord, currentScale) => {
 
 
 const randomChord = (scale, prevChords) => {
-    const chordTypes = ["maj", "min", "dim", "aug", "maj7", "min7", "7", "dim7", "maj6", "min6", "6"]//, "sus2", "sus4"];
+    const chordTypes = ["maj", "min"] //, "dim", "aug", "maj7", "min7", "7", "dim7", "maj6", "min6", "6"]//, "sus2", "sus4"];
+    const notes = Object.keys(Semitone).filter(key => isNaN(key))
     while (true) {
-        const randomIndex = Math.floor(Math.random() * scale.notes.length);
-        const randomNote = scale.notes[randomIndex];
+        
+        const randomIndex = Math.floor(Math.random() * notes.length);
+        const randomNote = notes[randomIndex];
         const randomChordType = chordTypes[Math.floor(Math.random() * chordTypes.length)];
         const randomChord = `(${randomNote.toString().replace(/\d/, '')})${randomChordType}`;
         if (prevChords && prevChords.includes(randomChord)) {
@@ -123,9 +125,54 @@ const randomChord = (scale, prevChords) => {
 }
 
 
+const semitoneDistance = (tone1, tone2) => {
+    // distance from 0 to 11 should be 1
+    // 0 - 11 + 12 => 1
+    // 11 - 0 + 12 => 23 => 11
+
+    // 0 - 6 + 12 => 6
+    // 6 - 0 + 12 => 18 => 6
+    return Math.min((tone1 - tone2 + 12) % 12, (tone2 - tone1 + 12) % 12)
+}
+
+
+const chordsToVoiceLeadingNotes = (chords) => {
+    const ret = [];
+    ret.push([...chords[0].notes]);
+    for (const chord of chords.slice(1)) {
+        // Match each note of prev chord to closest note of `chord`
+        const notes = chord.notes;
+        const fixedNotes = [];
+        console.log("notes: ", notes.map(note => note.toString()));
+        for (const note of notes) {
+            const semitone = note.semitone;
+            const prevNotesByDistance = [...ret[ret.length - 1]].orderBy((note) => semitoneDistance(note.semitone, semitone));
+            const closestNote = prevNotesByDistance[0];
+
+            // Fix the note, if it's not already fixed
+            const closestNoteOctave = closestNote.octave;
+            let fixedNote = note.copy();
+            if (note.semitone != chord.root && note.semitone > 6 && closestNote.semitone < 5) {
+                // note octave should be closestNoteOctave + 1
+                fixedNote.octave = closestNoteOctave + 1;
+            } else if (note.semitone < 5 && closestNote.semitone > 6) {
+                // note octave should be closestNoteOctave - 1
+                fixedNote.octave = closestNoteOctave - 1;
+            } else {
+                // note octave should be closestNoteOctave
+                fixedNote.octave = closestNoteOctave;
+            }
+
+            fixedNotes.push(fixedNote);
+        }
+        console.log("fixedNotes: ", fixedNotes.map(note => note.toString()));
+        ret.push(fixedNotes);
+    }
+    return ret;
+}
+
+
 const chords = () => {
-    // build the string tables
-    buildTables();
 
     // generate a progression
     const maxBeats = 4 * 4;
@@ -139,7 +186,7 @@ const chords = () => {
     let currentTension = 0;
 
     for (let i=0; i<maxTensions; i++) {
-        tensionBeats.push(Math.floor(Math.random() * (maxBeats - 4)) + 4);
+        tensionBeats.push(Math.floor(Math.random() * (maxBeats - 5)) + 4);
     }
 
     while (currentBeat < maxBeats) {
@@ -150,11 +197,6 @@ const chords = () => {
         let iterations = 0;
         while (!chordIsGood) {
             iterations++;
-            if (iterations > 12 * 12) {
-                console.log("Not found!")
-                a += 1;
-                break;
-            }
             newChord = randomChord(currentScale, randomChords);
             randomChords.push(newChord.toString());
             if (prevChord == null) {
@@ -167,10 +209,14 @@ const chords = () => {
                 } else {
                     wantedTension -= currentTension;
                 }
-                if (Math.abs(tension - wantedTension) < 0.1) {
+                if (Math.abs(tension - wantedTension) < 0.2 || (wantedTension <= 0.2 && tension <= 0.2)) {
                     chordIsGood = true;
                     currentTension += tension;
-                    console.log(`Tension: ${tension} (wanted ${wantedTension})`);
+                } else {
+                    if (iterations > 12 * 12) {
+                        console.log(`tension ${wantedTension} Not found!`)
+                        return null;
+                    }
                 }
             }
         }
@@ -181,7 +227,8 @@ const chords = () => {
     window.result = result;
 
     const instrument = new Instrument();
-    window.chords = result.map(chord => (chord.notes.map(note => instrument.getFrequency(note))))
+    window.chords = chordsToVoiceLeadingNotes(result).map(notes => (notes.map(note => instrument.getFrequency(note))))
+    return window.result;
 }
 export { chords }
 
