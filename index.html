@@ -9,6 +9,7 @@
 
 </body>
 <script>
+    const beatMS = 2000;
     const beep = (freq = 320, duration = 100, vol = 5) => {
         const oscillator = context.createOscillator();
         const gain = context.createGain();
@@ -20,8 +21,9 @@
         oscillator.start(context.currentTime);
         oscillator.stop(context.currentTime + duration * 0.001);
     }
-    const playChord = (notes, length) => {
+    const playChord = (notes, length, volMultiplier) => {
         context = new AudioContext();
+        volMultiplier = volMultiplier || 1;
         return new Promise((resolve) => {
             let index = 0
             for (const note of notes) {
@@ -33,7 +35,7 @@
                 if (index == 2) {
                     vol = 5
                 }
-                beep(freq, length, vol)
+                beep(freq, length, vol * volMultiplier)
                 index++;
             }
             setTimeout(resolve, length)
@@ -41,10 +43,21 @@
     }
     const runChords = async function() {
         for (const chord of window.chords) {
-            await playChord(chord, 1000)
+            await playChord(chord, beatMS)
+        }
+    }
+    const playMelody = async function() {
+        for (const tick in window.melody) {
+            setTimeout(() => {
+                const note = window.melody[tick]
+                if (note) {
+                    beep(note.freq, beatMS / 12 * note.duration, 10)
+                }
+            }, beatMS / 12 * tick)
         }
     }
     runChords();
+    playMelody();
 </script>
 
 </html>

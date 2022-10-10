@@ -181,13 +181,87 @@ const chordsToVoiceLeadingNotes = (chords) => {
 }
 
 
+const randomChordNote = (chord, scale, criteriaLevel) => {
+    let notes = chord.notes;
+    if (scale) {
+        // Try to choose a note that is not in the scale
+        const newNotes = notes.filter(note => !scale.notes.map(note => note.semitone).includes(note.semitone));
+        if (newNotes.length > 0) {
+            notes = newNotes;
+        }
+    }
+
+    const randomIndex = Math.floor(Math.random() * notes.length);
+    return notes[randomIndex];
+}
+
+
+const melody = (chords, scale) => {
+    // Initial melody, just half beats
+
+    // Return value will be an object kwyed by "ticks", containing
+    // an array of objects {note, length} for each tick
+
+    // Lets just say a beat is 12 ticks
+    const ret = {};
+    const maxDistance = 2;
+    let prevNote = null;
+
+    const instrument = new Instrument();
+
+    for (let i=0; i<chords.length; i+= 0.5) {
+        let noteIsGood = false;
+        let randomNote;
+        let iterations = 0;
+        while (!noteIsGood) {
+            iterations++;
+            const criteriaLevel = Math.floor(iterations / 33);
+            randomNote = randomChordNote(chords[Math.floor(i)], scale, criteriaLevel);
+            if (iterations > 100) {
+                console.log("too many iterations");
+                break;
+            }
+            if (prevNote) {
+                const distance = semitoneDistance(prevNote.semitone, randomNote.semitone);
+                if (distance == 0 && criteriaLevel == 0) {
+                    continue;
+                }
+                if (distance > (maxDistance + criteriaLevel)) {
+                    continue;
+                }
+                if (distance > 6) {
+                    if (prevNote.octave > randomNote.octave) {
+                        randomNote.octave += 1;
+                    } else {
+                        randomNote.octave -= 1;
+                    }
+                }
+            }
+            noteIsGood = true;
+            // if (prevNote == null) {
+            //     noteisGood = true;
+            // } else {
+
+            // }
+        }
+        ret[i * 12] = {
+            note: randomNote,
+            freq: instrument.getFrequency(randomNote),
+            duration: 6
+        }
+        prevNote = randomNote;
+    }
+    return ret;
+}
+
+
 const chords = () => {
 
     // generate a progression
-    const maxBeats = 4 * 8;
+    const maxBeats = 4 * 4;
     const maxTensions = 1
     const baseTension = 0.1;
-    const highTension = 0.8;
+    const highTension = 0.3;
     let currentBeat = 0;
     let currentScale = new Scale("C5(major)");
     let result = [];
@@ -249,6 +323,9 @@ const chords = () => {
 
     const instrument = new Instrument();
     window.chords = chordsToVoiceLeadingNotes(result).map(notes => (notes.map(note => instrument.getFrequency(note))))
+
+    window.melody = melody(result, currentScale);
+
     return window.result;
 }
 export { chords }
