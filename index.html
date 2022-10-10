@@ -23,16 +23,25 @@
     const playChord = (notes, length) => {
         context = new AudioContext();
         return new Promise((resolve) => {
+            let index = 0
             for (const note of notes) {
                 const freq = note
-                beep(freq, length)
+                let vol = 2;
+                if (index == 0) {
+                    vol = 5
+                }
+                if (index == 2) {
+                    vol = 5
+                }
+                beep(freq, length, vol)
+                index++;
             }
             setTimeout(resolve, length)
         })
     }
     const runChords = async function() {
         for (const chord of window.chords) {
-            await playChord(chord, 2000)
+            await playChord(chord, 1000)
         }
     }
     runChords();
