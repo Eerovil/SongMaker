@@ -1,4 +1,4 @@
-import { chords } from "./src/chords.js"
+import { chords, buildTables } from "./src/chords.js"
 
 Array.prototype.orderBy = function (selector, desc = false) {
     return [...this].sort((a, b) => {
@@ -9,6 +9,8 @@ Array.prototype.orderBy = function (selector, desc = false) {
         return (desc ? a > b : a < b) ? -1 : 1;
     });
 }
+
+buildTables()
 
 const getResults = () => {
     const results = chords()

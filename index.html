@@ -6,7 +6,7 @@
 </head>
 
 <body>
-
+<p id="currentChord"></p>
 </body>
 <script>
     const beatMS = 3000;
@@ -42,8 +42,11 @@
         })
     }
     const runChords = async function() {
+        let i = 0;
         for (const chord of window.chords) {
+            document.querySelector("#currentChord").innerHTML = `${window.result[i].toString()} (${window.tensions[i].toFixed(2)})`
             await playChord(chord, beatMS)
+            i++;
         }
     }
     const playMelody = async function() {
@@ -51,13 +54,15 @@
             setTimeout(() => {
                 const note = window.melody[tick]
                 if (note) {
-                    beep(note.freq, beatMS / 12 * note.duration, 10)
+                    beep(note.freq, beatMS / 12 * note.duration, 7)
                 }
             }, beatMS / 12 * tick)
         }
     }
-    runChords();
-    playMelody();
+    setTimeout(() => {
+        runChords();
+        playMelody();
+    }, 1000)
 </script>
 
 </html>
