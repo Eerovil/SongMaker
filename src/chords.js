@@ -93,12 +93,15 @@ const getTension = (fromChord, toChord, currentScale, beatsUntilLastChordInCaden
                 }
             }
             let closestScale = candidateScales[0];
-            let closestScaleDistance = majScaleDifference(closestScale, currentScale.notes[0].semitone);
-            for (const scaleCandidate of candidateScales) {
-                const scaleDistance = majScaleDifference(scaleCandidate, currentScale.notes[0].semitone);
-                if (scaleDistance < closestScaleDistance) {
-                    closestScale = scaleCandidate;
-                    closestScaleDistance = scaleDistance;
+            let closestScaleDistance = 100;
+            if (closestScale) {
+                closestScaleDistance = majScaleDifference(closestScale, currentScale.notes[0].semitone);
+                for (const scaleCandidate of candidateScales) {
+                    const scaleDistance = majScaleDifference(scaleCandidate, currentScale.notes[0].semitone);
+                    if (scaleDistance < closestScaleDistance) {
+                        closestScale = scaleCandidate;
+                        closestScaleDistance = scaleDistance;
+                    }
                 }
             }
             let multiplier = 0.1;
@@ -272,7 +275,7 @@ const getTension = (fromChord, toChord, currentScale, beatsUntilLastChordInCaden
 
 
 const randomChord = (scale, prevChords) => {
-    const chordTypes = ["maj", "min", "dim"] //, "dim", "aug", "maj7", "min7", "7", "dim7", "maj6", "min6", "6"]//, "sus2", "sus4"];
+    const chordTypes = ["maj", "min", "dim", "7"] //, "dim", "aug", "maj7", "min7", "7", "dim7", "maj6", "min6", "6"]//, "sus2", "sus4"];
     //const chordTypes = ["min"]
     const notes = Object.keys(Semitone).filter(key => isNaN(key))
     while (true) {
@@ -529,7 +532,7 @@ const chords = () => {
     // generate a progression
     const beatsPerBar = 4;
     const barsPerCadenceEnd = 2;
-    const cadences = 2
+    const cadences = 3
 
     const maxTensions = 1
     const baseTension = 0.3;
@@ -598,6 +601,10 @@ const chords = () => {
                 let wantedTension = baseTension;
                 if (tensionBeats.includes(currentBeat)) {
                     wantedTension = highTension;
+                }
+                if (maxBeats - currentBeat < 4) {
+                    // Final bar
+                    wantedTension = -0.5
                 }
                 if (beatsUntilLastChordInCadence < 3) {
                     wantedTension = -0.7;
