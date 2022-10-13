@@ -55,7 +55,7 @@ const majScaleDifference = (semitone1, semitone2) => {
 }
 
 
-const getTension = (fromChord, toChord, currentScale) => {
+const getTension = (fromChord, toChord, currentScale, beatsUntilLastChordInCadence) => {
     /*
     *   Get the tension between two chords
     *   @param fromChord: Chord
@@ -116,6 +116,10 @@ const getTension = (fromChord, toChord, currentScale) => {
                         }
                     }
                 }
+            }
+            if (beatsUntilLastChordInCadence <= 3) {
+                // No scale change in the last 4 beats
+                multiplier = 2000;
             }
             // console.log("Scale: ", closestScale, "d: ", closestScaleDistance, "c: ", toChord.toString());
             // console.log("differingNotesNotInScale: ", differingNotesNotInScale)
@@ -196,8 +200,8 @@ const getTension = (fromChord, toChord, currentScale) => {
         [currentScale.notes[6].semitone]: 6,
     }
 
-    const noteTensionsForward = {
-        0: 0.1,  // Tonic (1st, 3rd, 6th) are leading softly
+    let noteTensionsForward = {
+        0: 0.1,  // Tonic (1st, 3rd, 6th) are leading softly (strongly to itself)
         1: 0.3,  // Subdominant (2nd, 4th) are leading a bitmore
         2: 0.1,
         3: 0.3,
@@ -206,27 +210,62 @@ const getTension = (fromChord, toChord, currentScale) => {
         6: 0.6,
     }
 
+    if (beatsUntilLastChordInCadence < 4 && beatsUntilLastChordInCadence >= 2) {
+        // Try to get a chord with as much "leading" to tonic notes as possible
+        // we change the tensions...
+        noteTensionsForward = {
+            0: 1.6,
+            1: 0,
+            2: 0.1,
+            3: 1.6,
+            4: 0,
+            5: 1.6,
+            6: 0,
+        }
+    } else if (beatsUntilLastChordInCadence < 2) {
+        // Try to get a chord with as much tonic notes as possible
+        noteTensionsForward = {
+            0: 0,
+            1: 1.6,
+            2: 0,
+            3: 1.6,
+            4: 0,
+            5: 0,  // 6th is good also for minor
+            6: 1.6,
+        }
+    }
+
+    let tensionBeforelead = tension;
+
     for (const fromSemitone of fromSemitones) {
         // We mark each note as "leading" to the next note. If that happens, reduce tension
-        const scaleIndex = semitoneScaleIndex[fromSemitone] || null;
+        const scaleIndex = semitoneScaleIndex[fromSemitone];
         const forwardTension = noteTensionsForward[scaleIndex];
-        if (forwardTension) {
-            if (toSemitones.includes(semitoneScaleIndex[scaleIndex + 1])) {
+        if (forwardTension != undefined) {
+            const nextSemitone = parseInt(Object.keys(semitoneScaleIndex).find(k => semitoneScaleIndex[k] === (scaleIndex + 1) % 7));
+            if (toSemitones.includes(nextSemitone)) {
                 tension -= forwardTension;
             } else {
                 // Not resolving these leads causes more tension
                 tension += forwardTension / 2;
             }
+
+            // Each note is also laeding to itself
+            const tensionToItself = (0.6 - forwardTension) * 0.7;
+            if (tensionToItself > 0) {
+                if (toSemitones.includes(fromSemitone)) {
+                    tension -= tensionToItself;
+                } else {
+                    // Not resolving these leads causes more tension
+                    tension += tensionToItself / 2;
+                }
+            } 
         }
     }
 
-
-    // if toChord is the tonic, the tension is much resolved
-    if (toChord.notes[0].semitone === currentScale.notes[0].semitone) {
-        if (differingNotesNotInScale.length == 0) {
-            tension -= 0.5;
-        }
-    }
+    // if (toChord.notes[0].semitone == currentScale.notes[0].semitone) {
+    //     console.log("Lead tension from ", fromChord.toString(), " to ", toChord.toString(), "(", currentScale.toString(), ")", " is ", (tensionBeforelead + tension).toFixed(2));
+    // }
 
     return {tension, newScale};
 }
@@ -373,7 +412,7 @@ const randomChordNote = (chord, notesInThisBar, scale, criteriaLevel, barDirecti
 }
 
 
-const melody = (chordList) => {
+const buildMelody = (chordList) => {
     // Initial melody, just half beats
 
     // Return value will be an object kwyed by "ticks", containing
@@ -488,10 +527,15 @@ const melody = (chordList) => {
 
 const chords = () => {
     // generate a progression
-    const maxBeats = 4 * 8;
+    const beatsPerBar = 4;
+    const barsPerCadenceEnd = 2;
+    const cadences = 2
+
     const maxTensions = 1
-    const baseTension = 0.0;
+    const baseTension = 0.3;
     const highTension = 0.6;
+
+    const maxBeats = cadences * barsPerCadenceEnd * beatsPerBar;
     let currentBeat = 0;
     let currentScale = new Scale("C5(major)");
     let result = [];
@@ -499,11 +543,11 @@ const chords = () => {
     let tensionBeats = []
     let chordCounts = {};
 
-    for (let i=0; i<maxTensions; i++) {
-        tensionBeats.push(Math.floor(Math.random() * (maxBeats - 10)) + 6);
-    }
+    // for (let i=0; i<maxTensions; i++) {
+    //     // tensionBeats.push(Math.floor(Math.random() * (maxBeats - 10)) + 6);
+    // }
 
-    while (currentBeat < maxBeats - 2) {
+    while (currentBeat < maxBeats) {
         let chordIsGood = false;
         let randomChords = [];
         let newChord = null;
@@ -512,47 +556,57 @@ const chords = () => {
         const prevChord = (result[result.length - 1] || {}).chord;
         let iterations = 0;
         let currentScaleSemitones = currentScale.notes.map(note => note.semitone);
+
+        let lowestTension = 100;
+
+        // currentBeat == 0 -> 7
+        // currentBeat == 7 -> 0
+        // currentBeat == 8 -> 7
+        // currentBeat == 4 -> 7-4 = 3
+        // currentBeat == 9 -> 9 % 8 = 1 -> 7-1 = 6
+        // currentBeat == 8 -> 8 % 8 = 0 -> 7-0 = 7
+        const beatsUntilLastChordInCadence = (barsPerCadenceEnd * beatsPerBar) - currentBeat % (barsPerCadenceEnd * beatsPerBar) - 1;
+        // console.log("beatsUntilLastChordInCadence: ", beatsUntilLastChordInCadence);
+
         while (!chordIsGood) {
             iterations++;
             if (iterations > 12 * 12) {
-                console.log("Too many iterations, breaking");
+                console.log("Too many iterations, breaking, lowestTension: ", lowestTension);
                 return null;
             }
             const criteriaLevel = Math.floor(iterations / (12 * 3));
             newChord = randomChord(currentScale, randomChords);
             randomChords.push(newChord.toString());
-            const tensionResult = getTension(prevChord, newChord, currentScale);
+            const tensionResult = getTension(prevChord, newChord, currentScale, beatsUntilLastChordInCadence);
             tension = tensionResult.tension;
             newScale = tensionResult.newScale;
+
+            if (tension < lowestTension) {
+                lowestTension = tension;
+            }
 
             if (prevChord == null) {
                 if (tension > 0 || newChord.notes.filter(note => !currentScaleSemitones.includes(note.semitone)).length > 0) {
                     continue;
                 }
                 chordIsGood = true;
-            } else if (currentBeat % 4 == 1 && tension <= 0) {
-                newChord = prevChord.copy();
-                chordIsGood = true;
+            // } else if (currentBeat % 4 == 1 && tension <= 0) {
+            //     newChord = prevChord.copy();
+            //     chordIsGood = true;
             } else {
-                if (criteriaLevel < 4 && (chordCounts[newChord.toString()] || 0) > (maxBeats / 2)) {
-                    console.log("Chord already used too much: ", newChord.toString(), chordCounts[newChord.toString()]);
-                    continue;
-                }
+
                 let wantedTension = baseTension;
                 if (tensionBeats.includes(currentBeat)) {
                     wantedTension = highTension;
                 }
-                if (criteriaLevel < 2 && tension < -0.1) {
-                    continue;
+                if (beatsUntilLastChordInCadence < 3) {
+                    wantedTension = -0.7;
+                } else {
+                    wantedTension += (0.1 * criteriaLevel);
                 }
-                if (criteriaLevel < 3 && prevChord && newChord.toString() == prevChord.toString()) {
-                    continue;
-                }
-                wantedTension += (0.1 * criteriaLevel);
 
-                if (tension < wantedTension || (wantedTension <= 0.2 && tension <= 0.0)) {
+                if (tension < wantedTension) {
                     chordIsGood = true;
-                    console.log(`${wantedTension.toFixed(1)} - ${newChord.toString()}`)
                 } else {
                     //console.log("Tension too high: ", tension, wantedTension);
                 }
@@ -563,6 +617,7 @@ const chords = () => {
             currentScale = newScale;
             console.log("new scale: ", currentScale.toString());
         }
+        console.log(`${beatsUntilLastChordInCadence}: ${tension.toFixed(1)} - ${newChord.toString()}`)
         result.push({
             chord: newChord,
             tension: tension,
@@ -571,26 +626,39 @@ const chords = () => {
         chordCounts[newChord.toString()] = (chordCounts[newChord.toString()] || 0) + 1;
         currentBeat += 1;
     }
-    result.push({
-        chord: new Chord({root: currentScale.notes[4].semitone, octave: 5, template: ChordTemplates.maj}),
-        tension: 0,
-        scale: currentScale,
-    });
-    result.push({
-        chord: new Chord({root: currentScale.notes[0].semitone, octave: 5, template: ChordTemplates.maj}),
-        tension: 0,
-        scale: currentScale,
-    });
-    //console.log(result.map(chord => chord.toString()));
-    window.result = result;
-    window.tensions = tensions;
 
     const instrument = new Instrument();
-    window.chords = chordsToVoiceLeadingNotes(result.map(res => res.chord)).map(notes => (notes.map(note => instrument.getFrequency(note))))
+    const voiceLeadingChords = chordsToVoiceLeadingNotes(result.map(res => res.chord)).map(notes => (notes.map(note => instrument.getFrequency(note))))
 
-    window.melody = melody(result);
+    const melody = buildMelody(result);
 
-    return window.result;
+    return {
+        chords: voiceLeadingChords,
+        result: result,
+        melody: melody,
+    }
 }
 
-export { chords, buildTables }
+const testFunc = () => {
+    let currentScale = new Scale("C5(major)");
+    let chords = [
+        new Chord("(C5)maj"),
+        new Chord("(D5)maj"),
+        new Chord("(E5)maj"),
+        new Chord("(G5)maj"),
+        new Chord("(G5)maj"),
+        new Chord("(G5)maj"),
+        new Chord("(C5)maj"),
+        new Chord("(C5)maj"),
+    ]
+    chords = chords.reverse();
+    for (let i=1; i>=0; i--) {
+        if (i == 7) {
+            continue
+        }
+        const tension = getTension(chords[i+1], chords[i], currentScale, i);
+        console.log(i, chords[i].toString(), tension.tension);
+    }
+}
+
+export { chords, buildTables, testFunc }

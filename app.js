@@ -1,4 +1,4 @@
-import { chords, buildTables } from "./src/chords.js"
+import { chords, buildTables, testFunc } from "./src/chords.js"
 
 Array.prototype.orderBy = function (selector, desc = false) {
     return [...this].sort((a, b) => {
@@ -11,15 +11,28 @@ Array.prototype.orderBy = function (selector, desc = false) {
 }
 
 buildTables()
+let browser = false;
+try {
+    if (window) {
+        browser = true;
+    }
+} catch (err) {
+    browser = false;
+}
+// testFunc();
 
 const getResults = () => {
     const results = chords()
     if (!results) {
         setTimeout(getResults, 1000)
+    } else if (browser) {
+        window.result = results.result;
+        window.chords = results.chords;
+        window.melody = results.melody;
     }
 }
 getResults();
 
-if (window) {
+if (browser) {
     console.log(window.result)
 }
