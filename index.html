@@ -45,7 +45,7 @@
     const runChords = async function() {
         let i = 0;
         for (const chord of window.chords) {
-            document.querySelector("#currentChord").innerHTML = `${window.result[i].toString()} (${window.tensions[i].toFixed(2)})`
+            document.querySelector("#currentChord").innerHTML = `${window.result[i].chord.toString()} (${window.result[i].tension.toFixed(2)})`
             await playChord(chord, beatMS)
             i++;
         }

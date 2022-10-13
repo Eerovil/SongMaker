@@ -6,12 +6,52 @@ import {
     Note,
     Instrument,
     Semitone,
-    Modifier,
+    ChordTemplates,
 } from "musictheoryjs";
 
 
 const globalSemitone = (note) => {
     return note.semitone + ((note.octave) * 12);
+}
+
+const majScaleCircle = {}
+majScaleCircle[Semitone.C] = [Semitone.G, Semitone.F]
+majScaleCircle[Semitone.G] = [Semitone.D, Semitone.C]
+majScaleCircle[Semitone.D] = [Semitone.A, Semitone.G]
+majScaleCircle[Semitone.A] = [Semitone.E, Semitone.D]
+majScaleCircle[Semitone.E] = [Semitone.B, Semitone.A]
+majScaleCircle[Semitone.B] = [Semitone.Fs, Semitone.E]
+
+majScaleCircle[Semitone.F] = [Semitone.C, Semitone.Bb]
+majScaleCircle[Semitone.Bb] = [Semitone.F, Semitone.Eb]
+majScaleCircle[Semitone.Eb] = [Semitone.Bb, Semitone.Ab]
+majScaleCircle[Semitone.Ab] = [Semitone.Eb, Semitone.Db]
+majScaleCircle[Semitone.Db] = [Semitone.Ab, Semitone.Gb]
+majScaleCircle[Semitone.Gb] = [Semitone.Db, Semitone.Cb]
+majScaleCircle[Semitone.Cb] = [Semitone.Gb, Semitone.Fb]
+
+
+const majScaleDifference = (semitone1, semitone2) => {
+    // Given two major scales, return how closely related they are
+    // 0 = same scale
+    // 1 = E.G. C and F or C and G
+    let currentVal = majScaleCircle[semitone1];
+    if (semitone1 == semitone2) {
+        return 0;
+    }
+    for (let i=0; i<12; i++) {
+        if (currentVal.includes(semitone2)) {
+            return i + 1;
+        }
+        const newCurrentVal = new Set();
+        for (const semitone of currentVal) {
+            for (const newSemitone of majScaleCircle[semitone]) {
+                newCurrentVal.add(newSemitone);
+            }
+        }
+        currentVal = [...newCurrentVal];
+    }
+    return 12;
 }
 
 
@@ -38,12 +78,56 @@ const getTension = (fromChord, toChord, currentScale) => {
 
     // If the differing notes are not in the current scale, increase the tension
     let differingNotesNotInScale = []
+    let newScale = null;
     if (currentScale) {
         const scaleSemitones = currentScale.notes.map(note => note.semitone);
         differingNotesNotInScale = differingNotes.filter(semitone => !scaleSemitones.includes(semitone));
         if (differingNotesNotInScale.length > 0) {
+            // How bad is the scale difference?
+            const majorSemitones = [0, 2, 4, 5, 7, 9, 11];
+            const candidateScales = []
+            for (let scaleCandidate=0; scaleCandidate<12; scaleCandidate++) {
+                const scaleSemitones = majorSemitones.map(semitone => (semitone + scaleCandidate) % 12);
+                if (toSemitones.every(semitone => scaleSemitones.includes(semitone))) {
+                    candidateScales.push(scaleCandidate);
+                }
+            }
+            let closestScale = candidateScales[0];
+            let closestScaleDistance = majScaleDifference(closestScale, currentScale.notes[0].semitone);
+            for (const scaleCandidate of candidateScales) {
+                const scaleDistance = majScaleDifference(scaleCandidate, currentScale.notes[0].semitone);
+                if (scaleDistance < closestScaleDistance) {
+                    closestScale = scaleCandidate;
+                    closestScaleDistance = scaleDistance;
+                }
+            }
+            let multiplier = 0.1;
+            if (closestScaleDistance > 1) {
+                multiplier = 0.5;
+                if (closestScaleDistance > 2) {
+                    multiplier = 1;
+                    if (closestScaleDistance > 3) {
+                        multiplier = 5;
+                        if (closestScaleDistance > 4) {
+                            multiplier = 10;
+                            if (closestScaleDistance > 5) {
+                                multiplier = 20;
+                            }
+                        }
+                    }
+                }
+            }
+            // console.log("Scale: ", closestScale, "d: ", closestScaleDistance, "c: ", toChord.toString());
             // console.log("differingNotesNotInScale: ", differingNotesNotInScale)
-            tension += differingNotesNotInScale.length * (1 / noteCount) * 1.5;
+            tension += differingNotesNotInScale.length * multiplier;
+
+            // Scale change
+            newScale = new Scale({
+                key: closestScale,
+                octave: 5,
+                template: ScaleTemplates.major
+            });
+
         }
     }
 
@@ -129,6 +213,9 @@ const getTension = (fromChord, toChord, currentScale) => {
         if (forwardTension) {
             if (toSemitones.includes(semitoneScaleIndex[scaleIndex + 1])) {
                 tension -= forwardTension;
+            } else {
+                // Not resolving these leads causes more tension
+                tension += forwardTension / 2;
             }
         }
     }
@@ -141,12 +228,13 @@ const getTension = (fromChord, toChord, currentScale) => {
         }
     }
 
-    return tension;
+    return {tension, newScale};
 }
 
 
 const randomChord = (scale, prevChords) => {
     const chordTypes = ["maj", "min", "dim"] //, "dim", "aug", "maj7", "min7", "7", "dim7", "maj6", "min6", "6"]//, "sus2", "sus4"];
+    //const chordTypes = ["min"]
     const notes = Object.keys(Semitone).filter(key => isNaN(key))
     while (true) {
         
@@ -207,7 +295,7 @@ const chordsToVoiceLeadingNotes = (chords) => {
 }
 
 
-const NOTES_PER_MELODY_PART = 4
+const NOTES_PER_MELODY_PART = 8
 
 const randomChordNote = (chord, notesInThisBar, scale, criteriaLevel, barDirection) => {
     let notes = chord.notes;
@@ -285,7 +373,7 @@ const randomChordNote = (chord, notesInThisBar, scale, criteriaLevel, barDirecti
 }
 
 
-const melody = (chords, scale) => {
+const melody = (chordList) => {
     // Initial melody, just half beats
 
     // Return value will be an object kwyed by "ticks", containing
@@ -309,10 +397,12 @@ const melody = (chords, scale) => {
 
     const instrument = new Instrument();
 
-    for (let i=0; i<chords.length; i+= 0.5) {
+    for (let i=0; i<chordList.length; i+= 0.25) {
         let noteIsGood = false;
         let randomNote;
         let iterations = 0;
+        const chord = chordList[Math.floor(i)].chord
+        const scale = chordList[Math.floor(i)].scale
         if (i % NOTES_PER_MELODY_PART == 0 && notesInThisBar.length > 0) {
             barDirection = directions[Math.floor(Math.random() * directions.length)];
             if (notesInThisBar[notesInThisBar.length - 1].octave >= 5) {
@@ -331,13 +421,22 @@ const melody = (chords, scale) => {
         while (!noteIsGood) {
             iterations++;
             const criteriaLevel = Math.floor(iterations / 40);
-            randomNote = randomChordNote(chords[Math.floor(i)], notesInThisBar, scale, criteriaLevel, barDirection);
+            randomNote = randomChordNote(chord, notesInThisBar, scale, criteriaLevel, barDirection);
             if (iterations > 300) {
                 console.log("too many iterations");
                 break;
             }
             if (!randomNote) {
                 continue
+            }
+            const prevChord = (chordList[Math.floor(i-0.25)] || {}).chord;
+            const prevNote = notesInThisBar[notesInThisBar.length - 1];
+            if (prevNote && prevChord && prevChord.toString() == chord.toString()) {
+                if (criteriaLevel < 4) {
+                    if (prevNote.semitone == randomNote.semitone) {
+                        continue;
+                    }
+                }
             }
             noteIsGood = true;
             // if (prevNote == null) {
@@ -351,11 +450,11 @@ const melody = (chords, scale) => {
         ret[i * 12] = {
             note: randomNote,
             freq: instrument.getFrequency(randomNote),
-            duration: 6
+            duration: 3
         }
         prevPrevNote = prevNote;
         prevNote = randomNote;
-        if (i > 1 && (Math.random() < 0.5 || barDirection == 'repeat') && prevPrevNote && prevNote) {
+        if (i > 1 && (Math.random() < 0.5 || barDirection == 'repeat') && prevPrevNote && prevNote) {
             // Add a note between prev and prevprev
             let randomBetweenNote;
             for (const note of scale.notes) {
@@ -372,11 +471,11 @@ const melody = (chords, scale) => {
             }
             if (randomBetweenNote) {
                 console.log("Adding note ", randomBetweenNote.toString(), " between ", prevPrevNote.toString(), " and ", prevNote.toString());
-                ret[(i-1) * 12].duration = 3;
-                ret[((i-1) * 12) + 3] = {
+                ret[(i-1) * 12].duration = (3 / 2);
+                ret[((i-1) * 12) + (3 / 2)] = {
                     note: randomBetweenNote,
                     freq: instrument.getFrequency(randomBetweenNote),
-                    duration: 3,
+                    duration: (3 / 2),
                 }
             } else {
                 console.log("no note between", prevPrevNote.semitone, prevNote.semitone);
@@ -388,9 +487,8 @@ const melody = (chords, scale) => {
 
 
 const chords = () => {
-
     // generate a progression
-    const maxBeats = 4 * 4;
+    const maxBeats = 4 * 8;
     const maxTensions = 1
     const baseTension = 0.0;
     const highTension = 0.6;
@@ -399,18 +497,19 @@ const chords = () => {
     let result = [];
     let tensions = [];
     let tensionBeats = []
-    let currentTension = 0;
     let chordCounts = {};
 
     for (let i=0; i<maxTensions; i++) {
-        tensionBeats.push(Math.floor(Math.random() * (maxBeats - 8)) + 6);
+        tensionBeats.push(Math.floor(Math.random() * (maxBeats - 10)) + 6);
     }
 
     while (currentBeat < maxBeats - 2) {
         let chordIsGood = false;
         let randomChords = [];
         let newChord = null;
-        const prevChord = result[result.length - 1];
+        let tension = 0;
+        let newScale = null;
+        const prevChord = (result[result.length - 1] || {}).chord;
         let iterations = 0;
         let currentScaleSemitones = currentScale.notes.map(note => note.semitone);
         while (!chordIsGood) {
@@ -422,7 +521,10 @@ const chords = () => {
             const criteriaLevel = Math.floor(iterations / (12 * 3));
             newChord = randomChord(currentScale, randomChords);
             randomChords.push(newChord.toString());
-            const tension = getTension(prevChord, newChord, currentScale);
+            const tensionResult = getTension(prevChord, newChord, currentScale);
+            tension = tensionResult.tension;
+            newScale = tensionResult.newScale;
+
             if (prevChord == null) {
                 if (tension > 0 || newChord.notes.filter(note => !currentScaleSemitones.includes(note.semitone)).length > 0) {
                     continue;
@@ -432,15 +534,13 @@ const chords = () => {
                 newChord = prevChord.copy();
                 chordIsGood = true;
             } else {
-                if (criteriaLevel < 4 && (chordCounts[newChord.toString()] || 0) > (maxBeats / 4)) {
+                if (criteriaLevel < 4 && (chordCounts[newChord.toString()] || 0) > (maxBeats / 2)) {
                     console.log("Chord already used too much: ", newChord.toString(), chordCounts[newChord.toString()]);
                     continue;
                 }
                 let wantedTension = baseTension;
                 if (tensionBeats.includes(currentBeat)) {
                     wantedTension = highTension;
-                } else {
-                    wantedTension -= currentTension;
                 }
                 if (criteriaLevel < 2 && tension < -0.1) {
                     continue;
@@ -452,29 +552,43 @@ const chords = () => {
 
                 if (tension < wantedTension || (wantedTension <= 0.2 && tension <= 0.0)) {
                     chordIsGood = true;
-                    console.log(`${wantedTension.toFixed(1)} - ${currentTension.toFixed(1)} - ${newChord.toString()}`)
+                    console.log(`${wantedTension.toFixed(1)} - ${newChord.toString()}`)
                 } else {
-                    console.log("Tension too high: ", tension, wantedTension);
+                    //console.log("Tension too high: ", tension, wantedTension);
                 }
             }
         }
-        result.push(newChord)
-        tensions.push(currentTension);
+        tensions.push(tension);
+        if (newScale) {
+            currentScale = newScale;
+            console.log("new scale: ", currentScale.toString());
+        }
+        result.push({
+            chord: newChord,
+            tension: tension,
+            scale: currentScale,
+        })
         chordCounts[newChord.toString()] = (chordCounts[newChord.toString()] || 0) + 1;
         currentBeat += 1;
     }
-    result.push(new Chord("(G4)maj"));
-    tensions.push(currentTension);
-    result.push(new Chord("(C4)maj"));
-    tensions.push(currentTension);
-    console.log(result.map(chord => chord.toString()));
+    result.push({
+        chord: new Chord({root: currentScale.notes[4].semitone, octave: 5, template: ChordTemplates.maj}),
+        tension: 0,
+        scale: currentScale,
+    });
+    result.push({
+        chord: new Chord({root: currentScale.notes[0].semitone, octave: 5, template: ChordTemplates.maj}),
+        tension: 0,
+        scale: currentScale,
+    });
+    //console.log(result.map(chord => chord.toString()));
     window.result = result;
     window.tensions = tensions;
 
     const instrument = new Instrument();
-    window.chords = chordsToVoiceLeadingNotes(result).map(notes => (notes.map(note => instrument.getFrequency(note))))
+    window.chords = chordsToVoiceLeadingNotes(result.map(res => res.chord)).map(notes => (notes.map(note => instrument.getFrequency(note))))
 
-    window.melody = melody(result, currentScale);
+    window.melody = melody(result);
 
     return window.result;
 }
