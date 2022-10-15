@@ -9,8 +9,21 @@ import {
     ChordTemplates,
 } from "musictheoryjs";
 
+type Nullable<T>  = T | null
 
-const globalSemitone = (note) => {
+export type MusicResult = {
+    chord: Chord,
+    tension: number,
+    scale: Scale,
+}
+
+export type RichNote = {
+    note: Note,
+    duration: number,
+    freq?: number,
+}
+
+const globalSemitone = (note: Note) => {
     return note.semitone + ((note.octave) * 12);
 }
 
@@ -31,7 +44,7 @@ majScaleCircle[Semitone.Gb] = [Semitone.Db, Semitone.Cb]
 majScaleCircle[Semitone.Cb] = [Semitone.Gb, Semitone.Fb]
 
 
-const majScaleDifference = (semitone1, semitone2) => {
+const majScaleDifference = (semitone1: number, semitone2: number) => {
     // Given two major scales, return how closely related they are
     // 0 = same scale
     // 1 = E.G. C and F or C and G
@@ -55,7 +68,7 @@ const majScaleDifference = (semitone1, semitone2) => {
 }
 
 
-const getTension = (fromChord, toChord, currentScale, beatsUntilLastChordInCadence) => {
+const getTension = (fromChord: Nullable<Chord>, toChord: Chord, currentScale: Scale, beatsUntilLastChordInCadence: number) => {
     /*
     *   Get the tension between two chords
     *   @param fromChord: Chord
@@ -77,15 +90,15 @@ const getTension = (fromChord, toChord, currentScale, beatsUntilLastChordInCaden
     tension += differingNotes.length * (1 / noteCount) * 0.5;
 
     // If the differing notes are not in the current scale, increase the tension
-    let differingNotesNotInScale = []
-    let newScale = null;
+    let differingNotesNotInScale: Array<number> = []
+    let newScale: Nullable<Scale> = null;
     if (currentScale) {
         const scaleSemitones = currentScale.notes.map(note => note.semitone);
         differingNotesNotInScale = differingNotes.filter(semitone => !scaleSemitones.includes(semitone));
         if (differingNotesNotInScale.length > 0) {
             // How bad is the scale difference?
             const majorSemitones = [0, 2, 4, 5, 7, 9, 11];
-            const candidateScales = []
+            const candidateScales: Array<number> = []
             for (let scaleCandidate=0; scaleCandidate<12; scaleCandidate++) {
                 const scaleSemitones = majorSemitones.map(semitone => (semitone + scaleCandidate) % 12);
                 if (toSemitones.every(semitone => scaleSemitones.includes(semitone))) {
@@ -164,14 +177,14 @@ const getTension = (fromChord, toChord, currentScale, beatsUntilLastChordInCaden
             }
         }
     }
-    const toIntervals = toSemitones.map((semitone, index) => {
+    const toIntervals: Array<number> = (toSemitones.map((semitone, index) => {
         if (index < toSemitones.length - 1) {
             const nextSemitone = toSemitones[(index + 1)];
             return ((nextSemitone - semitone) + 24) % 12;
         } else {
             return null;
         }
-    }).filter(Boolean)
+    }).filter(semitone => semitone != null)) as Array<number>;
     // Does toChord have any tensioning intervals?
     for (let i=0; i<toIntervals.length; i++) {
         if (toIntervals[i] === 1) {
@@ -189,7 +202,7 @@ const getTension = (fromChord, toChord, currentScale, beatsUntilLastChordInCaden
     }
 
     // If chord has not 5th with base, increase tension
-    if (toIntervals[0] + toIntervals[1] !== 7) {
+    if (toIntervals.length > 1 && toIntervals[0] + toIntervals[1] !== 7) {
         tension += 0.5;
     }
 
@@ -242,10 +255,11 @@ const getTension = (fromChord, toChord, currentScale, beatsUntilLastChordInCaden
 
     for (const fromSemitone of fromSemitones) {
         // We mark each note as "leading" to the next note. If that happens, reduce tension
-        const scaleIndex = semitoneScaleIndex[fromSemitone];
-        const forwardTension = noteTensionsForward[scaleIndex];
+        const scaleIndex: number = semitoneScaleIndex[fromSemitone];
+        const forwardTension: number = noteTensionsForward[scaleIndex];
         if (forwardTension != undefined) {
-            const nextSemitone = parseInt(Object.keys(semitoneScaleIndex).find(k => semitoneScaleIndex[k] === (scaleIndex + 1) % 7));
+            const nextSemitoneKey = Object.keys(semitoneScaleIndex).find(k => semitoneScaleIndex[k] === (scaleIndex + 1) % 7) as string;
+            const nextSemitone = parseInt((isNaN(parseInt(nextSemitoneKey)) ? -1 : nextSemitoneKey) as string);
             if (toSemitones.includes(nextSemitone)) {
                 tension -= forwardTension;
             } else {
@@ -274,10 +288,10 @@ const getTension = (fromChord, toChord, currentScale, beatsUntilLastChordInCaden
 }
 
 
-const randomChord = (scale, prevChords) => {
+const randomChord = (scale: Scale, prevChords: Array<string>) => {
     const chordTypes = ["maj", "min", "dim", "7"] //, "dim", "aug", "maj7", "min7", "7", "dim7", "maj6", "min6", "6"]//, "sus2", "sus4"];
     //const chordTypes = ["min"]
-    const notes = Object.keys(Semitone).filter(key => isNaN(key))
+    const notes = Object.keys(Semitone).filter(key => isNaN((key as any)))
     while (true) {
         
         const randomIndex = Math.floor(Math.random() * notes.length);
@@ -292,7 +306,7 @@ const randomChord = (scale, prevChords) => {
 }
 
 
-const semitoneDistance = (tone1, tone2) => {
+const semitoneDistance = (tone1: number, tone2: number) => {
     // distance from 0 to 11 should be 1
     // 0 - 11 + 12 => 1
     // 11 - 0 + 12 => 23 => 11
@@ -303,13 +317,16 @@ const semitoneDistance = (tone1, tone2) => {
 }
 
 
-const chordsToVoiceLeadingNotes = (chords) => {
-    const ret = [];
-    ret.push([...chords[0].notes]);
+const chordsToVoiceLeadingNotes = (chords: Array<MusicResult>) => {
+    const ret: Array<Array<Note>> = [];
+    if (chords.length == 0) {
+        return [];
+    }
+    ret.push([...chords[0].chord.notes]);
     for (const chord of chords.slice(1)) {
         // Match each note of prev chord to closest note of `chord`
-        const notes = chord.notes;
-        const fixedNotes = [];
+        const notes = chord.chord.notes;
+        const fixedNotes: Array<Note> = [];
         console.log("notes: ", notes.map(note => note.toString()));
         for (const note of notes) {
             const semitone = note.semitone;
@@ -339,7 +356,7 @@ const chordsToVoiceLeadingNotes = (chords) => {
 
 const NOTES_PER_MELODY_PART = 8
 
-const randomChordNote = (chord, notesInThisBar, scale, criteriaLevel, barDirection) => {
+const randomChordNote = (chord: Chord, notesInThisBar: Array<Note>, scale: Scale, criteriaLevel: number, barDirection: string) => {
     let notes = chord.notes;
     // if (scale && criteriaLevel < 3) {
     //     // Try to choose a note that is not in the scale
@@ -349,9 +366,9 @@ const randomChordNote = (chord, notesInThisBar, scale, criteriaLevel, barDirecti
     //     }
     // }
 
-    let gChoices = [];
+    let gChoices: Array<number> = [];
     for (const note of notes) {
-        const gSemitone = globalSemitone(note);
+        const gSemitone: number = globalSemitone(note);
         gChoices.push(gSemitone - 12);
         gChoices.push(gSemitone);
         gChoices.push(gSemitone + 12);
@@ -415,17 +432,17 @@ const randomChordNote = (chord, notesInThisBar, scale, criteriaLevel, barDirecti
 }
 
 
-const buildMelody = (chordList) => {
+const buildMelody = (chordList: Array<MusicResult>) => {
     // Initial melody, just half beats
 
     // Return value will be an object kwyed by "ticks", containing
     // an array of objects {note, length} for each tick
 
     // Lets just say a beat is 12 ticks
-    const ret = {};
+    const ret: { [key: number]: RichNote } = {};
     const maxDistance = 2;
-    let prevNote = null;
-    let prevPrevNote = null;
+    let prevNote: Nullable<Note> = null;
+    let prevPrevNote: Nullable<Note> = null;
     const directions = [
         'up',
         'same',
@@ -435,13 +452,13 @@ const buildMelody = (chordList) => {
     ]
 
     let barDirection = 'same'
-    let notesInThisBar = []
+    let notesInThisBar: Array<Note> = []
 
     const instrument = new Instrument();
 
     for (let i=0; i<chordList.length; i+= 0.25) {
         let noteIsGood = false;
-        let randomNote;
+        let randomNote: Nullable<Note> = null;
         let iterations = 0;
         const chord = chordList[Math.floor(i)].chord
         const scale = chordList[Math.floor(i)].scale
@@ -465,7 +482,7 @@ const buildMelody = (chordList) => {
             const criteriaLevel = Math.floor(iterations / 40);
             randomNote = randomChordNote(chord, notesInThisBar, scale, criteriaLevel, barDirection);
             if (iterations > 300) {
-                console.log("too many iterations");
+                console.log("too many iterations in melody");
                 break;
             }
             if (!randomNote) {
@@ -486,6 +503,10 @@ const buildMelody = (chordList) => {
             // } else {
 
             // }
+        }
+        if (!randomNote) {
+            console.log("Failed to build melody")
+            return ret;
         }
         console.log("randomNote: ", randomNote.toString());
         notesInThisBar.push(randomNote);
@@ -528,7 +549,7 @@ const buildMelody = (chordList) => {
 }
 
 
-const chords = () => {
+const makeChords = () => {
     // generate a progression
     const beatsPerBar = 4;
     const barsPerCadenceEnd = 2;
@@ -541,8 +562,8 @@ const chords = () => {
     const maxBeats = cadences * barsPerCadenceEnd * beatsPerBar;
     let currentBeat = 0;
     let currentScale = new Scale("C5(major)");
-    let result = [];
-    let tensions = [];
+    let result: Array<MusicResult> = [];
+    let tensions: Array<number> = [];
     let tensionBeats = []
     let chordCounts = {};
 
@@ -552,11 +573,11 @@ const chords = () => {
 
     while (currentBeat < maxBeats) {
         let chordIsGood = false;
-        let randomChords = [];
-        let newChord = null;
+        let randomChords: Array<string> = [];
+        let newChord: Nullable<Chord> = null;
         let tension = 0;
-        let newScale = null;
-        const prevChord = (result[result.length - 1] || {}).chord;
+        let newScale: Nullable<Scale> = null;
+        const prevChord: Nullable<Chord> = (result[result.length - 1] || {} as any).chord || null;
         let iterations = 0;
         let currentScaleSemitones = currentScale.notes.map(note => note.semitone);
 
@@ -575,7 +596,7 @@ const chords = () => {
             iterations++;
             if (iterations > 12 * 12) {
                 console.log("Too many iterations, breaking, lowestTension: ", lowestTension);
-                return null;
+                return [];
             }
             const criteriaLevel = Math.floor(iterations / (12 * 3));
             newChord = randomChord(currentScale, randomChords);
@@ -599,9 +620,9 @@ const chords = () => {
             } else {
 
                 let wantedTension = baseTension;
-                if (tensionBeats.includes(currentBeat)) {
-                    wantedTension = highTension;
-                }
+                // if (tensionBeats.includes(currentBeat)) {
+                //     wantedTension = highTension;
+                // }
                 if (maxBeats - currentBeat < 4) {
                     // Final bar
                     wantedTension = -0.5
@@ -619,6 +640,9 @@ const chords = () => {
                 }
             }
         }
+        if (newChord == null) {
+            return [];
+        }
         tensions.push(tension);
         if (newScale) {
             currentScale = newScale;
@@ -629,21 +653,12 @@ const chords = () => {
             chord: newChord,
             tension: tension,
             scale: currentScale,
-        })
+        } as MusicResult)
         chordCounts[newChord.toString()] = (chordCounts[newChord.toString()] || 0) + 1;
         currentBeat += 1;
     }
 
-    const instrument = new Instrument();
-    const voiceLeadingChords = chordsToVoiceLeadingNotes(result.map(res => res.chord)).map(notes => (notes.map(note => instrument.getFrequency(note))))
-
-    const melody = buildMelody(result);
-
-    return {
-        chords: voiceLeadingChords,
-        result: result,
-        melody: melody,
-    }
+    return result
 }
 
 const testFunc = () => {
@@ -668,4 +683,28 @@ const testFunc = () => {
     }
 }
 
-export { chords, buildTables, testFunc }
+export async function makeMusic() {
+    let chords: Array<MusicResult> = [];
+    while (true) {
+        chords = makeChords();
+        if (chords.length != 0) {
+            break;
+        }
+        await new Promise((resolve) => setTimeout(resolve, 1000))
+    }
+    const melody = buildMelody(chords);
+
+    const instrument = new Instrument();
+    const voiceLeadingChords = chordsToVoiceLeadingNotes(chords).map(notes => (notes.map(note => ({
+        freq: instrument.getFrequency(note),
+        note: note,
+    }))))
+
+    return {
+        chords: voiceLeadingChords,
+        melody: melody,
+    }
+
+}
+
+export { buildTables, testFunc }

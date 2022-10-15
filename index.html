@@ -7,7 +7,12 @@
 
 <body>
 <p id="currentChord"></p>
-<button onclick="playMusic()">PLAY</button>
+<button id="btn-play">PLAY</button>
+<button id="btn-pause">PAUSE</button>
+<button id="btn-stop">STOP</button>
+<div id="score"></div>
+<div id="loading">loading...</div>
+
 </body>
 <script>
     const beatMS = 3000;
@@ -64,6 +69,8 @@
         runChords();
         playMelody();
     }
+    window.loadPlayer();
+
 </script>
 
 </html>
