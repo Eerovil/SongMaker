@@ -1,4 +1,4 @@
-import { Note } from 'musictheoryjs';
+import { Note, Scale, ScaleTemplates } from 'musictheoryjs';
 import { RichNote, DivisionedRichnotes } from "./chords"
 
 type Nullable<T>  = T | null
@@ -7,6 +7,32 @@ import builder from 'xmlbuilder';
 
 const BEAT_LENGTH = 12
 const BEATS_PER_MEASURE = 4
+
+
+function semitoneToPitch(semitone: number, scale: Scale): { noteName: string, alter: number } {
+  for (const note of scale.notes) {
+    if (note.semitone === semitone) {
+      return {
+        noteName: note.toString().substring(0, 1),
+        alter: 0,
+      };
+    }
+    if (note.semitone === semitone + 1) {
+      return {
+        noteName: note.toString().substring(0, 1),
+        alter: -1,
+      };
+    }
+    if (note.semitone === semitone - 1) {
+      return {
+        noteName: note.toString().substring(0, 1),
+        alter: 1,
+      };
+    }
+  }
+  throw new Error("Could not find note for semitone " + semitone);
+}
+
 
 function richNoteDuration(richNote: RichNote) {
   const duration = richNote.duration;
@@ -44,10 +70,12 @@ function buildPartlist(id: string, name: string) {
   };
 }
 
-function noteToPitch(note: Note) {
+function noteToPitch(note: Note, scale?: Scale) {
+  scale = scale || new Scale({key: 0, octave: note.octave, template: ScaleTemplates.major})
+  const pitch = semitoneToPitch(note.semitone, scale);
   return {
-    'step': { '#text': note.toString().substring(0, 1) },
-    'alter': (note.isSharp() ? 1 : note.isFlat() ? - 1 : 0),
+    'step': { '#text': pitch.noteName },
+    'alter': pitch.alter,
     'octave': { '#text': note.octave }
   };
 }
@@ -64,7 +92,7 @@ function addRichNoteToMeasure(richNote: RichNote, measure: builder.XMLElement, s
     'staff': staff,
   };
   measure.ele({ 'note': attrs });
-  if (richNote.chord && staff == 4) {
+  if (richNote.chord && staff == 1) {
     let chordType: string;
     if (richNote.chord.isMajor()) {
       chordType = 'major';
@@ -213,7 +241,6 @@ export function toXml(divisionedNotes: DivisionedRichnotes): string {
       for (const division in divisionedNotes) {
         const divisionNumber = parseInt(division);
         let measureIndex = Math.floor(divisionNumber / (BEATS_PER_MEASURE * BEAT_LENGTH))
-        console.log("measureIndex", measureIndex)
         let currentMeasure = measures[partIndex][measureIndex]
         if (currentMeasure == undefined) {
           measures[partIndex].push(

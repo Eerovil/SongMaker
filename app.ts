@@ -13,13 +13,16 @@ try {
     browser = false;
 }
 // testFunc();
-
+console.groupCollapsed("makeMusic")
 makeMusic().then((result) => {
+    console.groupEnd();
 
     (window as any).chords = result.chords;
     (window as any).melody = result.melody;
     const divisionedNotes: DivisionedRichnotes = result.divisionedNotes;
+    console.groupCollapsed("xml");
     (window as any).scoreXML = toXml(divisionedNotes);
+    console.groupEnd();
     
     if (browser) {
         // console.log((window as any).result);

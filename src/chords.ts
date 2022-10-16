@@ -45,6 +45,52 @@ const globalSemitone = (note: Note) => {
     return note.semitone + ((note.octave) * 12);
 }
 
+const getClosestOctave = (note: Note, targetNote: Nullable<Note>=null, targetSemitone: Nullable<number>=null) => {
+    // 
+    let semitone = globalSemitone(note);
+    targetSemitone = targetSemitone || globalSemitone(targetNote);
+    console.log("Closest octave: ", semitone, targetSemitone);
+    // Using modulo here -> -7 % 12 = -7
+    // -13 % 12 = -1
+    if (semitone == targetSemitone) {
+        return note.octave;
+    }
+    const delta: number = targetSemitone > semitone ? 12 : -12;
+    let ret = 0;
+    let i = 0;
+    const cleanOctave = (octave: number) => {
+        return Math.min(Math.max(octave, 2), 4);
+    }
+    while (true) {
+        i++;
+        if (i > 1000) {
+            throw new Error("Infinite loop");
+        }
+        semitone += delta;
+        ret += delta / 12;  // How many octaves we changed
+        if (delta > 0) {
+            if (semitone >= targetSemitone) {
+                if (Math.abs(semitone - targetSemitone) > Math.abs(semitone - 12 - targetSemitone)) {
+                    // We went too far, go one back
+                    ret -= 1;
+                }
+                console.log("Closest octave res: ", cleanOctave(note.octave + ret), ret);
+                return cleanOctave(note.octave + ret);
+            }
+        }
+        else {
+            if (semitone <= targetSemitone) {
+                if (Math.abs(semitone - targetSemitone) > Math.abs(semitone + 12 - targetSemitone)) {
+                    // We went too far, go one back
+                    ret += 1;
+                }
+                console.log("Closest octave res: ", cleanOctave(note.octave + ret), ret);
+                return cleanOctave(note.octave + ret);
+            }
+        }
+    }
+}
+
 const majScaleCircle: { [key: number ]: Array<number> } = {}
 majScaleCircle[Semitone.C] = [Semitone.G, Semitone.F]
 majScaleCircle[Semitone.G] = [Semitone.D, Semitone.C]
@@ -357,13 +403,15 @@ const makeVoiceLeadingNotes = (chords: Array<MusicResult>, melody: { [key: numbe
     } else {
         firstMelodyNote.octave = 4;
     }
+    const firstBeatNotes: Array<RichNote> = chords[0].chord.notes.map(n => ({note: n, duration: BEAT_LENGTH}));
+    const firstChord: Chord = chords[0].chord
+
     ret[0].push({
         note: firstMelodyNote,
         duration: melody[0].duration,
+        chord: firstChord,
     });
 
-    const firstBeatNotes: Array<RichNote> = chords[0].chord.notes.map(n => ({note: n, duration: BEAT_LENGTH}));
-    const firstChord: Chord = chords[0].chord
     for (const richNote of firstBeatNotes) {
         const note: Note = richNote.note;
         const fixedNote: Note = note.copy();
@@ -389,9 +437,9 @@ const makeVoiceLeadingNotes = (chords: Array<MusicResult>, melody: { [key: numbe
 
     let lastBeatGlobalSemitones = [
         globalSemitone(new Note('F4')),
+        globalSemitone(new Note('C4')),
         globalSemitone(new Note('A3')),
         globalSemitone(new Note('C3')),
-        globalSemitone(new Note('F2')),
     ]
 
     const weighedAvailableSort = (partIndex: number, richNote: RichNote) => {
@@ -439,22 +487,15 @@ const makeVoiceLeadingNotes = (chords: Array<MusicResult>, melody: { [key: numbe
             }
             const closestNoteIndex = availableBeatNotes.findIndex(richNote => richNote.note.equals(closestNote.note) && richNote.duration == closestNote.duration);
             availableBeatNotes.splice(closestNoteIndex, 1);
-            console.log("Available notes for part ", partIndex, " at division ", division, ": ", availableNotesByDistance.map(richNote => richNote.note.toString()))
+            console.log("Available notes for part ", partIndex, " at division ", division, ": ", availableNotesByDistance.map(richNote => richNote.note.toString()), partLastSemitone)
             
             // move the available note to the right octave
             let fixedNote = closestNote.note.copy();
-            const closestGSemitone = globalSemitone(closestNote.note);
-            let octaveDiff = 0;
-            if (closestGSemitone < partLastSemitone - 6) {
-                // Move this note up
-                octaveDiff = Math.floor((partLastSemitone - 6 - closestGSemitone) / 12);
-                fixedNote.octave += octaveDiff
-            }
-            if (closestGSemitone > partLastSemitone + 6) {
-                // Move this note down
-                octaveDiff = Math.floor((partLastSemitone + 6 - closestGSemitone) / 12);
-                fixedNote.octave += octaveDiff
-            }
+            let oldOctave = fixedNote.octave;
+            fixedNote.octave = getClosestOctave(closestNote.note, null, partLastSemitone)
+            let octaveDiff = fixedNote.octave - oldOctave;
+            console.log("octaveDiff: ", octaveDiff)
+            lastBeatGlobalSemitones[partIndex] = globalSemitone(fixedNote);
 
             // TODO: Use closestNote.duration instead of BEAT_LENGTH
             ret[division].push({
@@ -505,9 +546,9 @@ const randomChordNote = (chord: Chord, notesInThisBar: Array<Note>, scale: Scale
     }
     // Remove duplicates
     gChoices = [...new Set(gChoices)];
-    gChoices = gChoices.filter(gSemitone => gSemitone >= 12 * 3 && gSemitone <= 12 * 4);
+    gChoices = gChoices.filter(gSemitone => gSemitone >= 30 && gSemitone <= 40);
     if (criteriaLevel < 4) {
-        gChoices = gChoices.filter(gSemitone => gSemitone >= 12 * 2 && gSemitone <= 12 * 3);
+        gChoices = gChoices.filter(gSemitone => gSemitone >= 12 * 2 && gSemitone <= 12 * 4);
     }
 
     //console.log("Before ", gChoices, notesInThisBar.map(note => globalSemitone(note)));
@@ -648,7 +689,7 @@ const buildMelody = (chordList: Array<MusicResult>) => {
         prevPrevNote = prevNote;
         prevNote = randomNote;
 
-        if (!cadenceEnding && i > 1 && (Math.random() < 0.5 || barDirection == 'repeat') && prevPrevNote && prevNote) {
+        if (!cadenceEnding && ret[(i-1) * 12] && i > 1 && (Math.random() < 0.5 || barDirection == 'repeat') && prevPrevNote && prevNote) {
             // Add a note between prev and prevprev
             let randomBetweenNote;
             for (const note of scale.notes) {
@@ -685,11 +726,11 @@ const buildMelody = (chordList: Array<MusicResult>) => {
 const makeChords = () => {
     // generate a progression
     const beatsPerBar = 4;
-    const barsPerCadenceEnd = 2;
-    const cadences = 3
+    const barsPerCadenceEnd = 4;
+    const cadences = 2
 
     const maxTensions = 1
-    const baseTension = 0.3;
+    const baseTension = 0.4;
     const highTension = 0.6;
 
     const maxBeats = cadences * barsPerCadenceEnd * beatsPerBar;
@@ -819,15 +860,21 @@ const testFunc = () => {
 export async function makeMusic() {
     let chords: Array<MusicResult> = [];
     while (true) {
+        console.groupCollapsed("makeChords");
         chords = makeChords();
+        console.groupEnd();
         if (chords.length != 0) {
             break;
         }
         await new Promise((resolve) => setTimeout(resolve, 1000))
     }
+    console.groupCollapsed("buildMelody")
     const melody: { [key: number]: RichNote } = buildMelody(chords);
+    console.groupEnd();
 
+    console.groupCollapsed("makeVoiceLeadingNotes")
     const divisionedNotes: DivisionedRichnotes = makeVoiceLeadingNotes(chords, melody)
+    console.groupEnd();
 
     return {
         chords: chords,
