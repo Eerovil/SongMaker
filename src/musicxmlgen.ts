@@ -9,26 +9,26 @@ const BEAT_LENGTH = 12
 const BEATS_PER_MEASURE = 4
 
 function richNoteDuration(richNote: RichNote) {
-  const inQuarters = richNote.duration / BEAT_LENGTH;
+  const duration = richNote.duration;
   let type: string = 'quarter';
-  if (inQuarters === BEAT_LENGTH) {
+  if (duration === BEAT_LENGTH * 4) {
     type = 'whole';
   }
-  else if (inQuarters === BEAT_LENGTH * 2) {
+  else if (duration === BEAT_LENGTH * 2) {
     type = 'half';
   }
-  else if (inQuarters === BEAT_LENGTH) {
+  else if (duration === BEAT_LENGTH) {
     type = 'quarter';
   }
-  else if (inQuarters == BEAT_LENGTH / 2) {
-    type = 'eight';
+  else if (duration == BEAT_LENGTH / 2) {
+    type = 'eighth';
   }
-  else if (inQuarters == BEAT_LENGTH / 4) {
-    type = 'sixteenth';
+  else if (duration == BEAT_LENGTH / 4) {
+    type = '16th';
   }
 
   return {
-    'duration': inQuarters,
+    'duration': duration,
     'type': type,
   }
 }
@@ -52,28 +52,26 @@ function noteToPitch(note: Note) {
   };
 }
 
-function makeNoteObject(richNote: RichNote, isChord: boolean, staff: number) {
+
+function addRichNoteToMeasure(richNote: RichNote, measure: builder.XMLElement, staff: number, firstNoteInChord: boolean) {
   const duration = richNoteDuration(richNote);
-  return {
-    '@staff': staff,
+  const attrs =  {
+    'chord': !firstNoteInChord ? {} : undefined,
     'pitch': noteToPitch(richNote.note),
     'duration': duration.duration,
     'voice': 1,
     'type': duration.type,
-    'chord': isChord ? {} : undefined
+    'staff': staff,
   };
-}
-
-function addRichNoteToMeasure(richNote: RichNote, measure: builder.XMLElement, staff: number) {
-  measure.ele({ 'note': makeNoteObject(richNote, false, staff) });
+  measure.ele({ 'note': attrs });
 }
 
 function firstMeasureInit(measure: builder.XMLElement) {
   measure.ele({ 'attributes': {
-    'divisions': { '#text': '1' },
-    // 'key': {
-    //   'fifths': { '#text': model.fifths }
-    // },
+    'divisions': { '#text': `${BEAT_LENGTH}` },
+    'key': {
+      'fifths': { '#text': '0' }
+    },
     'time': {
       'beats': { '#text': '4' },
       'beat-type': { '#text': '4' }
@@ -95,7 +93,7 @@ function firstMeasureInit(measure: builder.XMLElement) {
 }
 
 
-export function toXml(chords: Array<MusicResult>, melody: Array<RichNote>) {
+export function toXml(chords: Array<Array<RichNote>>, melody: Array<RichNote>) {
   const root = builder.create({ 'score-partwise' : { '@version': 3.1 }},
     { version: '1.0', encoding: 'UTF-8', standalone: false},
     {
@@ -112,8 +110,17 @@ export function toXml(chords: Array<MusicResult>, melody: Array<RichNote>) {
   firstMeasureInit(currentMeasure);
   for (let i = 0; i < (chords.length * BEAT_LENGTH); i++) {
     const melodyNote = melody[i];
+    let firstNoteInChord = true;
+
     if (melodyNote) {
-      addRichNoteToMeasure(melodyNote, currentMeasure, 1);
+      addRichNoteToMeasure(melodyNote, currentMeasure, 2, true);
+      firstNoteInChord = false;
+    }
+    if (i % BEAT_LENGTH === 0) {
+      for (const chordNote of chords[i / BEAT_LENGTH]) {
+        addRichNoteToMeasure(chordNote, currentMeasure, 2, firstNoteInChord);
+        firstNoteInChord = false;
+      }
     }
     if (i % (BEATS_PER_MEASURE * BEAT_LENGTH) === 0) {
       measureNumber++;
@@ -122,6 +129,5 @@ export function toXml(chords: Array<MusicResult>, melody: Array<RichNote>) {
   }
 
   const ret = root.end({ pretty: true});
-  debugger;
   return ret;
 }

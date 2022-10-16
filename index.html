@@ -69,7 +69,10 @@
         runChords();
         playMelody();
     }
-    window.loadPlayer();
+    console.log(window.scoreXML)
+    setTimeout(() => {
+        window.loadPlayer(window.scoreXML);
+    }, 2000)
 
 </script>
 

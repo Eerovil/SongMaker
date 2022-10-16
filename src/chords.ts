@@ -289,7 +289,7 @@ const getTension = (fromChord: Nullable<Chord>, toChord: Chord, currentScale: Sc
 
 
 const randomChord = (scale: Scale, prevChords: Array<string>) => {
-    const chordTypes = ["maj", "min", "dim", "7"] //, "dim", "aug", "maj7", "min7", "7", "dim7", "maj6", "min6", "6"]//, "sus2", "sus4"];
+    const chordTypes = ["maj", "min"] //, "dim", "aug", "maj7", "min7", "7", "dim7", "maj6", "min6", "6"]//, "sus2", "sus4"];
     //const chordTypes = ["min"]
     const notes = Object.keys(Semitone).filter(key => isNaN((key as any)))
     while (true) {
@@ -456,7 +456,7 @@ const buildMelody = (chordList: Array<MusicResult>) => {
 
     const instrument = new Instrument();
 
-    for (let i=0; i<chordList.length; i+= 0.25) {
+    for (let i=0; i<chordList.length; i+= 0.5) {
         let noteIsGood = false;
         let randomNote: Nullable<Note> = null;
         let iterations = 0;
@@ -488,7 +488,7 @@ const buildMelody = (chordList: Array<MusicResult>) => {
             if (!randomNote) {
                 continue
             }
-            const prevChord = (chordList[Math.floor(i-0.25)] || {}).chord;
+            const prevChord = (chordList[Math.floor(i-0.5)] || {}).chord;
             const prevNote = notesInThisBar[notesInThisBar.length - 1];
             if (prevNote && prevChord && prevChord.toString() == chord.toString()) {
                 if (criteriaLevel < 4) {
@@ -513,7 +513,7 @@ const buildMelody = (chordList: Array<MusicResult>) => {
         ret[i * 12] = {
             note: randomNote,
             freq: instrument.getFrequency(randomNote),
-            duration: 3
+            duration: 6
         }
         prevPrevNote = prevNote;
         prevNote = randomNote;
@@ -534,11 +534,11 @@ const buildMelody = (chordList: Array<MusicResult>) => {
             }
             if (randomBetweenNote) {
                 console.log("Adding note ", randomBetweenNote.toString(), " between ", prevPrevNote.toString(), " and ", prevNote.toString());
-                ret[(i-1) * 12].duration = (3 / 2);
-                ret[((i-1) * 12) + (3 / 2)] = {
+                ret[(i-1) * 12].duration = (3);
+                ret[((i-1) * 12) + (3)] = {
                     note: randomBetweenNote,
                     freq: instrument.getFrequency(randomBetweenNote),
-                    duration: (3 / 2),
+                    duration: (3),
                 }
             } else {
                 console.log("no note between", prevPrevNote.semitone, prevNote.semitone);
@@ -695,10 +695,11 @@ export async function makeMusic() {
     const melody = buildMelody(chords);
 
     const instrument = new Instrument();
-    const voiceLeadingChords = chordsToVoiceLeadingNotes(chords).map(notes => (notes.map(note => ({
+    const voiceLeadingChords: Array<Array<RichNote>> = chordsToVoiceLeadingNotes(chords).map(notes => (notes.map(note => ({
         freq: instrument.getFrequency(note),
         note: note,
-    }))))
+        duration: 12,
+    } as RichNote))))
 
     return {
         chords: voiceLeadingChords,
