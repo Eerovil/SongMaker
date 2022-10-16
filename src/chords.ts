@@ -35,6 +35,7 @@ export type RichNote = {
     freq?: number,
     chord?: Chord,
     partIndex?: number,
+    scale?: Scale,
 }
 
 export type DivisionedRichnotes = {
@@ -405,11 +406,13 @@ const makeVoiceLeadingNotes = (chords: Array<MusicResult>, melody: { [key: numbe
     }
     const firstBeatNotes: Array<RichNote> = chords[0].chord.notes.map(n => ({note: n, duration: BEAT_LENGTH}));
     const firstChord: Chord = chords[0].chord
+    const firstScale: Scale = chords[0].scale;
 
     ret[0].push({
         note: firstMelodyNote,
         duration: melody[0].duration,
         chord: firstChord,
+        scale: firstScale,
     });
 
     for (const richNote of firstBeatNotes) {
@@ -429,6 +432,7 @@ const makeVoiceLeadingNotes = (chords: Array<MusicResult>, melody: { [key: numbe
             note: fixedNote,
             duration: BEAT_LENGTH,
             chord: firstChord,
+            scale: firstScale,
         });
     }
     ret[0] = arrayOrderBy(ret[0], (richNote: { freq: number; }) => richNote.freq);
@@ -473,7 +477,13 @@ const makeVoiceLeadingNotes = (chords: Array<MusicResult>, melody: { [key: numbe
 
     for (let division = BEAT_LENGTH; division<chords.length * BEAT_LENGTH; division += BEAT_LENGTH) {
         // For each beat, we try to find a good matching semitone for each part.
-        let availableBeatNotes: Array<RichNote> = chords[division / BEAT_LENGTH].chord.notes.map(n => ({note: n, duration: BEAT_LENGTH, chord: chords[division / BEAT_LENGTH].chord}));
+        const musicalResult = chords[division / BEAT_LENGTH]
+        let availableBeatNotes: Array<RichNote> = musicalResult.chord.notes.map(n => ({
+            note: n,
+            duration: BEAT_LENGTH,
+            chord: musicalResult.chord,
+            scale: musicalResult.scale,
+        }));
         availableBeatNotes.push(melody[division]);
         ret[division] = [];
         for (let partIndex=0; partIndex<4; partIndex++) {
@@ -502,6 +512,7 @@ const makeVoiceLeadingNotes = (chords: Array<MusicResult>, melody: { [key: numbe
                 note: fixedNote,
                 duration: closestNote.duration,
                 partIndex: partIndex + 1,
+                scale: musicalResult.scale,
             });
 
             if (closestNote.duration < BEAT_LENGTH) {
@@ -515,6 +526,7 @@ const makeVoiceLeadingNotes = (chords: Array<MusicResult>, melody: { [key: numbe
                             note: fixedNote,
                             duration: melody[i].duration,
                             partIndex: partIndex + 1,
+                            scale: musicalResult.scale,
                         });
                         i += melody[i].duration - 1;  // Just for fool-proofing and we shouldn't have to check the next
                     }

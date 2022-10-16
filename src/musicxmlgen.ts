@@ -9,7 +9,7 @@ const BEAT_LENGTH = 12
 const BEATS_PER_MEASURE = 4
 
 
-function semitoneToPitch(semitone: number, scale: Scale): { noteName: string, alter: number } {
+function semitoneToPitch(semitone: number, scale: Scale, direction: string="sharp"): { noteName: string, alter: number } {
   for (const note of scale.notes) {
     if (note.semitone === semitone) {
       return {
@@ -17,13 +17,13 @@ function semitoneToPitch(semitone: number, scale: Scale): { noteName: string, al
         alter: 0,
       };
     }
-    if (note.semitone === semitone + 1) {
+    if (direction == "flat" && note.semitone === semitone + 1) {
       return {
         noteName: note.toString().substring(0, 1),
         alter: -1,
       };
     }
-    if (note.semitone === semitone - 1) {
+    if (direction == "sharp" && note.semitone === semitone - 1) {
       return {
         noteName: note.toString().substring(0, 1),
         alter: 1,
@@ -59,20 +59,27 @@ function richNoteDuration(richNote: RichNote) {
   }
 }
 
-function buildPartlist(id: string, name: string) {
-  return {
-    'score-part': {
-      '@id': id,
-      'part-name': {
-        '#text': name
-      }
-    }
-  };
-}
+const flatScaleSemitones: Set<number> = new Set([
+  (new Note('F')).semitone,
+  (new Note('Bb')).semitone,
+  (new Note('Eb')).semitone,
+  (new Note('Ab')).semitone,
+  (new Note('Db')).semitone,
+  (new Note('Gb')).semitone,
+]);
 
-function noteToPitch(note: Note, scale?: Scale) {
-  scale = scale || new Scale({key: 0, octave: note.octave, template: ScaleTemplates.major})
-  const pitch = semitoneToPitch(note.semitone, scale);
+function noteToPitch(richNote: RichNote) {
+  const note = richNote.note;
+  const noteScale = richNote.scale;
+  const scoreScale = new Scale({key: 0, octave: note.octave, template: ScaleTemplates.major})
+  let direction = 'sharp';
+  if (noteScale) {
+    const base = noteScale.notes[0].semitone;
+    if (flatScaleSemitones.has(base)) {
+      direction = 'flat';
+    }
+  }
+  const pitch = semitoneToPitch(note.semitone, scoreScale, direction);
   return {
     'step': { '#text': pitch.noteName },
     'alter': pitch.alter,
@@ -85,7 +92,7 @@ function addRichNoteToMeasure(richNote: RichNote, measure: builder.XMLElement, s
   const duration = richNoteDuration(richNote);
   const attrs =  {
     'chord': !firstNoteInChord ? {} : undefined,
-    'pitch': noteToPitch(richNote.note),
+    'pitch': noteToPitch(richNote),
     'duration': duration.duration,
     'voice': voice,
     'type': duration.type,
