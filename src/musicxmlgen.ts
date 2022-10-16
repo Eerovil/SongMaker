@@ -53,20 +53,40 @@ function noteToPitch(note: Note) {
 }
 
 
-function addRichNoteToMeasure(richNote: RichNote, measure: builder.XMLElement, staff: number, firstNoteInChord: boolean) {
+function addRichNoteToMeasure(richNote: RichNote, measure: builder.XMLElement, staff: number, voice: number, firstNoteInChord: boolean) {
   const duration = richNoteDuration(richNote);
   const attrs =  {
     'chord': !firstNoteInChord ? {} : undefined,
     'pitch': noteToPitch(richNote.note),
     'duration': duration.duration,
-    'voice': 1,
+    'voice': voice,
     'type': duration.type,
     'staff': staff,
   };
   measure.ele({ 'note': attrs });
+  if (richNote.chord && staff == 4) {
+    let chordType: string;
+    if (richNote.chord.isMajor()) {
+      chordType = 'major';
+    }
+    else if (richNote.chord.isMinor()) {
+      chordType = 'minor';
+    }
+    measure.ele({ 'harmony': {
+        'root': {
+          'root-step': { '#text': richNote.chord.notes[0].toString().substring(0, 1) },
+        },
+        'kind': {
+          '@halign': 'center',
+          '@text': richNote.chord.toString(),
+          '#text': chordType,
+        }
+      }
+    })
+  }
 }
 
-function firstMeasureInit(measure: builder.XMLElement) {
+function firstMeasureInit(partIndex: number, measure: builder.XMLElement) {
   measure.ele({ 'attributes': {
     'divisions': { '#text': `${BEAT_LENGTH}` },
     'key': {
@@ -76,18 +96,16 @@ function firstMeasureInit(measure: builder.XMLElement) {
       'beats': { '#text': '4' },
       'beat-type': { '#text': '4' }
     },
-    'staves': 2,
+    'staves': 1,
     clef: [
       {
         '@number': 1,
-        'sign': { '#text': 'G' },
-        'line': { '#text': '2' }
+        'sign': { '#text': partIndex > 1 ? 'F' : 'G' },
+        'line': { '#text': partIndex > 1 ? '4' : '2' },
+        'clef-octave-change': {
+          '#text': partIndex <= 1 ? '-1' : '0'
+        }
       },
-      {
-        '@number': 2,
-        'sign': { '#text': 'F' },
-        'line': { '#text': '4' }
-      }
     ]
   },
   'direction': {
@@ -115,28 +133,107 @@ export function toXml(divisionedNotes: DivisionedRichnotes): string {
     }
   );
   root.ele({ 'work': { 'work-title': "My song" }});
-  root.ele({ 'part-list': buildPartlist('P1', 'Music' )});
-  const part = root.ele({ 'part': { '@id': 'P1' }});
-
-  let measureNumber = 1;
-  let currentMeasure: builder.XMLElement = part.ele({ 'measure': { '@number': `${measureNumber}` } });
-  firstMeasureInit(currentMeasure);
-  for (const division in divisionedNotes) {
-    console.log("division", division);
-    const divisionNumber = parseInt(division);
-    const richNotes = divisionedNotes[division];
-    let firstNoteInChord = true;
-
-    for (const richNote of richNotes) {
-      addRichNoteToMeasure(richNote, currentMeasure, 2, firstNoteInChord);
-      firstNoteInChord = false;
+  const partList = root.ele({ 'part-list': {}});
+  partList.ele({
+    'score-part': {
+      '@id': 'P1',
+      'group': {
+        '#text': 'score'
+      },
+      'part-name': {
+        '#text': 'P1'
+      }
     }
-    if (divisionNumber != 0 && divisionNumber % (BEATS_PER_MEASURE * BEAT_LENGTH) === 0) {
-      measureNumber++;
-      currentMeasure =  part.ele({ 'measure': { '@number': `${measureNumber}` } });
+  });
+  partList.ele({
+    'score-part': {
+      '@id': 'P2',
+      'group': {
+        '#text': 'score'
+      },
+      'part-name': {
+        '#text': 'P2'
+      }
+    }
+  });
+  partList.ele({
+    'score-part': {
+      '@id': 'P3',
+      'group': {
+        '#text': 'score'
+      },
+      'part-name': {
+        '#text': 'P3'
+      }
+    }
+  });
+  partList.ele({
+    'score-part': {
+      '@id': 'P4',
+      'group': {
+        '#text': 'score'
+      },
+      'part-name': {
+        '#text': 'P4'
+      }
+    }
+  });
+
+
+  const parts = [
+    root.ele({ 'part': { '@id': 'P1' }}),
+    root.ele({ 'part': { '@id': 'P2' }}),
+    root.ele({ 'part': { '@id': 'P3' }}),
+    root.ele({ 'part': { '@id': 'P4' }}),
+  ];
+
+  const measures: Array<Array<builder.XMLElement>> = [
+    [],
+    [],
+    [],
+    []
+  ]
+
+  // (0 + 1) + ((0 + 1) * 2) = 1 + 2 = 3
+  // 0 + 0 = 0
+  // 0 + 1 = 1
+  // 1 + 0 = 2
+  // 1 + 1 = 3
+
+  for (let partIndex=0; partIndex<parts.length; partIndex++) {
+    for (let voiceIndex=0; voiceIndex<1; voiceIndex++) {
+      const part = parts[partIndex];
+      const voice = voiceIndex + 1;
+      // const voicePartIndex = ((partIndex * 2) + voiceIndex) + 1;
+      const voicePartIndex = partIndex + 1;
+      if (voiceIndex == 0) {
+        measures[partIndex].push(part.ele({ 'measure': { '@number': 1 }}));
+        firstMeasureInit(partIndex, measures[partIndex][measures[partIndex].length - 1]);
+      }
+      for (const division in divisionedNotes) {
+        const divisionNumber = parseInt(division);
+        let measureIndex = Math.floor(divisionNumber / (BEATS_PER_MEASURE * BEAT_LENGTH))
+        console.log("measureIndex", measureIndex)
+        let currentMeasure = measures[partIndex][measureIndex]
+        if (currentMeasure == undefined) {
+          measures[partIndex].push(
+            part.ele({ 'measure': { '@number': `${(measureIndex) + 1}` } })
+          );
+        }
+        const richNotes = divisionedNotes[division];
+
+        for (const richNote of richNotes) {
+          if (richNote.partIndex != voicePartIndex) {
+            continue;
+          }
+          let staff = partIndex + 1;
+          addRichNoteToMeasure(richNote, measures[partIndex][measures[partIndex].length - 1], staff, voice, true);
+        }
+      }
     }
   }
 
   const ret = root.end({ pretty: true});
+  console.log(ret)
   return ret;
 }

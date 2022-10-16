@@ -33,6 +33,8 @@ export type RichNote = {
     note: Note,
     duration: number,
     freq?: number,
+    chord?: Chord,
+    partIndex?: number,
 }
 
 export type DivisionedRichnotes = {
@@ -340,10 +342,39 @@ const chordsToVoiceLeadingNotes = (chords: Array<MusicResult>, melody: { [key: n
         return [];
     }
 
-    // These notes will start at division index 0
-    ret[0] = [...chords[0].chord.notes.map(n => ({note: n, duration: BEAT_LENGTH}))];
-    // Melody also starts at 0
-    ret[0].push(melody[0]);
+    // Initial note spread.
+
+    const firstBeatNotes: Array<RichNote> = chords[0].chord.notes.map(n => ({note: n, duration: BEAT_LENGTH}));
+    ret[0] = [];
+    const firstChord: Chord = chords[0].chord
+    for (const richNote of firstBeatNotes) {
+        const note: Note = richNote.note;
+        const fixedNote: Note = note.copy();
+        if (note.semitone == firstChord.notes[0].semitone) {
+            // Base note will be as low as possible
+            fixedNote.octave = 2;
+        } else {
+            fixedNote.octave = 3;
+        }
+        ret[0].push({
+            note: fixedNote,
+            duration: BEAT_LENGTH,
+            chord: firstChord,
+        });
+    }
+
+    const firstMelodyNote = melody[0].note;
+    firstMelodyNote.octave = 5
+    firstBeatNotes.push({
+        note: firstMelodyNote,
+        duration: melody[0].duration,
+    });
+    ret[0].push({
+        note: firstMelodyNote,
+        duration: melody[0].duration,
+    });
+    console.log("fixedNotes: ", ret[0].map(res => res.note.toString()))
+
 
     for (let division = 1; division<chords.length * BEAT_LENGTH; division++) {
         // Match each note of prev chord to closest note of `chord`
@@ -357,11 +388,12 @@ const chordsToVoiceLeadingNotes = (chords: Array<MusicResult>, melody: { [key: n
             notes.push(melody[division]);
         }
         const fixedNotes: Array<RichNote> = [];
-        console.log("notes: ", notes.map(note => note.toString()));
+        console.log("notes: ", notes.map(note => note.note.toString()));
         for (const richNote of notes) {
             const note = richNote.note;
             const semitone = note.semitone;
-            const prevBeatNotes: Array<Note> = (ret[Math.floor(division / BEAT_LENGTH) - 1] || []).map(richNote => richNote.note);
+            const prevBeatNotes: Array<Note> = (ret[(Math.floor(division / BEAT_LENGTH) - 1) * BEAT_LENGTH] || []).map(richNote => richNote.note);
+            console.log("prevBeatNotes: ", prevBeatNotes.map(note => note.toString()));
             const prevNotesByDistance: Array<Note> = arrayOrderBy(
                 prevBeatNotes, (note: { semitone: number; }) => semitoneDistance(note.semitone, semitone)
             );
@@ -372,7 +404,7 @@ const chordsToVoiceLeadingNotes = (chords: Array<MusicResult>, melody: { [key: n
             if (closestNote) {
                 let gSemitone = globalSemitone(note);
                 const closestGSemitone = globalSemitone(closestNote);
-                if (closestGSemitone < gSemitone) {
+                if (closestGSemitone != gSemitone) {
                     const difference = gSemitone - closestGSemitone;
                     const octavesBetween = Math.floor(difference / 12);
                     fixedNote.octave -= octavesBetween;
@@ -380,24 +412,40 @@ const chordsToVoiceLeadingNotes = (chords: Array<MusicResult>, melody: { [key: n
                         fixedNote.octave -= 1;
                     }
                 }
+                if (fixedNote.octave < 3) {
+                    fixedNote.octave = 3;
+                }
+                if (fixedNote.octave > 5) {
+                    fixedNote.octave = 5;
+                }
             }
             const existingSameNoteIndex = fixedNotes.findIndex(richNote => richNote.note.semitone == fixedNote.semitone);
-            if (existingSameNoteIndex == -1) {
-                fixedNotes.push({
-                    note: fixedNote,
-                    duration: richNote.duration,
-                    freq: instrument.getFrequency(fixedNote),
-                } as RichNote);
-            } else {
-                const newDuration = Math.min(
-                    fixedNotes[existingSameNoteIndex].duration, richNote.duration
-                );
-                fixedNotes[existingSameNoteIndex].duration = newDuration;
-            }
+            fixedNotes.push({
+                note: fixedNote,
+                duration: richNote.duration,
+                freq: instrument.getFrequency(fixedNote),
+                chord: (division % BEAT_LENGTH == 0 && richNote.duration == BEAT_LENGTH) ? chord : undefined,
+            } as RichNote);
         }
-        console.log("fixedNotes: ", fixedNotes.map(note => note.toString()));
+        console.log("fixedNotes: ", fixedNotes.map(note => note.note.toString()));
         ret[division] = fixedNotes;
     }
+
+    // Add voice information to each division
+    for (const division in ret) {
+        if (!ret.hasOwnProperty(division)) {
+            continue;
+        }
+        // Find the short medoly note first
+        const melodyNotes = ret[division].filter(richNote => richNote.duration != BEAT_LENGTH);
+        melodyNotes.forEach(richNote => richNote.partIndex = 1);
+        const richNotes: Array<RichNote> = arrayOrderBy(ret[division].filter(richNote => richNote.duration == BEAT_LENGTH), (richNote: { freq: number; }) => richNote.freq);
+        richNotes.reverse();
+        for (let i = 0; i<richNotes.length; i++) {
+            richNotes[i].partIndex = i + 2;
+        }
+    }
+
     return ret;
 }
 
@@ -423,9 +471,9 @@ const randomChordNote = (chord: Chord, notesInThisBar: Array<Note>, scale: Scale
     }
     // Remove duplicates
     gChoices = [...new Set(gChoices)];
-    gChoices = gChoices.filter(gSemitone => gSemitone >= 12 * 3 && gSemitone <= 12 * 6);
+    gChoices = gChoices.filter(gSemitone => gSemitone >= 12 * 3 && gSemitone <= 12 * 4);
     if (criteriaLevel < 4) {
-        gChoices = gChoices.filter(gSemitone => gSemitone >= 12 * 3 && gSemitone <= 12 * 5);
+        gChoices = gChoices.filter(gSemitone => gSemitone >= 12 * 2 && gSemitone <= 12 * 3);
     }
 
     //console.log("Before ", gChoices, notesInThisBar.map(note => globalSemitone(note)));
@@ -502,7 +550,7 @@ const buildMelody = (chordList: Array<MusicResult>) => {
     let barDirection = 'same'
     let notesInThisBar: Array<Note> = []
 
-    for (let i=0; i<chordList.length; i+= 0.5) {
+    for (let i=0; i<chordList.length - 0.5; i+= 0.5) {
         let noteIsGood = false;
         let randomNote: Nullable<Note> = null;
         let iterations = 0;
