@@ -335,128 +335,6 @@ const semitoneDistance = (tone1: number, tone2: number) => {
 }
 
 
-const chordsToVoiceLeadingNotes = (chords: Array<MusicResult>, melody: { [key: number]: RichNote }) => {
-    const ret: DivisionedRichnotes = {};
-    const instrument = new Instrument();
-    if (chords.length == 0) {
-        return [];
-    }
-
-    // Initial note spread.
-
-    const firstBeatNotes: Array<RichNote> = chords[0].chord.notes.map(n => ({note: n, duration: BEAT_LENGTH}));
-    ret[0] = [];
-    const firstChord: Chord = chords[0].chord
-    for (const richNote of firstBeatNotes) {
-        const note: Note = richNote.note;
-        const fixedNote: Note = note.copy();
-        if (note.semitone == firstChord.notes[0].semitone) {
-            // Base note will be as low as possible
-            if (fixedNote.semitone > 6) {
-                fixedNote.octave = 2;
-            } else {
-                fixedNote.octave = 3;
-            }
-        } else {
-            fixedNote.octave = 3;
-        }
-        ret[0].push({
-            note: fixedNote,
-            duration: BEAT_LENGTH,
-            chord: firstChord,
-        });
-    }
-
-    const firstMelodyNote = melody[0].note;
-    if (firstMelodyNote.semitone > 6) {
-        firstMelodyNote.octave = 3;
-    } else {
-        firstMelodyNote.octave = 4;
-    }
-    firstBeatNotes.push({
-        note: firstMelodyNote,
-        duration: melody[0].duration,
-    });
-    ret[0].push({
-        note: firstMelodyNote,
-        duration: melody[0].duration,
-    });
-    console.log("fixedNotes: ", ret[0].map(res => res.note.toString()))
-
-
-    for (let division = 1; division<chords.length * BEAT_LENGTH; division++) {
-        // Match each note of prev chord to closest note of `chord`
-        let chord: Nullable<Chord> = null;
-        let notes: Array<RichNote> = [];
-        if (division % BEAT_LENGTH == 0) {
-            chord = chords[division / BEAT_LENGTH].chord as Chord;
-            notes = chord.notes.map(n => ({note: n, duration: BEAT_LENGTH}));
-        }
-        if (melody.hasOwnProperty(division)) {
-            notes.push(melody[division]);
-        }
-        const fixedNotes: Array<RichNote> = [];
-        console.log("notes: ", notes.map(note => note.note.toString()));
-        for (const richNote of notes) {
-            const note = richNote.note;
-            const semitone = note.semitone;
-            const prevBeatNotes: Array<Note> = (ret[(Math.floor(division / BEAT_LENGTH) - 1) * BEAT_LENGTH] || []).map(richNote => richNote.note);
-            console.log("prevBeatNotes: ", prevBeatNotes.map(note => note.toString()));
-            const prevNotesByDistance: Array<Note> = arrayOrderBy(
-                prevBeatNotes, (note: { semitone: number; }) => semitoneDistance(note.semitone, semitone)
-            );
-            const closestNote: Note = prevNotesByDistance[0];
-
-            // Fix the note, if it's not already fixed
-            let fixedNote = note.copy();
-            if (closestNote) {
-                let gSemitone = globalSemitone(note);
-                const closestGSemitone = globalSemitone(closestNote);
-                if (closestGSemitone != gSemitone) {
-                    const difference = gSemitone - closestGSemitone;
-                    const octavesBetween = Math.floor(difference / 12);
-                    fixedNote.octave -= octavesBetween;
-                    if (difference % 12 > 6) {
-                        fixedNote.octave -= 1;
-                    }
-                }
-                if (fixedNote.octave < 3) {
-                    fixedNote.octave = 3;
-                }
-                if (fixedNote.octave > 5) {
-                    fixedNote.octave = 5;
-                }
-            }
-            const existingSameNoteIndex = fixedNotes.findIndex(richNote => richNote.note.semitone == fixedNote.semitone);
-            fixedNotes.push({
-                note: fixedNote,
-                duration: richNote.duration,
-                freq: instrument.getFrequency(fixedNote),
-                chord: (division % BEAT_LENGTH == 0 && richNote.duration == BEAT_LENGTH) ? chord : undefined,
-            } as RichNote);
-        }
-        console.log("fixedNotes: ", fixedNotes.map(note => note.note.toString()));
-        ret[division] = fixedNotes;
-    }
-
-    // Add voice information to each division
-    for (const division in ret) {
-        if (!ret.hasOwnProperty(division)) {
-            continue;
-        }
-        // Find the short medoly note first
-        const melodyNotes = ret[division].filter(richNote => richNote.duration != BEAT_LENGTH);
-        melodyNotes.forEach(richNote => richNote.partIndex = 1);
-        const richNotes: Array<RichNote> = arrayOrderBy(ret[division].filter(richNote => richNote.duration == BEAT_LENGTH), (richNote: { freq: number; }) => richNote.freq);
-        richNotes.reverse();
-        for (let i = 0; i<richNotes.length; i++) {
-            richNotes[i].partIndex = i + 2;
-        }
-    }
-
-    return ret;
-}
-
 const makeVoiceLeadingNotes = (chords: Array<MusicResult>, melody: { [key: number]: RichNote }) => {
     // return value will be an object ,keyed by division. It can contain an array of RichNotes with each note 
     // Marked with "partIndex" to indicate which voice it belongs to.
@@ -510,28 +388,58 @@ const makeVoiceLeadingNotes = (chords: Array<MusicResult>, melody: { [key: numbe
     console.log("fixedNotes: ", ret[0].map(res => res.note.toString()))
 
     let lastBeatGlobalSemitones = [
-        globalSemitone(ret[0][0].note),
-        globalSemitone(ret[0][1].note),
-        globalSemitone(ret[0][2].note),
-        globalSemitone(ret[0][3].note),
+        globalSemitone(new Note('F4')),
+        globalSemitone(new Note('A3')),
+        globalSemitone(new Note('C3')),
+        globalSemitone(new Note('F2')),
     ]
+
+    const weighedAvailableSort = (partIndex: number, richNote: RichNote) => {
+        const partLastSemitone = lastBeatGlobalSemitones[partIndex];
+        let ret = semitoneDistance(richNote.note.semitone, partLastSemitone % 12);
+        if (richNote.chord && richNote.chord.notes[0].semitone == richNote.note.semitone) {
+            // Try to keep the root note in part 4
+            if (partIndex == 3) {
+                if (ret > 0) {
+                    ret -= 2;
+                }
+            } else {
+                ret += 2;
+            }
+        }
+        if (richNote.duration < BEAT_LENGTH) {
+            // Try to keep the melody in part 1
+            if (partIndex == 0) {
+                if (ret > 0) {
+                    ret -= 2;
+                }
+            } else {
+                ret += 2;
+                if (partIndex == 3) {
+                    ret += 2;
+                }
+            }
+        }
+        return ret;
+    }
 
     for (let division = BEAT_LENGTH; division<chords.length * BEAT_LENGTH; division += BEAT_LENGTH) {
         // For each beat, we try to find a good matching semitone for each part.
-        let availableBeatNotes: Array<RichNote> = chords[division / BEAT_LENGTH].chord.notes.map(n => ({note: n, duration: BEAT_LENGTH}));
+        let availableBeatNotes: Array<RichNote> = chords[division / BEAT_LENGTH].chord.notes.map(n => ({note: n, duration: BEAT_LENGTH, chord: chords[division / BEAT_LENGTH].chord}));
         availableBeatNotes.push(melody[division]);
         ret[division] = [];
         for (let partIndex=0; partIndex<4; partIndex++) {
             const partLastSemitone = lastBeatGlobalSemitones[partIndex];
             const availableNotesByDistance: Array<RichNote> = arrayOrderBy(
-                availableBeatNotes, (richNote: RichNote) => semitoneDistance(richNote.note.semitone, partLastSemitone % 12)
+                availableBeatNotes, (richNote: RichNote) => weighedAvailableSort(partIndex, richNote)
             )
             const closestNote: RichNote = availableNotesByDistance[0];
             if (!closestNote) {
                 throw "No closest note found";
             }
-            const closestNoteIndex = availableBeatNotes.findIndex(richNote => richNote.note.semitone == closestNote.note.semitone);
+            const closestNoteIndex = availableBeatNotes.findIndex(richNote => richNote.note.equals(closestNote.note) && richNote.duration == closestNote.duration);
             availableBeatNotes.splice(closestNoteIndex, 1);
+            console.log("Available notes for part ", partIndex, " at division ", division, ": ", availableNotesByDistance.map(richNote => richNote.note.toString()))
             
             // move the available note to the right octave
             let fixedNote = closestNote.note.copy();
@@ -539,14 +447,15 @@ const makeVoiceLeadingNotes = (chords: Array<MusicResult>, melody: { [key: numbe
             let octaveDiff = 0;
             if (closestGSemitone < partLastSemitone - 6) {
                 // Move this note up
-                fixedNote.octave += 1;
-                octaveDiff = 1;
+                octaveDiff = Math.floor((partLastSemitone - 6 - closestGSemitone) / 12);
+                fixedNote.octave += octaveDiff
             }
             if (closestGSemitone > partLastSemitone + 6) {
                 // Move this note down
-                fixedNote.octave -= 1;
-                octaveDiff = -1;
+                octaveDiff = Math.floor((partLastSemitone + 6 - closestGSemitone) / 12);
+                fixedNote.octave += octaveDiff
             }
+
             // TODO: Use closestNote.duration instead of BEAT_LENGTH
             ret[division].push({
                 note: fixedNote,
@@ -556,7 +465,7 @@ const makeVoiceLeadingNotes = (chords: Array<MusicResult>, melody: { [key: numbe
 
             if (closestNote.duration < BEAT_LENGTH) {
                 // Add any notes between this and the next beat to this part
-                for (let i=division + closestNote.duration; i<division + BEAT_LENGTH; i += 1) {
+                for (let i=division + closestNote.duration; i<division + BEAT_LENGTH - 1; i += 1) {
                     if (melody.hasOwnProperty(i)) {
                         ret[i] = ret[i] || [];
                         let fixedNote = melody[i].note.copy();
