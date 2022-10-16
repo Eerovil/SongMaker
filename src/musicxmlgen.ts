@@ -88,7 +88,7 @@ function noteToPitch(richNote: RichNote) {
 }
 
 
-function addRichNoteToMeasure(richNote: RichNote, measure: builder.XMLElement, staff: number, voice: number, firstNoteInChord: boolean) {
+function addRichNoteToMeasure(richNote: RichNote, measure: builder.XMLElement, staff: number, voice: number, firstNoteInChord: boolean, writeChord: boolean) {
   const duration = richNoteDuration(richNote);
   const attrs =  {
     'chord': !firstNoteInChord ? {} : undefined,
@@ -98,15 +98,22 @@ function addRichNoteToMeasure(richNote: RichNote, measure: builder.XMLElement, s
     'type': duration.type,
     'staff': staff,
   };
-  measure.ele({ 'note': attrs });
-  if (richNote.chord && staff == 1) {
-    let chordType: string;
+  if (writeChord && richNote.chord && staff == 1) {
+    console.log("Chord: " + richNote.chord.toString());
+    let chordType: string = 'major';
     if (richNote.chord.isMajor()) {
       chordType = 'major';
     }
     else if (richNote.chord.isMinor()) {
       chordType = 'minor';
     }
+    else if (richNote.chord.isDiminished()) {
+      chordType = 'dim';
+    }
+    else if (richNote.chord.isAugmented()) {
+      chordType = 'aug';
+    }
+
     measure.ele({ 'harmony': {
         'root': {
           'root-step': { '#text': richNote.chord.notes[0].toString().substring(0, 1) },
@@ -119,6 +126,7 @@ function addRichNoteToMeasure(richNote: RichNote, measure: builder.XMLElement, s
       }
     })
   }
+  measure.ele({ 'note': attrs });
 }
 
 function firstMeasureInit(partIndex: number, measure: builder.XMLElement, params: MusicParams) {
@@ -246,6 +254,7 @@ export function toXml(divisionedNotes: DivisionedRichnotes, params: MusicParams)
         firstMeasureInit(partIndex, measures[partIndex][measures[partIndex].length - 1], params);
       }
       for (const division in divisionedNotes) {
+        console.log("Division: " + division, divisionedNotes[division]);
         const divisionNumber = parseInt(division);
         let measureIndex = Math.floor(divisionNumber / (BEATS_PER_MEASURE * BEAT_LENGTH))
         let currentMeasure = measures[partIndex][measureIndex]
@@ -261,7 +270,7 @@ export function toXml(divisionedNotes: DivisionedRichnotes, params: MusicParams)
             continue;
           }
           let staff = partIndex + 1;
-          addRichNoteToMeasure(richNote, measures[partIndex][measures[partIndex].length - 1], staff, voice, true);
+          addRichNoteToMeasure(richNote, measures[partIndex][measures[partIndex].length - 1], staff, voice, true, divisionNumber % BEAT_LENGTH == 0);
         }
       }
     }

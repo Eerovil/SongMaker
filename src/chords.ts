@@ -422,8 +422,10 @@ const makeVoiceLeadingNotes = (chords: Array<MusicResult>, melody: { [key: numbe
         duration: melody[0].duration,
         chord: firstChord,
         scale: firstScale,
+        partIndex: 1,
     });
 
+    let tmpPartIndex = 2
     for (const richNote of firstBeatNotes) {
         const note: Note = richNote.note;
         const fixedNote: Note = note.copy();
@@ -442,7 +444,9 @@ const makeVoiceLeadingNotes = (chords: Array<MusicResult>, melody: { [key: numbe
             duration: BEAT_LENGTH,
             chord: firstChord,
             scale: firstScale,
+            partIndex: tmpPartIndex,
         });
+        tmpPartIndex++;
     }
     ret[0] = arrayOrderBy(ret[0], (richNote: { freq: number; }) => richNote.freq);
 
@@ -519,6 +523,7 @@ const makeVoiceLeadingNotes = (chords: Array<MusicResult>, melody: { [key: numbe
             // TODO: Use closestNote.duration instead of BEAT_LENGTH
             ret[division].push({
                 note: fixedNote,
+                chord: musicalResult.chord,
                 duration: closestNote.duration,
                 partIndex: partIndex + 1,
                 scale: musicalResult.scale,
