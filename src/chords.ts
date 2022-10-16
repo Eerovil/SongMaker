@@ -352,7 +352,11 @@ const chordsToVoiceLeadingNotes = (chords: Array<MusicResult>, melody: { [key: n
         const fixedNote: Note = note.copy();
         if (note.semitone == firstChord.notes[0].semitone) {
             // Base note will be as low as possible
-            fixedNote.octave = 2;
+            if (fixedNote.semitone > 6) {
+                fixedNote.octave = 2;
+            } else {
+                fixedNote.octave = 3;
+            }
         } else {
             fixedNote.octave = 3;
         }
@@ -364,7 +368,11 @@ const chordsToVoiceLeadingNotes = (chords: Array<MusicResult>, melody: { [key: n
     }
 
     const firstMelodyNote = melody[0].note;
-    firstMelodyNote.octave = 5
+    if (firstMelodyNote.semitone > 6) {
+        firstMelodyNote.octave = 3;
+    } else {
+        firstMelodyNote.octave = 4;
+    }
     firstBeatNotes.push({
         note: firstMelodyNote,
         duration: melody[0].duration,
@@ -449,7 +457,124 @@ const chordsToVoiceLeadingNotes = (chords: Array<MusicResult>, melody: { [key: n
     return ret;
 }
 
+const makeVoiceLeadingNotes = (chords: Array<MusicResult>, melody: { [key: number]: RichNote }) => {
+    // return value will be an object ,keyed by division. It can contain an array of RichNotes with each note 
+    // Marked with "partIndex" to indicate which voice it belongs to.
+    // NOTE: For each partIndex, the durations should match, so that at any division, if we add "duration"
+    // To any given part note in, we will get something at "division + duration" (empty spaces not allowed)
+    const ret: DivisionedRichnotes = {};
 
+
+    const instrument = new Instrument();
+    if (chords.length == 0) {
+        return [];
+    }
+
+    // Initial note spread.
+    ret[0] = [];
+
+    const firstMelodyNote = melody[0].note;
+    if (firstMelodyNote.semitone > 6) {
+        firstMelodyNote.octave = 3;
+    } else {
+        firstMelodyNote.octave = 4;
+    }
+    ret[0].push({
+        note: firstMelodyNote,
+        duration: melody[0].duration,
+    });
+
+    const firstBeatNotes: Array<RichNote> = chords[0].chord.notes.map(n => ({note: n, duration: BEAT_LENGTH}));
+    const firstChord: Chord = chords[0].chord
+    for (const richNote of firstBeatNotes) {
+        const note: Note = richNote.note;
+        const fixedNote: Note = note.copy();
+        if (note.semitone == firstChord.notes[0].semitone) {
+            // Base note will be as low as possible
+            if (fixedNote.semitone > 6) {
+                fixedNote.octave = 2;
+            } else {
+                fixedNote.octave = 3;
+            }
+        } else {
+            fixedNote.octave = 3;
+        }
+        ret[0].push({
+            note: fixedNote,
+            duration: BEAT_LENGTH,
+            chord: firstChord,
+        });
+    }
+    ret[0] = arrayOrderBy(ret[0], (richNote: { freq: number; }) => richNote.freq);
+
+    console.log("fixedNotes: ", ret[0].map(res => res.note.toString()))
+
+    let lastBeatGlobalSemitones = [
+        globalSemitone(ret[0][0].note),
+        globalSemitone(ret[0][1].note),
+        globalSemitone(ret[0][2].note),
+        globalSemitone(ret[0][3].note),
+    ]
+
+    for (let division = BEAT_LENGTH; division<chords.length * BEAT_LENGTH; division += BEAT_LENGTH) {
+        // For each beat, we try to find a good matching semitone for each part.
+        let availableBeatNotes: Array<RichNote> = chords[division / BEAT_LENGTH].chord.notes.map(n => ({note: n, duration: BEAT_LENGTH}));
+        availableBeatNotes.push(melody[division]);
+        ret[division] = [];
+        for (let partIndex=0; partIndex<4; partIndex++) {
+            const partLastSemitone = lastBeatGlobalSemitones[partIndex];
+            const availableNotesByDistance: Array<RichNote> = arrayOrderBy(
+                availableBeatNotes, (richNote: RichNote) => semitoneDistance(richNote.note.semitone, partLastSemitone % 12)
+            )
+            const closestNote: RichNote = availableNotesByDistance[0];
+            if (!closestNote) {
+                throw "No closest note found";
+            }
+            const closestNoteIndex = availableBeatNotes.findIndex(richNote => richNote.note.semitone == closestNote.note.semitone);
+            availableBeatNotes.splice(closestNoteIndex, 1);
+            
+            // move the available note to the right octave
+            let fixedNote = closestNote.note.copy();
+            const closestGSemitone = globalSemitone(closestNote.note);
+            let octaveDiff = 0;
+            if (closestGSemitone < partLastSemitone - 6) {
+                // Move this note up
+                fixedNote.octave += 1;
+                octaveDiff = 1;
+            }
+            if (closestGSemitone > partLastSemitone + 6) {
+                // Move this note down
+                fixedNote.octave -= 1;
+                octaveDiff = -1;
+            }
+            // TODO: Use closestNote.duration instead of BEAT_LENGTH
+            ret[division].push({
+                note: fixedNote,
+                duration: closestNote.duration,
+                partIndex: partIndex + 1,
+            });
+
+            if (closestNote.duration < BEAT_LENGTH) {
+                // Add any notes between this and the next beat to this part
+                for (let i=division + closestNote.duration; i<division + BEAT_LENGTH; i += 1) {
+                    if (melody.hasOwnProperty(i)) {
+                        ret[i] = ret[i] || [];
+                        let fixedNote = melody[i].note.copy();
+                        fixedNote.octave += octaveDiff;
+                        ret[i].push({
+                            note: fixedNote,
+                            duration: melody[i].duration,
+                            partIndex: partIndex + 1,
+                        });
+                        i += melody[i].duration - 1;  // Just for fool-proofing and we shouldn't have to check the next
+                    }
+                }
+            }
+        }
+    }
+    return ret;
+
+}
 const NOTES_PER_MELODY_PART = 8
 
 const randomChordNote = (chord: Chord, notesInThisBar: Array<Note>, scale: Scale, criteriaLevel: number, barDirection: string) => {
@@ -645,7 +770,7 @@ const makeChords = () => {
     // generate a progression
     const beatsPerBar = 4;
     const barsPerCadenceEnd = 2;
-    const cadences = 1
+    const cadences = 3
 
     const maxTensions = 1
     const baseTension = 0.3;
@@ -786,7 +911,7 @@ export async function makeMusic() {
     }
     const melody: { [key: number]: RichNote } = buildMelody(chords);
 
-    const divisionedNotes: DivisionedRichnotes = chordsToVoiceLeadingNotes(chords, melody)
+    const divisionedNotes: DivisionedRichnotes = makeVoiceLeadingNotes(chords, melody)
 
     return {
         chords: chords,
