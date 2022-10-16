@@ -1,5 +1,5 @@
 import { Note } from 'musictheoryjs';
-import { RichNote, MusicResult } from "./chords"
+import { RichNote, DivisionedRichnotes } from "./chords"
 
 type Nullable<T>  = T | null
 
@@ -89,11 +89,24 @@ function firstMeasureInit(measure: builder.XMLElement) {
         'line': { '#text': '4' }
       }
     ]
-  }});
+  },
+  'direction': {
+    '@placement': 'above',
+    'direction-type': {
+      'metronome': {
+        'beat-unit': 'quarter',
+        'per-minute': '40'
+      }
+    },
+    'sound': {
+      '@tempo': '40'
+    }
+  }
+});
 }
 
 
-export function toXml(chords: Array<Array<RichNote>>, melody: Array<RichNote>) {
+export function toXml(divisionedNotes: DivisionedRichnotes): string {
   const root = builder.create({ 'score-partwise' : { '@version': 3.1 }},
     { version: '1.0', encoding: 'UTF-8', standalone: false},
     {
@@ -108,21 +121,17 @@ export function toXml(chords: Array<Array<RichNote>>, melody: Array<RichNote>) {
   let measureNumber = 1;
   let currentMeasure: builder.XMLElement = part.ele({ 'measure': { '@number': `${measureNumber}` } });
   firstMeasureInit(currentMeasure);
-  for (let i = 0; i < (chords.length * BEAT_LENGTH); i++) {
-    const melodyNote = melody[i];
+  for (const division in divisionedNotes) {
+    console.log("division", division);
+    const divisionNumber = parseInt(division);
+    const richNotes = divisionedNotes[division];
     let firstNoteInChord = true;
 
-    if (melodyNote) {
-      addRichNoteToMeasure(melodyNote, currentMeasure, 2, true);
+    for (const richNote of richNotes) {
+      addRichNoteToMeasure(richNote, currentMeasure, 2, firstNoteInChord);
       firstNoteInChord = false;
     }
-    if (i % BEAT_LENGTH === 0) {
-      for (const chordNote of chords[i / BEAT_LENGTH]) {
-        addRichNoteToMeasure(chordNote, currentMeasure, 2, firstNoteInChord);
-        firstNoteInChord = false;
-      }
-    }
-    if (i % (BEATS_PER_MEASURE * BEAT_LENGTH) === 0) {
+    if (divisionNumber != 0 && divisionNumber % (BEATS_PER_MEASURE * BEAT_LENGTH) === 0) {
       measureNumber++;
       currentMeasure =  part.ele({ 'measure': { '@number': `${measureNumber}` } });
     }

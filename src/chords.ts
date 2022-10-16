@@ -9,6 +9,18 @@ import {
     ChordTemplates,
 } from "musictheoryjs";
 
+const BEAT_LENGTH = 12;
+
+const arrayOrderBy = function (array: Array<any>, selector: CallableFunction, desc = false) {
+    return [...array].sort((a, b) => {
+        a = selector(a);
+        b = selector(b);
+
+        if (a == b) return 0;
+        return (desc ? a > b : a < b) ? -1 : 1;
+    });
+}
+
 type Nullable<T>  = T | null
 
 export type MusicResult = {
@@ -23,11 +35,15 @@ export type RichNote = {
     freq?: number,
 }
 
+export type DivisionedRichnotes = {
+    [key: number]: Array<RichNote>,
+}
+
 const globalSemitone = (note: Note) => {
     return note.semitone + ((note.octave) * 12);
 }
 
-const majScaleCircle = {}
+const majScaleCircle: { [key: number ]: Array<number> } = {}
 majScaleCircle[Semitone.C] = [Semitone.G, Semitone.F]
 majScaleCircle[Semitone.G] = [Semitone.D, Semitone.C]
 majScaleCircle[Semitone.D] = [Semitone.A, Semitone.G]
@@ -62,7 +78,7 @@ const majScaleDifference = (semitone1: number, semitone2: number) => {
                 newCurrentVal.add(newSemitone);
             }
         }
-        currentVal = [...newCurrentVal];
+        currentVal = [...newCurrentVal] as Array<number>;
     }
     return 12;
 }
@@ -206,7 +222,7 @@ const getTension = (fromChord: Nullable<Chord>, toChord: Chord, currentScale: Sc
         tension += 0.5;
     }
 
-    const semitoneScaleIndex = {
+    const semitoneScaleIndex: {[key: number]: number} = {
         [currentScale.notes[0].semitone]: 0,
         [currentScale.notes[1].semitone]: 1,
         [currentScale.notes[2].semitone]: 2,
@@ -216,7 +232,7 @@ const getTension = (fromChord: Nullable<Chord>, toChord: Chord, currentScale: Sc
         [currentScale.notes[6].semitone]: 6,
     }
 
-    let noteTensionsForward = {
+    let noteTensionsForward: {[key: number]: number} = {
         0: 0.1,  // Tonic (1st, 3rd, 6th) are leading softly (strongly to itself)
         1: 0.3,  // Subdominant (2nd, 4th) are leading a bitmore
         2: 0.1,
@@ -317,38 +333,70 @@ const semitoneDistance = (tone1: number, tone2: number) => {
 }
 
 
-const chordsToVoiceLeadingNotes = (chords: Array<MusicResult>) => {
-    const ret: Array<Array<Note>> = [];
+const chordsToVoiceLeadingNotes = (chords: Array<MusicResult>, melody: { [key: number]: RichNote }) => {
+    const ret: DivisionedRichnotes = {};
+    const instrument = new Instrument();
     if (chords.length == 0) {
         return [];
     }
-    ret.push([...chords[0].chord.notes]);
-    for (const chord of chords.slice(1)) {
+
+    // These notes will start at division index 0
+    ret[0] = [...chords[0].chord.notes.map(n => ({note: n, duration: BEAT_LENGTH}))];
+    // Melody also starts at 0
+    ret[0].push(melody[0]);
+
+    for (let division = 1; division<chords.length * BEAT_LENGTH; division++) {
         // Match each note of prev chord to closest note of `chord`
-        const notes = chord.chord.notes;
-        const fixedNotes: Array<Note> = [];
+        let chord: Nullable<Chord> = null;
+        let notes: Array<RichNote> = [];
+        if (division % BEAT_LENGTH == 0) {
+            chord = chords[division / BEAT_LENGTH].chord as Chord;
+            notes = chord.notes.map(n => ({note: n, duration: BEAT_LENGTH}));
+        }
+        if (melody.hasOwnProperty(division)) {
+            notes.push(melody[division]);
+        }
+        const fixedNotes: Array<RichNote> = [];
         console.log("notes: ", notes.map(note => note.toString()));
-        for (const note of notes) {
+        for (const richNote of notes) {
+            const note = richNote.note;
             const semitone = note.semitone;
-            const prevNotesByDistance = [...ret[ret.length - 1]].orderBy((note) => semitoneDistance(note.semitone, semitone));
-            const closestNote = prevNotesByDistance[0];
+            const prevBeatNotes: Array<Note> = (ret[Math.floor(division / BEAT_LENGTH) - 1] || []).map(richNote => richNote.note);
+            const prevNotesByDistance: Array<Note> = arrayOrderBy(
+                prevBeatNotes, (note: { semitone: number; }) => semitoneDistance(note.semitone, semitone)
+            );
+            const closestNote: Note = prevNotesByDistance[0];
 
             // Fix the note, if it's not already fixed
-            let gSemitone = globalSemitone(note);
-            const closestGSemitone = globalSemitone(closestNote);
             let fixedNote = note.copy();
-            if (closestGSemitone < gSemitone) {
-                const difference = gSemitone - closestGSemitone;
-                const octavesBetween = Math.floor(difference / 12);
-                fixedNote.octave -= octavesBetween;
-                if (difference % 12 > 6) {
-                    fixedNote.octave -= 1;
+            if (closestNote) {
+                let gSemitone = globalSemitone(note);
+                const closestGSemitone = globalSemitone(closestNote);
+                if (closestGSemitone < gSemitone) {
+                    const difference = gSemitone - closestGSemitone;
+                    const octavesBetween = Math.floor(difference / 12);
+                    fixedNote.octave -= octavesBetween;
+                    if (difference % 12 > 6) {
+                        fixedNote.octave -= 1;
+                    }
                 }
             }
-            fixedNotes.push(fixedNote);
+            const existingSameNoteIndex = fixedNotes.findIndex(richNote => richNote.note.semitone == fixedNote.semitone);
+            if (existingSameNoteIndex == -1) {
+                fixedNotes.push({
+                    note: fixedNote,
+                    duration: richNote.duration,
+                    freq: instrument.getFrequency(fixedNote),
+                } as RichNote);
+            } else {
+                const newDuration = Math.min(
+                    fixedNotes[existingSameNoteIndex].duration, richNote.duration
+                );
+                fixedNotes[existingSameNoteIndex].duration = newDuration;
+            }
         }
         console.log("fixedNotes: ", fixedNotes.map(note => note.toString()));
-        ret.push(fixedNotes);
+        ret[division] = fixedNotes;
     }
     return ret;
 }
@@ -454,8 +502,6 @@ const buildMelody = (chordList: Array<MusicResult>) => {
     let barDirection = 'same'
     let notesInThisBar: Array<Note> = []
 
-    const instrument = new Instrument();
-
     for (let i=0; i<chordList.length; i+= 0.5) {
         let noteIsGood = false;
         let randomNote: Nullable<Note> = null;
@@ -512,7 +558,6 @@ const buildMelody = (chordList: Array<MusicResult>) => {
         notesInThisBar.push(randomNote);
         ret[i * 12] = {
             note: randomNote,
-            freq: instrument.getFrequency(randomNote),
             duration: 6
         }
         prevPrevNote = prevNote;
@@ -537,7 +582,6 @@ const buildMelody = (chordList: Array<MusicResult>) => {
                 ret[(i-1) * 12].duration = (3);
                 ret[((i-1) * 12) + (3)] = {
                     note: randomBetweenNote,
-                    freq: instrument.getFrequency(randomBetweenNote),
                     duration: (3),
                 }
             } else {
@@ -553,7 +597,7 @@ const makeChords = () => {
     // generate a progression
     const beatsPerBar = 4;
     const barsPerCadenceEnd = 2;
-    const cadences = 3
+    const cadences = 1
 
     const maxTensions = 1
     const baseTension = 0.3;
@@ -692,18 +736,14 @@ export async function makeMusic() {
         }
         await new Promise((resolve) => setTimeout(resolve, 1000))
     }
-    const melody = buildMelody(chords);
+    const melody: { [key: number]: RichNote } = buildMelody(chords);
 
-    const instrument = new Instrument();
-    const voiceLeadingChords: Array<Array<RichNote>> = chordsToVoiceLeadingNotes(chords).map(notes => (notes.map(note => ({
-        freq: instrument.getFrequency(note),
-        note: note,
-        duration: 12,
-    } as RichNote))))
+    const divisionedNotes: DivisionedRichnotes = chordsToVoiceLeadingNotes(chords, melody)
 
     return {
-        chords: voiceLeadingChords,
+        chords: chords,
         melody: melody,
+        divisionedNotes: divisionedNotes,
     }
 
 }

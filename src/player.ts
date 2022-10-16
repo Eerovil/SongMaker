@@ -1,7 +1,8 @@
 import { OpenSheetMusicDisplay } from "opensheetmusicdisplay";
 import AudioPlayer from "osmd-audio-player";
 
-const loadPlayer = async (scoreXml) => {
+
+const loadPlayer = async (scoreXml: string) => {
   if (!document) {
     return;
   }
@@ -12,7 +13,7 @@ const loadPlayer = async (scoreXml) => {
   const osmd = new OpenSheetMusicDisplay(el);
   const audioPlayer = new AudioPlayer();
 
-  await osmd.load(scoreXml.data);
+  await osmd.load(scoreXml);
   await osmd.render();
   await audioPlayer.loadScore(osmd as any);
 
@@ -31,7 +32,7 @@ function hideLoadingMessage() {
   el.style.display = "none";
 }
 
-function registerButtonEvents(audioPlayer) {
+function registerButtonEvents(audioPlayer: AudioPlayer) {
   if (!document) {
     return;
   }
