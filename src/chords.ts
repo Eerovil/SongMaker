@@ -569,6 +569,7 @@ const buildMelody = (chordList: Array<MusicResult>) => {
     // an array of objects {note, length} for each tick
 
     // Lets just say a beat is 12 ticks
+    const beatsPerCadence = 4 * 2;
     const ret: { [key: number]: RichNote } = {};
     const maxDistance = 2;
     let prevNote: Nullable<Note> = null;
@@ -585,6 +586,8 @@ const buildMelody = (chordList: Array<MusicResult>) => {
     let notesInThisBar: Array<Note> = []
 
     for (let i=0; i<chordList.length - 0.5; i+= 0.5) {
+        let beatsUntilLastChordInCadence = Math.floor(i) % beatsPerCadence
+        let cadenceEnding = beatsUntilLastChordInCadence >= beatsPerCadence - 1 || beatsUntilLastChordInCadence == 0
         let noteIsGood = false;
         let randomNote: Nullable<Note> = null;
         let iterations = 0;
@@ -640,11 +643,12 @@ const buildMelody = (chordList: Array<MusicResult>) => {
         notesInThisBar.push(randomNote);
         ret[i * 12] = {
             note: randomNote,
-            duration: 6
+            duration: cadenceEnding ? 12 : 6
         }
         prevPrevNote = prevNote;
         prevNote = randomNote;
-        if (i > 1 && (Math.random() < 0.5 || barDirection == 'repeat') && prevPrevNote && prevNote) {
+
+        if (!cadenceEnding && i > 1 && (Math.random() < 0.5 || barDirection == 'repeat') && prevPrevNote && prevNote) {
             // Add a note between prev and prevprev
             let randomBetweenNote;
             for (const note of scale.notes) {
@@ -669,6 +673,9 @@ const buildMelody = (chordList: Array<MusicResult>) => {
             } else {
                 console.log("no note between", prevPrevNote.semitone, prevNote.semitone);
             }
+        }
+        if (cadenceEnding && i % 1 == 0) {
+            i += 0.5;
         }
     }
     return ret;
