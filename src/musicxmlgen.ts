@@ -1,5 +1,5 @@
 import { Note, Scale, ScaleTemplates } from 'musictheoryjs';
-import { RichNote, DivisionedRichnotes } from "./chords"
+import { RichNote, DivisionedRichnotes, MusicParams } from "./chords"
 
 type Nullable<T>  = T | null
 
@@ -121,7 +121,7 @@ function addRichNoteToMeasure(richNote: RichNote, measure: builder.XMLElement, s
   }
 }
 
-function firstMeasureInit(partIndex: number, measure: builder.XMLElement) {
+function firstMeasureInit(partIndex: number, measure: builder.XMLElement, params: MusicParams) {
   measure.ele({ 'attributes': {
     'divisions': { '#text': `${BEAT_LENGTH}` },
     'key': {
@@ -152,14 +152,14 @@ function firstMeasureInit(partIndex: number, measure: builder.XMLElement) {
       }
     },
     'sound': {
-      '@tempo': '40'
+      '@tempo': `${params.tempo || 40}`
     }
   }
 });
 }
 
 
-export function toXml(divisionedNotes: DivisionedRichnotes): string {
+export function toXml(divisionedNotes: DivisionedRichnotes, params: MusicParams): string {
   const root = builder.create({ 'score-partwise' : { '@version': 3.1 }},
     { version: '1.0', encoding: 'UTF-8', standalone: false},
     {
@@ -243,7 +243,7 @@ export function toXml(divisionedNotes: DivisionedRichnotes): string {
       const voicePartIndex = partIndex + 1;
       if (voiceIndex == 0) {
         measures[partIndex].push(part.ele({ 'measure': { '@number': 1 }}));
-        firstMeasureInit(partIndex, measures[partIndex][measures[partIndex].length - 1]);
+        firstMeasureInit(partIndex, measures[partIndex][measures[partIndex].length - 1], params);
       }
       for (const division in divisionedNotes) {
         const divisionNumber = parseInt(division);

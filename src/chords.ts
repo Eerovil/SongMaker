@@ -23,6 +23,15 @@ const arrayOrderBy = function (array: Array<any>, selector: CallableFunction, de
 
 type Nullable<T>  = T | null
 
+export type MusicParams = {
+    beatsPerBar?: number,
+    baseTension?: number,
+    cadenceCount?: number,
+    barsPerCadence?: number,
+    chords?: Array<string>,
+    tempo?: number,
+}
+
 export type MusicResult = {
     chord: Chord,
     tension: number,
@@ -353,8 +362,8 @@ const getTension = (fromChord: Nullable<Chord>, toChord: Chord, currentScale: Sc
 }
 
 
-const randomChord = (scale: Scale, prevChords: Array<string>) => {
-    const chordTypes = ["maj", "min"] //, "dim", "aug", "maj7", "min7", "7", "dim7", "maj6", "min6", "6"]//, "sus2", "sus4"];
+const randomChord = (scale: Scale, prevChords: Array<string>, params: MusicParams) => {
+    const chordTypes = params.chords || ["maj", "min"] //, "dim", "aug", "maj7", "min7", "7", "dim7", "maj6", "min6", "6"]//, "sus2", "sus4"];
     //const chordTypes = ["min"]
     const notes = Object.keys(Semitone).filter(key => isNaN((key as any)))
     while (true) {
@@ -735,14 +744,14 @@ const buildMelody = (chordList: Array<MusicResult>) => {
 }
 
 
-const makeChords = () => {
+const makeChords = (params: MusicParams): Array<MusicResult> => {
     // generate a progression
-    const beatsPerBar = 4;
-    const barsPerCadenceEnd = 4;
-    const cadences = 2
+    const beatsPerBar = params.beatsPerBar || 4;
+    const barsPerCadenceEnd = params.barsPerCadence || 4;
+    const cadences = params.cadenceCount || 2
 
     const maxTensions = 1
-    const baseTension = 0.4;
+    const baseTension = params.baseTension || 0.4;
     const highTension = 0.6;
 
     const maxBeats = cadences * barsPerCadenceEnd * beatsPerBar;
@@ -785,7 +794,7 @@ const makeChords = () => {
                 return [];
             }
             const criteriaLevel = Math.floor(iterations / (12 * 3));
-            newChord = randomChord(currentScale, randomChords);
+            newChord = randomChord(currentScale, randomChords, params);
             randomChords.push(newChord.toString());
             const tensionResult = getTension(prevChord, newChord, currentScale, beatsUntilLastChordInCadence);
             tension = tensionResult.tension;
@@ -869,11 +878,12 @@ const testFunc = () => {
     }
 }
 
-export async function makeMusic() {
+export async function makeMusic(params: MusicParams) {
+    console.log(params)
     let chords: Array<MusicResult> = [];
     while (true) {
         console.groupCollapsed("makeChords");
-        chords = makeChords();
+        chords = makeChords(params);
         console.groupEnd();
         if (chords.length != 0) {
             break;

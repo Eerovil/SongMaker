@@ -2,11 +2,77 @@
 
 <head>
     <title>My First Web Page</title>
+    <script>
+        loadQueryParams = function() {
+            var params = {};
+            var query = window.location.search.substring(1);
+            var vars = query.split("&");
+            for (var i = 0; i < vars.length; i++) {
+                var pair = vars[i].split("=");
+                params[pair[0]] = decodeURIComponent(pair[1]);
+            }
+            return params;
+        }
+        window.params = loadQueryParams();
+    </script>
     <script src="dist/bundle.js"></script>
 </head>
 
 <body>
 <p id="currentChord"></p>
+<div style="margin-top: 3rem; display: flex; justify-content: space-between; padding: 1rem 5rem; border: 1px solid black; flex-wrap: wrap;">
+    <div>
+        <label for="cadence-count">Sointukulkujen määrä</label>
+        <input type="number" id="cadence-count" value="2" min="1" max="300" step="1" style="width: 100px">
+    </div>
+    <div>
+        <label for="bars-per-cadence">Sointukulkujen pituus</label>
+        <input type="number" id="bars-per-cadence" value="4" min="1" max="300" step="1" style="width: 100px">
+    </div>
+    <div>
+        <label for="base-tension">Vaikeusaste</label>
+        <input type="number" id="base-tension" value="0.3" min="-10" max="10" step="0.1" style="width: 100px">
+    </div>
+    <div>
+        <label for="tempo">Tempo</label>
+        <input type="number" id="tempo" value="40" min="1" max="300" step="1" style="width: 100px">
+    </div>
+    <div>
+        <h4>Soinnut</h4>
+        <div>
+            <label for="chord-maj">Maj</label>
+            <input type="checkbox" id="chord-maj" value="maj">
+        </div>
+        <div>
+            <label for="chord-min">Min</label>
+            <input type="checkbox" id="chord-min" value="min">
+        </div>
+        <div>
+            <label for="chord-aug">Aug</label>
+            <input type="checkbox" id="chord-aug" value="aug">
+        </div>
+        <div>
+            <label for="chord-dim">Dim</label>
+            <input type="checkbox" id="chord-dim" value="dim">
+        </div>
+        <div>
+            <label for="chord-maj7">Maj7</label>
+            <input type="checkbox" id="chord-maj7" value="maj7">
+        </div>
+        <div>
+            <label for="chord-min7">Min7</label>
+            <input type="checkbox" id="chord-min7" value="min7">
+        </div>
+        <div>
+            <label for="chord-7">7</label>
+            <input type="checkbox" id="chord-7" value="7">
+        </div>
+
+    </div>
+    <div>
+        <button onclick="updateParamsFromSettings()">OK</button>
+    </div>
+</div>
 <button id="btn-play">PLAY</button>
 <button id="btn-pause">PAUSE</button>
 <button id="btn-stop">STOP</button>
@@ -65,14 +131,50 @@
             }, beatMS / 12 * tick)
         }
     }
-    window.playMusic = () => {
-        runChords();
-        playMelody();
+    const updateSettingsFromParams = () => {
+        const params = window.params;
+        if (params.cadenceCount) {
+            document.querySelector("#cadence-count").value = params.cadenceCount;
+        }
+        if (params.barsPerCadence) {
+            document.querySelector("#bars-per-cadence").value = params.barsPerCadence;
+        }
+        if (params.baseTension) {
+            document.querySelector("#base-tension").value = params.baseTension;
+        }
+        if (params.tempo) {
+            document.querySelector("#tempo").value = params.tempo;
+        }
+        if (params.chords) {
+            let chords = params.chords;
+            if (typeof chords === "string") {
+                chords = chords.split(",");
+            }
+            for (const chord of chords) {
+                document.querySelector(`#chord-${chord}`).checked = true;
+            }
+        }
     }
+    updateSettingsFromParams();
+
+    const updateParamsFromSettings = () => {
+        const params = window.params;
+        params.cadenceCount = document.querySelector("#cadence-count").value;
+        params.barsPerCadence = document.querySelector("#bars-per-cadence").value;
+        params.baseTension = document.querySelector("#base-tension").value;
+        params.tempo = document.querySelector("#tempo").value;
+        const chords = [];
+        for (const chord of document.querySelectorAll("input[type=checkbox]:checked")) {
+            chords.push(chord.value);
+        }
+        params.chords = chords.join(",");
+        // create url from params and follow the link
+        const url = new URL(window.location.href);
+        url.search = new URLSearchParams(params).toString();
+        window.location.href = url;
+    }
+
     //console.log(window.scoreXML)
-    setTimeout(() => {
-        window.loadPlayer(window.scoreXML);
-    }, 2000)
 
 </script>
 

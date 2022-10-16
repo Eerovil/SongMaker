@@ -1,4 +1,4 @@
-import { makeMusic, buildTables, DivisionedRichnotes  } from "./src/chords"
+import { makeMusic, buildTables, DivisionedRichnotes, MusicParams  } from "./src/chords"
 import { loadPlayer } from "./src/player"
 import { toXml } from "./src/musicxmlgen"
 
@@ -14,19 +14,25 @@ try {
 }
 // testFunc();
 console.groupCollapsed("makeMusic")
-makeMusic().then((result) => {
+let params = {} as MusicParams;
+if (browser) {
+    params = (window as any).params as MusicParams;
+    params.chords = (params.chords as unknown as string).split(",");
+}
+makeMusic(params).then((result) => {
     console.groupEnd();
 
-    (window as any).chords = result.chords;
-    (window as any).melody = result.melody;
     const divisionedNotes: DivisionedRichnotes = result.divisionedNotes;
     console.groupCollapsed("xml");
-    (window as any).scoreXML = toXml(divisionedNotes);
+    const scoreXML = toXml(divisionedNotes, params);
     console.groupEnd();
     
     if (browser) {
         // console.log((window as any).result);
         (window as any).loadPlayer = loadPlayer;
+        setTimeout(() => {
+            loadPlayer(scoreXML);
+        }, 2000)
     }
     
 })

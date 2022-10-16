@@ -19,6 +19,9 @@ const loadPlayer = async (scoreXml: string) => {
 
   hideLoadingMessage();
   registerButtonEvents(audioPlayer);
+  setTimeout(() => {
+    audioPlayer.play();
+  }, 500)
 }
 
 function hideLoadingMessage() {
