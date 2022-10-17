@@ -1,4 +1,4 @@
-import { Note, Scale, ScaleTemplates } from 'musictheoryjs';
+import { Note, Scale, ScaleTemplates, ChordTemplates } from 'musictheoryjs';
 import { RichNote, DivisionedRichnotes, MusicParams } from "./chords"
 
 type Nullable<T>  = T | null
@@ -99,28 +99,72 @@ function addRichNoteToMeasure(richNote: RichNote, measure: builder.XMLElement, s
     'staff': staff,
   };
   if (writeChord && richNote.chord && staff == 1) {
-    console.log("Chord: " + richNote.chord.toString());
+    const fixTemplate = (template: Array<number | Array<number>>): Array<number | Array<number>> => {
+      const ret = [];
+      for (const templateRow of template) {
+        if (typeof templateRow !== 'number') {
+          if (templateRow.length > 1) {
+            if (templateRow[1] == 0) {
+              templateRow[1] = -1;
+            }
+          }
+        }
+        ret.push(templateRow)
+      }
+      return ret;
+    }
     let chordType: string = 'major';
-    if (richNote.chord.isMajor()) {
+    const keys = Object.keys(ChordTemplates);
+    const values = Object.values(ChordTemplates).map((template) => JSON.stringify(template));
+    const index = values.indexOf(JSON.stringify(fixTemplate(richNote.chord.template)));
+    const chordTemplateKey = keys[index];
+
+    let kindText = chordTemplateKey;
+    console.log("Chord template key: " + chordTemplateKey);
+    if (chordTemplateKey == "maj") {
       chordType = 'major';
+      kindText = '';
     }
-    else if (richNote.chord.isMinor()) {
+    else if (chordTemplateKey == "min") {
       chordType = 'minor';
+      kindText = 'm';
     }
-    else if (richNote.chord.isDiminished()) {
-      chordType = 'dim';
+    else if (chordTemplateKey == "dim") {
+      chordType = 'diminished';
     }
-    else if (richNote.chord.isAugmented()) {
-      chordType = 'aug';
+    else if (chordTemplateKey == "aug") {
+      chordType = 'augmented';
     }
+    else if (chordTemplateKey == "dom7") {
+      chordType = 'dominant';
+      kindText = "7";
+    }
+    else if (chordTemplateKey == "maj7") {
+      chordType = 'major-seventh';
+    }
+    else if (chordTemplateKey == "min7") {
+      chordType = 'minor-seventh';
+      kindText = "m7";
+    }
+
+    const scoreScale = new Scale({key: 0, octave: 4, template: ScaleTemplates.major})
+    let direction = 'sharp';
+    if (richNote.scale) {
+      const base = richNote.scale.notes[0].semitone;
+      if (flatScaleSemitones.has(base)) {
+        direction = 'flat';
+      }
+    }
+    const pitch = semitoneToPitch(richNote.chord.notes[0].semitone, scoreScale, direction);
 
     measure.ele({ 'harmony': {
         'root': {
-          'root-step': { '#text': richNote.chord.notes[0].toString().substring(0, 1) },
+          'root-step': { '#text': pitch.noteName },
+          'root-alter': pitch.alter,
         },
         'kind': {
           '@halign': 'center',
-          '@text': richNote.chord.toString(),
+          '@text': kindText,
           '#text': chordType,
         }
       }
@@ -254,7 +298,6 @@ export function toXml(divisionedNotes: DivisionedRichnotes, params: MusicParams)
         firstMeasureInit(partIndex, measures[partIndex][measures[partIndex].length - 1], params);
       }
       for (const division in divisionedNotes) {
-        console.log("Division: " + division, divisionedNotes[division]);
         const divisionNumber = parseInt(division);
         let measureIndex = Math.floor(divisionNumber / (BEATS_PER_MEASURE * BEAT_LENGTH))
         let currentMeasure = measures[partIndex][measureIndex]
