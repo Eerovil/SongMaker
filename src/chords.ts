@@ -30,6 +30,8 @@ export type MusicParams = {
     barsPerCadence?: number,
     chords?: Array<string>,
     tempo?: number,
+    halfNotes?: boolean,
+    sixteenthNotes?: number,
 }
 
 export type MusicResult = {
@@ -392,7 +394,7 @@ const semitoneDistance = (tone1: number, tone2: number) => {
 }
 
 
-const makeVoiceLeadingNotes = (chords: Array<MusicResult>, melody: { [key: number]: RichNote }) => {
+const makeVoiceLeadingNotes = (chords: Array<MusicResult>, melody: { [key: number]: RichNote }, params: MusicParams) => {
     // return value will be an object ,keyed by division. It can contain an array of RichNotes with each note 
     // Marked with "partIndex" to indicate which voice it belongs to.
     // NOTE: For each partIndex, the durations should match, so that at any division, if we add "duration"
@@ -534,7 +536,7 @@ const makeVoiceLeadingNotes = (chords: Array<MusicResult>, melody: { [key: numbe
             });
 
             // Check if the previous beat note is the same for this part
-            if (!firstBeatOfBar && closestNote.duration == BEAT_LENGTH && ret[division - BEAT_LENGTH]) {
+            if (!firstBeatOfBar && params.halfNotes && closestNote.duration == BEAT_LENGTH && ret[division - BEAT_LENGTH]) {
                 const previousBeatNote = ret[division - BEAT_LENGTH].findIndex(richNote => richNote.partIndex == partIndex + 1);
                 if (previousBeatNote != -1) {
                     if (ret[division - BEAT_LENGTH][previousBeatNote].note.equals(fixedNote) && ret[division - BEAT_LENGTH][previousBeatNote].duration == BEAT_LENGTH) {
@@ -656,6 +658,7 @@ const buildMelody = (chordList: Array<MusicResult>, params: MusicParams) => {
 
     // Lets just say a beat is 12 ticks
     const beatsPerCadence = 4 * params.barsPerCadence;
+    const sixteenthChance = params.sixteenthNotes;
     const ret: { [key: number]: RichNote } = {};
     const maxDistance = 2;
     let prevNote: Nullable<Note> = null;
@@ -741,7 +744,7 @@ const buildMelody = (chordList: Array<MusicResult>, params: MusicParams) => {
             ret[i*12].beam = 'end';
         }
 
-        if (!cadenceEnding && ret[(i-1) * 12] && i > 1 && (Math.random() < 0.5 || barDirection == 'repeat') && prevPrevNote && prevNote) {
+        if (!cadenceEnding && ret[(i-1) * 12] && i > 1 && (Math.random() < sixteenthChance || barDirection == 'repeat') && prevPrevNote && prevNote) {
             // Add a note between prev and prevprev
             let randomBetweenNote;
             for (const note of scale.notes) {
@@ -759,6 +762,10 @@ const buildMelody = (chordList: Array<MusicResult>, params: MusicParams) => {
             if (randomBetweenNote) {
                 console.log("Adding note ", randomBetweenNote.toString(), " before ", prevPrevNote.toString());
                 ret[(i-1) * 12].duration = (3);
+                const noteBefore = ret[(i-1) * 12 - 6];
+                if (noteBefore && noteBefore.duration == 6 && noteBefore.beam == "begin") {
+                    noteBefore.beam = undefined;
+                }
                 ret[(i-1) * 12].beam = 'begin';
                 ret[((i-1) * 12) + (3)] = {
                     note: randomBetweenNote,
@@ -928,7 +935,7 @@ export async function makeMusic(params: MusicParams) {
     console.groupEnd();
 
     console.groupCollapsed("makeVoiceLeadingNotes")
-    const divisionedNotes: DivisionedRichnotes = makeVoiceLeadingNotes(chords, melody)
+    const divisionedNotes: DivisionedRichnotes = makeVoiceLeadingNotes(chords, melody, params)
     console.groupEnd();
 
     return {
