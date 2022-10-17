@@ -744,7 +744,7 @@ const buildMelody = (chordList: Array<MusicResult>, params: MusicParams) => {
             ret[i*12].beam = 'end';
         }
 
-        if (!cadenceEnding && ret[(i-1) * 12] && i > 1 && (Math.random() < sixteenthChance || barDirection == 'repeat') && prevPrevNote && prevNote) {
+        if (!cadenceEnding && (ret[(i-1) * 12] || {}).duration == 6 && i > 1 && (Math.random() < sixteenthChance || barDirection == 'repeat') && prevPrevNote && prevNote) {
             // Add a note between prev and prevprev
             let randomBetweenNote;
             for (const note of scale.notes) {
@@ -761,7 +761,7 @@ const buildMelody = (chordList: Array<MusicResult>, params: MusicParams) => {
             }
             if (randomBetweenNote) {
                 console.log("Adding note ", randomBetweenNote.toString(), " before ", prevPrevNote.toString());
-                ret[(i-1) * 12].duration = (3);
+                ret[(i-1) * 12].duration -= (3);
                 const noteBefore = ret[(i-1) * 12 - 6];
                 if (noteBefore && noteBefore.duration == 6 && noteBefore.beam == "begin") {
                     noteBefore.beam = undefined;
