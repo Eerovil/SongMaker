@@ -490,6 +490,7 @@ const makeVoiceLeadingNotes = (chords: Array<MusicResult>, melody: { [key: numbe
 
     for (let division = BEAT_LENGTH; division<chords.length * BEAT_LENGTH; division += BEAT_LENGTH) {
         // For each beat, we try to find a good matching semitone for each part.
+        const firstBeatOfBar = division % (BEAT_LENGTH * 4) == 0;
         const musicalResult = chords[division / BEAT_LENGTH]
         let availableBeatNotes: Array<RichNote> = musicalResult.chord.notes.map(n => ({
             note: n,
@@ -529,9 +530,23 @@ const makeVoiceLeadingNotes = (chords: Array<MusicResult>, melody: { [key: numbe
                 scale: musicalResult.scale,
             });
 
+            // Check if the previous beat note is the same for this part
+            if (!firstBeatOfBar && closestNote.duration == BEAT_LENGTH && ret[division - BEAT_LENGTH]) {
+                const previousBeatNote = ret[division - BEAT_LENGTH].findIndex(richNote => richNote.partIndex == partIndex + 1);
+                if (previousBeatNote != -1) {
+                    if (ret[division - BEAT_LENGTH][previousBeatNote].note.equals(fixedNote) && ret[division - BEAT_LENGTH][previousBeatNote].duration == BEAT_LENGTH) {
+                        // If it is the same, we add duration to it
+                        ret[division - BEAT_LENGTH][previousBeatNote].duration += BEAT_LENGTH;
+                        // And remove the note we just added
+                        ret[division].splice(ret[division].length - 1, 1);
+                    }
+                }
+            }
+
+
             if (closestNote.duration < BEAT_LENGTH) {
                 // Add any notes between this and the next beat to this part
-                for (let i=division + closestNote.duration; i<division + BEAT_LENGTH - 1; i += 1) {
+                for (let i=division + closestNote.duration; i<division + BEAT_LENGTH; i += 1) {
                     if (melody.hasOwnProperty(i)) {
                         ret[i] = ret[i] || [];
                         let fixedNote = melody[i].note.copy();
@@ -629,14 +644,14 @@ const randomChordNote = (chord: Chord, notesInThisBar: Array<Note>, scale: Scale
 }
 
 
-const buildMelody = (chordList: Array<MusicResult>) => {
+const buildMelody = (chordList: Array<MusicResult>, params: MusicParams) => {
     // Initial melody, just half beats
 
     // Return value will be an object kwyed by "ticks", containing
     // an array of objects {note, length} for each tick
 
     // Lets just say a beat is 12 ticks
-    const beatsPerCadence = 4 * 2;
+    const beatsPerCadence = 4 * params.barsPerCadence;
     const ret: { [key: number]: RichNote } = {};
     const maxDistance = 2;
     let prevNote: Nullable<Note> = null;
@@ -655,6 +670,7 @@ const buildMelody = (chordList: Array<MusicResult>) => {
     for (let i=0; i<chordList.length - 0.5; i+= 0.5) {
         let beatsUntilLastChordInCadence = Math.floor(i) % beatsPerCadence
         let cadenceEnding = beatsUntilLastChordInCadence >= beatsPerCadence - 1 || beatsUntilLastChordInCadence == 0
+        console.log("cadenceEnding: ", cadenceEnding, "beatsUntilLastChordInCadence", beatsUntilLastChordInCadence)
         let noteIsGood = false;
         let randomNote: Nullable<Note> = null;
         let iterations = 0;
@@ -731,7 +747,7 @@ const buildMelody = (chordList: Array<MusicResult>) => {
                 }
             }
             if (randomBetweenNote) {
-                console.log("Adding note ", randomBetweenNote.toString(), " between ", prevPrevNote.toString(), " and ", prevNote.toString());
+                console.log("Adding note ", randomBetweenNote.toString(), " before ", prevPrevNote.toString());
                 ret[(i-1) * 12].duration = (3);
                 ret[((i-1) * 12) + (3)] = {
                     note: randomBetweenNote,
@@ -741,7 +757,7 @@ const buildMelody = (chordList: Array<MusicResult>) => {
                 console.log("no note between", prevPrevNote.semitone, prevNote.semitone);
             }
         }
-        if (cadenceEnding && i % 1 == 0) {
+        if (cadenceEnding && i == Math.floor(i)) {
             i += 0.5;
         }
     }
@@ -896,7 +912,7 @@ export async function makeMusic(params: MusicParams) {
         await new Promise((resolve) => setTimeout(resolve, 1000))
     }
     console.groupCollapsed("buildMelody")
-    const melody: { [key: number]: RichNote } = buildMelody(chords);
+    const melody: { [key: number]: RichNote } = buildMelody(chords, params);
     console.groupEnd();
 
     console.groupCollapsed("makeVoiceLeadingNotes")
