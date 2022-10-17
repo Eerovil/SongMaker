@@ -45,6 +45,7 @@ export type RichNote = {
     chord?: Chord,
     partIndex?: number,
     scale?: Scale,
+    beam?: string,
 }
 
 export type DivisionedRichnotes = {
@@ -423,6 +424,7 @@ const makeVoiceLeadingNotes = (chords: Array<MusicResult>, melody: { [key: numbe
         chord: firstChord,
         scale: firstScale,
         partIndex: 1,
+        beam: melody[0].beam,
     });
 
     let tmpPartIndex = 2
@@ -528,6 +530,7 @@ const makeVoiceLeadingNotes = (chords: Array<MusicResult>, melody: { [key: numbe
                 duration: closestNote.duration,
                 partIndex: partIndex + 1,
                 scale: musicalResult.scale,
+                beam: closestNote.beam,
             });
 
             // Check if the previous beat note is the same for this part
@@ -556,6 +559,7 @@ const makeVoiceLeadingNotes = (chords: Array<MusicResult>, melody: { [key: numbe
                             duration: melody[i].duration,
                             partIndex: partIndex + 1,
                             scale: musicalResult.scale,
+                            beam: melody[i].beam,
                         });
                         i += melody[i].duration - 1;  // Just for fool-proofing and we shouldn't have to check the next
                     }
@@ -731,6 +735,12 @@ const buildMelody = (chordList: Array<MusicResult>, params: MusicParams) => {
         prevPrevNote = prevNote;
         prevNote = randomNote;
 
+        if ((i*12 - 6) % BEAT_LENGTH == 0 && ret[i*12 - 6].duration == 6 && ret[i*12].duration == 6) {
+            // Add beam info if previous melody note was on beat
+            ret[i*12 - 6].beam = 'begin';
+            ret[i*12].beam = 'end';
+        }
+
         if (!cadenceEnding && ret[(i-1) * 12] && i > 1 && (Math.random() < 0.5 || barDirection == 'repeat') && prevPrevNote && prevNote) {
             // Add a note between prev and prevprev
             let randomBetweenNote;
@@ -749,9 +759,11 @@ const buildMelody = (chordList: Array<MusicResult>, params: MusicParams) => {
             if (randomBetweenNote) {
                 console.log("Adding note ", randomBetweenNote.toString(), " before ", prevPrevNote.toString());
                 ret[(i-1) * 12].duration = (3);
+                ret[(i-1) * 12].beam = 'begin';
                 ret[((i-1) * 12) + (3)] = {
                     note: randomBetweenNote,
                     duration: (3),
+                    beam: "end",
                 }
             } else {
                 console.log("no note between", prevPrevNote.semitone, prevNote.semitone);

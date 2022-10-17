@@ -92,6 +92,8 @@ function noteToPitch(richNote: RichNote) {
 
 function addRichNoteToMeasure(richNote: RichNote, measure: builder.XMLElement, staff: number, voice: number, firstNoteInChord: boolean, writeChord: boolean) {
   const duration = richNoteDuration(richNote);
+  let beamNumber = 1;
+
   const attrs =  {
     'chord': !firstNoteInChord ? {} : undefined,
     'pitch': noteToPitch(richNote),
@@ -99,6 +101,7 @@ function addRichNoteToMeasure(richNote: RichNote, measure: builder.XMLElement, s
     'voice': voice,
     'type': duration.type,
     'staff': staff,
+    'beam': richNote.beam ? { '@number': beamNumber, '#text': richNote.beam } : undefined,
   };
   if (writeChord && richNote.chord && staff == 1) {
     const fixTemplate = (template: Array<number | Array<number>>): Array<number | Array<number>> => {
