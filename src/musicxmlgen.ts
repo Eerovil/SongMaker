@@ -17,6 +17,8 @@ function semitoneToPitch(semitone: number, scale: Scale, direction: string="shar
         alter: 0,
       };
     }
+  }
+  for (const note of scale.notes) {
     if (direction == "flat" && note.semitone === semitone + 1) {
       return {
         noteName: note.toString().substring(0, 1),
