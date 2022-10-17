@@ -234,6 +234,19 @@ export function toXml(divisionedNotes: DivisionedRichnotes, params: MusicParams)
       },
       'part-name': {
         '#text': 'P1'
+      },
+      'score-instrument': {
+        '@id': 'P1-I1',
+        'instrument-name': {
+          '#text': `${params.voiceP1}`
+        },
+      },
+      'midi-instrument': {
+        '@id': 'P1-I1',
+        'midi-channel': 1,
+        'midi-program': params.voiceP1,
+        'volume': 90,
+        'pan': 0
       }
     }
   });
@@ -245,6 +258,19 @@ export function toXml(divisionedNotes: DivisionedRichnotes, params: MusicParams)
       },
       'part-name': {
         '#text': 'P2'
+      },
+      'score-instrument': {
+        '@id': 'P2-I1',
+        'instrument-name': {
+          '#text': `${params.voiceP2}`
+        },
+      },
+      'midi-instrument': {
+        '@id': 'P2-I1',
+        'midi-channel': 1,
+        'midi-program': params.voiceP2,
+        'volume': 90,
+        'pan': 0
       }
     }
   });
@@ -256,6 +282,19 @@ export function toXml(divisionedNotes: DivisionedRichnotes, params: MusicParams)
       },
       'part-name': {
         '#text': 'P3'
+      },
+      'score-instrument': {
+        '@id': 'P3-I1',
+        'instrument-name': {
+          '#text': `${params.voiceP3}`
+        },
+      },
+      'midi-instrument': {
+        '@id': 'P3-I1',
+        'midi-channel': 1,
+        'midi-program': params.voiceP3,
+        'volume': 90,
+        'pan': 0
       }
     }
   });
@@ -267,6 +306,19 @@ export function toXml(divisionedNotes: DivisionedRichnotes, params: MusicParams)
       },
       'part-name': {
         '#text': 'P4'
+      },
+      'score-instrument': {
+        '@id': 'P4-I1',
+        'instrument-name': {
+          '#text': `${params.voiceP4}`
+        },
+      },
+      'midi-instrument': {
+        '@id': 'P4-I1',
+        'midi-channel': 1,
+        'midi-program': params.voiceP4,
+        'volume': 90,
+        'pan': 0
       }
     }
   });

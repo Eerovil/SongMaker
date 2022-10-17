@@ -75,7 +75,13 @@
             <label for="chord-dom7">Dom7</label>
             <input type="checkbox" id="chord-dom7" value="dom7">
         </div>
-
+    </div>
+    <div>
+        Äänet (MIDI 53 == kuoro)
+        <input id="voice-p1" type="number" step="1"></input>
+        <input id="voice-p2" type="number" step="1"></input>
+        <input id="voice-p3" type="number" step="1"></input>
+        <input id="voice-p4" type="number" step="1"></input>
     </div>
     <div>
         <button onclick="updateParamsFromSettings()">OK</button>
@@ -89,6 +95,7 @@
 
 </body>
 <script>
+
     const beatMS = 3000;
     const beep = (freq = 320, duration = 100, vol = 5) => {
         const oscillator = context.createOscillator();
@@ -168,6 +175,18 @@
         if (params.sixteenthNotes) {
             document.querySelector("#sixteenth-notes").value = params.sixteenthNotes;
         }
+        if (params.voiceP1) {
+            document.querySelector("#voice-p1").value = params.voiceP1;
+        }
+        if (params.voiceP2) {
+            document.querySelector("#voice-p2").value = params.voiceP2;
+        }
+        if (params.voiceP3) {
+            document.querySelector("#voice-p3").value = params.voiceP3;
+        }
+        if (params.voiceP4) {
+            document.querySelector("#voice-p4").value = params.voiceP4;
+        }
     }
     updateSettingsFromParams();
 
@@ -184,6 +203,10 @@
         params.chords = chords.join(",");
         params.halfNotes = document.querySelector("#half-notes").checked;
         params.sixteenthNotes = document.querySelector("#sixteenth-notes").value;
+        params.voiceP1 = document.querySelector("#voice-p1").value;
+        params.voiceP2 = document.querySelector("#voice-p2").value;
+        params.voiceP3 = document.querySelector("#voice-p3").value;
+        params.voiceP4 = document.querySelector("#voice-p4").value;
         // create url from params and follow the link
         const url = new URL(window.location.href);
         url.search = new URLSearchParams(params).toString();

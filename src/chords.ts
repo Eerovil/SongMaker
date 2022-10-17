@@ -32,6 +32,10 @@ export type MusicParams = {
     tempo?: number,
     halfNotes?: boolean,
     sixteenthNotes?: number,
+    voiceP1?: string,
+    voiceP2?: string,
+    voiceP3?: string,
+    voiceP4?: string,
 }
 
 export type MusicResult = {
