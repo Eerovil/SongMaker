@@ -36,6 +36,10 @@ export type MusicParams = {
     voiceP2?: string,
     voiceP3?: string,
     voiceP4?: string,
+    noteP1?: string,
+    noteP2?: string,
+    noteP3?: string,
+    noteP4?: string,
 }
 
 export type MusicResult = {
@@ -58,7 +62,7 @@ export type DivisionedRichnotes = {
     [key: number]: Array<RichNote>,
 }
 
-const globalSemitone = (note: Note) => {
+export const globalSemitone = (note: Note) => {
     return note.semitone + ((note.octave) * 12);
 }
 
@@ -76,7 +80,7 @@ const getClosestOctave = (note: Note, targetNote: Nullable<Note>=null, targetSem
     let ret = 0;
     let i = 0;
     const cleanOctave = (octave: number) => {
-        return Math.min(Math.max(octave, 2), 4);
+        return Math.min(Math.max(octave, 2), 6);
     }
     while (true) {
         i++;
@@ -460,12 +464,20 @@ const makeVoiceLeadingNotes = (chords: Array<MusicResult>, melody: { [key: numbe
 
     console.log("fixedNotes: ", ret[0].map(res => res.note.toString()))
 
-    let lastBeatGlobalSemitones = [
-        globalSemitone(new Note('F4')),
-        globalSemitone(new Note('C4')),
-        globalSemitone(new Note('A3')),
-        globalSemitone(new Note('C3')),
+    const p1Note = params.noteP1 || "F4";
+    const p2Note = params.noteP2 || "C4";
+    const p3Note = params.noteP3 || "A3";
+    const p4Note = params.noteP4 || "C3";
+
+    const startingGlobalSemitones = [
+        globalSemitone(new Note(p1Note)),
+        globalSemitone(new Note(p2Note)),
+        globalSemitone(new Note(p3Note)),
+        globalSemitone(new Note(p4Note)),
     ]
+    let lastBeatGlobalSemitones = [...startingGlobalSemitones]
+
+    console.log("lastBeatGlobalSemitones:", lastBeatGlobalSemitones)
 
     const weighedAvailableSort = (partIndex: number, richNote: RichNote) => {
         const partLastSemitone = lastBeatGlobalSemitones[partIndex];
@@ -493,6 +505,10 @@ const makeVoiceLeadingNotes = (chords: Array<MusicResult>, melody: { [key: numbe
                 }
             }
         }
+        // const distanceFromOriginal = Math.abs(
+        //     globalSemitone(richNote.note) - startingGlobalSemitones[partIndex]
+        // );
+        // ret += Math.floor(distanceFromOriginal / 6);
         return ret;
     }
 

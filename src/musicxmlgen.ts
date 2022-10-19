@@ -1,5 +1,5 @@
 import { Note, Scale, ScaleTemplates, ChordTemplates } from 'musictheoryjs';
-import { RichNote, DivisionedRichnotes, MusicParams } from "./chords"
+import { RichNote, DivisionedRichnotes, MusicParams, globalSemitone } from "./chords"
 
 type Nullable<T>  = T | null
 
@@ -178,7 +178,39 @@ function addRichNoteToMeasure(richNote: RichNote, measure: builder.XMLElement, s
   measure.ele({ 'note': attrs });
 }
 
-function firstMeasureInit(partIndex: number, measure: builder.XMLElement, params: MusicParams) {
+function firstMeasureInit(voicePartIndex: number, measure: builder.XMLElement, params: MusicParams) {
+  let clef;
+  const semitones = [
+    globalSemitone(new Note(params.noteP1 || "F4")),
+    globalSemitone(new Note(params.noteP2 || "C4")),
+    globalSemitone(new Note(params.noteP3 || "A3")),
+    globalSemitone(new Note(params.noteP4 || "C3")),
+  ]
+
+  const mySemitone = semitones[voicePartIndex - 1];
+  if (mySemitone < 40) {
+    clef = {
+      '@number': 1,
+      'sign': 'F',
+      'line': 4,
+    };
+  } else if (mySemitone < 50) {
+    clef = {
+      '@number': 1,
+      'sign': 'G',
+      'line': 2,
+      'clef-octave-change': {
+        '#text': '-1'
+      }
+    };
+  } else {
+    clef = {
+      '@number': 1,
+      'sign': 'G',
+      'line': 2,
+    };
+  }
+
   measure.ele({ 'attributes': {
     'divisions': { '#text': `${BEAT_LENGTH}` },
     'key': {
@@ -190,14 +222,7 @@ function firstMeasureInit(partIndex: number, measure: builder.XMLElement, params
     },
     'staves': 1,
     clef: [
-      {
-        '@number': 1,
-        'sign': { '#text': partIndex > 1 ? 'F' : 'G' },
-        'line': { '#text': partIndex > 1 ? '4' : '2' },
-        'clef-octave-change': {
-          '#text': partIndex <= 1 ? '-1' : '0'
-        }
-      },
+      clef
     ]
   },
   'direction': {
@@ -352,7 +377,7 @@ export function toXml(divisionedNotes: DivisionedRichnotes, params: MusicParams)
       const voicePartIndex = partIndex + 1;
       if (voiceIndex == 0) {
         measures[partIndex].push(part.ele({ 'measure': { '@number': 1 }}));
-        firstMeasureInit(partIndex, measures[partIndex][measures[partIndex].length - 1], params);
+        firstMeasureInit(voicePartIndex, measures[partIndex][measures[partIndex].length - 1], params);
       }
       for (const division in divisionedNotes) {
         const divisionNumber = parseInt(division);

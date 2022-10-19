@@ -77,10 +77,27 @@
         </div>
     </div>
     <div>
-        Äänet (MIDI 53 == kuoro)
+        <label for="note-p1">Lähtösävel</label>
+        <input id="note-p1" type="text" value="E5" style="width: 100px">
+        <label for="voice-p1">Ääni</label>
         <input id="voice-p1" type="number" step="1"></input>
+    </div>
+    <div>
+        <label for="note-p2">Lähtösävel</label>
+        <input id="note-p2" type="text" value="E4" style="width: 100px">
+        <label for="voice-p2">Ääni</label>
         <input id="voice-p2" type="number" step="1"></input>
+    </div>
+    <div>
+        <label for="note-p3">Lähtösävel</label>
+        <input id="note-p3" type="text" value="C4" style="width: 100px">
+        <label for="voice-p3">Ääni</label>
         <input id="voice-p3" type="number" step="1"></input>
+    </div>
+    <div>
+        <label for="note-p4">Lähtösävel</label>
+        <input id="note-p4" type="text" value="C3" style="width: 100px">
+        <label for="voice-p4">Ääni</label>
         <input id="voice-p4" type="number" step="1"></input>
     </div>
     <div>
@@ -187,6 +204,18 @@
         if (params.voiceP4) {
             document.querySelector("#voice-p4").value = params.voiceP4;
         }
+        if (params.noteP1) {
+            document.querySelector("#note-p1").value = params.noteP1;
+        }
+        if (params.noteP2) {
+            document.querySelector("#note-p2").value = params.noteP2;
+        }
+        if (params.noteP3) {
+            document.querySelector("#note-p3").value = params.noteP3;
+        }
+        if (params.noteP4) {
+            document.querySelector("#note-p4").value = params.noteP4;
+        }
     }
     updateSettingsFromParams();
 
@@ -207,6 +236,11 @@
         params.voiceP2 = document.querySelector("#voice-p2").value;
         params.voiceP3 = document.querySelector("#voice-p3").value;
         params.voiceP4 = document.querySelector("#voice-p4").value;
+        params.noteP1 = document.querySelector("#note-p1").value;
+        params.noteP2 = document.querySelector("#note-p2").value;
+        params.noteP3 = document.querySelector("#note-p3").value;
+        params.noteP4 = document.querySelector("#note-p4").value;
+
         // create url from params and follow the link
         const url = new URL(window.location.href);
         url.search = new URLSearchParams(params).toString();
