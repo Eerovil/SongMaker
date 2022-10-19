@@ -294,7 +294,7 @@ export function toXml(divisionedNotes: DivisionedRichnotes, params: MusicParams)
         '@id': 'P2-I1',
         'midi-channel': 1,
         'midi-program': params.voiceP2,
-        'volume': 90,
+        'volume': 70,
         'pan': 0
       }
     }
@@ -318,7 +318,7 @@ export function toXml(divisionedNotes: DivisionedRichnotes, params: MusicParams)
         '@id': 'P3-I1',
         'midi-channel': 1,
         'midi-program': params.voiceP3,
-        'volume': 90,
+        'volume': 70,
         'pan': 0
       }
     }

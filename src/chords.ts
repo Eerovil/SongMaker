@@ -561,6 +561,13 @@ const makeVoiceLeadingNotes = (chords: Array<MusicResult>, melody: { [key: numbe
             let fixedNote = closestNote.note.copy();
             let oldOctave = fixedNote.octave;
             fixedNote.octave = getClosestOctave(closestNote.note, null, partLastSemitone)
+            const fixedGlobalSemitone = globalSemitone(fixedNote);
+            if (semitoneLimits[partIndex][0] - 2 > fixedGlobalSemitone) {
+                fixedNote.octave += 1;
+            } else if (semitoneLimits[partIndex][1] + 2 < fixedGlobalSemitone) {
+                fixedNote.octave -= 1;
+            }
+                
             let octaveDiff = fixedNote.octave - oldOctave;
             console.log("octaveDiff: ", octaveDiff)
             lastBeatGlobalSemitones[partIndex] = globalSemitone(fixedNote);
