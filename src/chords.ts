@@ -398,9 +398,14 @@ const semitoneDistance = (tone1: number, tone2: number) => {
 
     // 0 - 6 + 12 => 6
     // 6 - 0 + 12 => 18 => 6
-    return Math.min((tone1 - tone2 + 12) % 12, (tone2 - tone1 + 12) % 12)
-}
 
+    // 0 + 6 - 3 + 6 = 6 - 9 = -3
+    // 6 + 6 - 9 + 6 = 12 - 15 = 0 - 3 = -3
+    // 11 + 6 - 0 + 6 = 17 - 6 = 5 - 6 = -1
+    // 0 + 6 - 11 + 6 = 6 - 17 = 6 - 5 = 1
+
+    return Math.abs((tone1 + 6) % 12 - (tone2 + 6) % 12);
+}
 
 const makeVoiceLeadingNotes = (chords: Array<MusicResult>, melody: { [key: number]: RichNote }, params: MusicParams) => {
     // return value will be an object ,keyed by division. It can contain an array of RichNotes with each note 
@@ -409,8 +414,28 @@ const makeVoiceLeadingNotes = (chords: Array<MusicResult>, melody: { [key: numbe
     // To any given part note in, we will get something at "division + duration" (empty spaces not allowed)
     const ret: DivisionedRichnotes = {};
 
+    const p1Note = params.noteP1 || "F4";
+    const p2Note = params.noteP2 || "C4";
+    const p3Note = params.noteP3 || "A3";
+    const p4Note = params.noteP4 || "C3";
 
-    const instrument = new Instrument();
+    const startingGlobalSemitones = [
+        globalSemitone(new Note(p1Note)),
+        globalSemitone(new Note(p2Note)),
+        globalSemitone(new Note(p3Note)),
+        globalSemitone(new Note(p4Note)),
+    ]
+
+    const semitoneLimits = [
+        [startingGlobalSemitones[0] + -12, startingGlobalSemitones[0] + 12],
+        [startingGlobalSemitones[1] + -12, startingGlobalSemitones[1] + 12],
+        [startingGlobalSemitones[2] + -12, startingGlobalSemitones[2] + 12],
+        [startingGlobalSemitones[3] + -12, startingGlobalSemitones[3] + 12],
+    ]
+    console.log(semitoneLimits)
+
+    let lastBeatGlobalSemitones = [...startingGlobalSemitones]
+
     if (chords.length == 0) {
         return [];
     }
@@ -419,11 +444,7 @@ const makeVoiceLeadingNotes = (chords: Array<MusicResult>, melody: { [key: numbe
     ret[0] = [];
 
     const firstMelodyNote = melody[0].note;
-    if (firstMelodyNote.semitone > 6) {
-        firstMelodyNote.octave = 3;
-    } else {
-        firstMelodyNote.octave = 4;
-    }
+    firstMelodyNote.octave = getClosestOctave(firstMelodyNote, null, startingGlobalSemitones[0])
     const firstBeatNotes: Array<RichNote> = chords[0].chord.notes.map(n => ({note: n, duration: BEAT_LENGTH}));
     const firstChord: Chord = chords[0].chord
     const firstScale: Scale = chords[0].scale;
@@ -441,16 +462,7 @@ const makeVoiceLeadingNotes = (chords: Array<MusicResult>, melody: { [key: numbe
     for (const richNote of firstBeatNotes) {
         const note: Note = richNote.note;
         const fixedNote: Note = note.copy();
-        if (note.semitone == firstChord.notes[0].semitone) {
-            // Base note will be as low as possible
-            if (fixedNote.semitone > 6) {
-                fixedNote.octave = 2;
-            } else {
-                fixedNote.octave = 3;
-            }
-        } else {
-            fixedNote.octave = 3;
-        }
+        fixedNote.octave = getClosestOctave(fixedNote, firstMelodyNote, startingGlobalSemitones[tmpPartIndex - 1]);
         ret[0].push({
             note: fixedNote,
             duration: BEAT_LENGTH,
@@ -464,23 +476,18 @@ const makeVoiceLeadingNotes = (chords: Array<MusicResult>, melody: { [key: numbe
 
     console.log("fixedNotes: ", ret[0].map(res => res.note.toString()))
 
-    const p1Note = params.noteP1 || "F4";
-    const p2Note = params.noteP2 || "C4";
-    const p3Note = params.noteP3 || "A3";
-    const p4Note = params.noteP4 || "C3";
-
-    const startingGlobalSemitones = [
-        globalSemitone(new Note(p1Note)),
-        globalSemitone(new Note(p2Note)),
-        globalSemitone(new Note(p3Note)),
-        globalSemitone(new Note(p4Note)),
-    ]
-    let lastBeatGlobalSemitones = [...startingGlobalSemitones]
-
     console.log("lastBeatGlobalSemitones:", lastBeatGlobalSemitones)
 
     const weighedAvailableSort = (partIndex: number, richNote: RichNote) => {
         const partLastSemitone = lastBeatGlobalSemitones[partIndex];
+        const minSemitone = semitoneLimits[partIndex][0];
+        const maxSemitone = semitoneLimits[partIndex][1];
+        let direction = 'all';
+        if (partLastSemitone >= maxSemitone) {
+            direction = 'down';
+        } else if (partLastSemitone <= minSemitone) {
+            direction = 'up';
+        }
         let ret = semitoneDistance(richNote.note.semitone, partLastSemitone % 12);
         if (richNote.chord && richNote.chord.notes[0].semitone == richNote.note.semitone) {
             // Try to keep the root note in part 4
@@ -503,6 +510,19 @@ const makeVoiceLeadingNotes = (chords: Array<MusicResult>, melody: { [key: numbe
                 if (partIndex == 3) {
                     ret += 2;
                 }
+            }
+        }
+        const newGlobalSemitone = globalSemitone(richNote.note)
+        if (direction == 'up') {
+            // Trick: Try to add 1 semitone to richNote. If the distance is smaller after adding 1, it means that it's closer to lower side
+            if (semitoneDistance(richNote.note.semitone, partLastSemitone) > semitoneDistance(richNote.note.semitone + 1, partLastSemitone)) {
+                ret += 5
+            }
+        }
+        if (direction == 'up') {
+            // Trick: Try to add 1 semitone to richNote. If the distance is bigger after adding 1, it means that it's closer from the up side
+            if (semitoneDistance(richNote.note.semitone, partLastSemitone) < semitoneDistance(richNote.note.semitone + 1, partLastSemitone)) {
+                ret += 5
             }
         }
         // const distanceFromOriginal = Math.abs(
