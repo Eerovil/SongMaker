@@ -501,8 +501,7 @@ const newVoiceLeadingNotes = (chords: Array<MusicResult>, params: MusicParams): 
 
         type Direction = "up" | "down" | "same";
 
-        const inversionCount = 4; // TODO
-        let inversionNames = ["root", "first-root", "first-fifth", "second"];
+        let inversionNames = ["root", "first-root", "first-root-lower", "first-third", "first-fifth", "first-fifth-lower", "second"];
         if (chord.notes.length > 3) {
             inversionNames = ["root", "first", "second", "third"];
         }
@@ -515,7 +514,7 @@ const newVoiceLeadingNotes = (chords: Array<MusicResult>, params: MusicParams): 
         }
         const inversionResults: Array<InversionResult> = [];
 
-        for (let inversionIndex=0; inversionIndex<inversionCount; inversionIndex++) {
+        for (let inversionIndex=0; inversionIndex<inversionNames.length; inversionIndex++) {
             const directions: { [key: number ]: Direction} = {};
             const directionIsGood = (direction: Direction) => {
                 const downCount = Object.values(directions).filter(d => d == "down").length;
@@ -601,11 +600,26 @@ const newVoiceLeadingNotes = (chords: Array<MusicResult>, params: MusicParams): 
                     partToIndex[1] = 2;
                     partToIndex[2] = 1;
                     partToIndex[3] = 0;  // Root is doubled
+                } else if (inversion == 'first-root-lower') {
+                    partToIndex[0] = 0;
+                    partToIndex[1] = 0;
+                    partToIndex[2] = 2;
+                    partToIndex[3] = 1;
+                } else if (inversion == 'first-third') {
+                    partToIndex[0] = 0;
+                    partToIndex[1] = 2;
+                    partToIndex[2] = 1;
+                    partToIndex[3] = 1;  // Third is doubled
                 } else if (inversion == 'first-fifth') {
                     partToIndex[0] = 0;
                     partToIndex[1] = 2;
                     partToIndex[2] = 1;
                     partToIndex[3] = 2;  // Fifth is doubled
+                } else if (inversion == 'first-fifth-lower') {
+                    partToIndex[0] = 2;
+                    partToIndex[1] = 0;
+                    partToIndex[2] = 2;
+                    partToIndex[3] = 1;
                 } else if (inversion == 'second') {
                     partToIndex[0] = 1;
                     partToIndex[1] = 0;
@@ -672,7 +686,6 @@ const newVoiceLeadingNotes = (chords: Array<MusicResult>, params: MusicParams): 
                             // Is it worth it to go up one more octave?
                             let upDiff = distance - octaveUpDistance;
                             let startingDiff = Math.max(octaveUpDistanceToStartingTone - distanceToStartingTone - 4, 0);
-                            console.log("partIndex:", partIndex, "upDiff: ", upDiff, " startingDiff: ", startingDiff);
 
                             if (upDiff > 0 && upDiff > startingDiff) {
                                 note.octave += 1;
@@ -711,6 +724,42 @@ const newVoiceLeadingNotes = (chords: Array<MusicResult>, params: MusicParams): 
                 directions[partIndex] = direction
 
                 minSemitone = gTone;
+            }
+
+            // Check for parallel motion (if this note had a 1st, 5th or 8th with another note
+            // and it still has it, then it's parallel motion)
+            for (let partIndex=0; partIndex<4; partIndex++) {
+                const prevNote: number = lastBeatGlobalSemitones[partIndex];
+                const currentNote: number = globalSemitone(inversionResult.notes[partIndex].note);
+                if (prevNote == currentNote) {
+                    continue;
+                }
+                for (let partIndex2=0; partIndex2<4; partIndex2++) {
+                    if (partIndex == partIndex2) {
+                        continue;
+                    }
+                    const prevNote2 = lastBeatGlobalSemitones[partIndex];
+                    const currentNote2 = globalSemitone(inversionResult.notes[partIndex2].note);
+                    if (prevNote2 == currentNote2) {
+                        continue;
+                    }
+                    let interval;
+                    if (prevNote == prevNote2) {
+                        interval = 0;
+                    }
+                    if (Math.abs(prevNote - prevNote2) == 7) {
+                        interval = 7;
+                    }
+                    if (Math.abs(prevNote - prevNote2) == 12) {
+                        interval = 12;
+                    }
+                    if (interval != undefined) {
+                        if (Math.abs(currentNote - currentNote2) == interval) {
+                            console.log("parallel motion from ", new Note({semitone: prevNote % 12}).toString(), " to ", new Note({semitone: currentNote % 12}).toString(), " and from ", new Note({semitone: prevNote2 % 12}).toString(), " to ", new Note({semitone: currentNote2 % 12}).toString())
+                            inversionResult.rating -= 1;
+                        }
+                    }
+                }
             }
 
             console.log(directions);
