@@ -153,7 +153,7 @@ const majScaleDifference = (semitone1: number, semitone2: number) => {
 }
 
 
-const getTension = (fromChord: Nullable<Chord>, toChord: Chord, currentScale: Scale, beatsUntilLastChordInCadence: number, rememberedChords: Array<string>) => {
+const getTension = (fromChord: Nullable<Chord>, toChord: Chord, currentScale: Scale, beatsUntilLastChordInCadence: number) => {
     /*
     *   Get the tension between two chords
     *   @param fromChord: Chord
@@ -372,18 +372,6 @@ const getTension = (fromChord: Nullable<Chord>, toChord: Chord, currentScale: Sc
     //     console.log("Lead tension from ", fromChord.toString(), " to ", toChord.toString(), "(", currentScale.toString(), ")", " is ", (tensionBeforelead + tension).toFixed(2));
     // }
 
-    for (let i=0; i<rememberedChords.length; i++) {
-        if (toChordString == rememberedChords[i]) {
-            console.log("Chord ", toChordString, " was already used ", i, " chords ago");
-            tension -= (0.1 * i);
-            if (rememberedChords[i - 1]) {
-                if (rememberedChords[i - 1] == fromChordString) {
-                    tension -= (0.1 * i);
-                }
-            }
-        }
-    }
-
     return { tension, newScale };
 }
 
@@ -453,6 +441,7 @@ const newVoiceLeadingNotes = (chords: Array<MusicResult>, params: MusicParams): 
     }
 
     for (let division = 0; division < chords.length * BEAT_LENGTH; division += BEAT_LENGTH) {
+        console.log("Division ", division / BEAT_LENGTH, " of ", chords.length);
         // For each beat, we try to find a good matching semitone for each part.
 
         // Rules:
@@ -466,137 +455,84 @@ const newVoiceLeadingNotes = (chords: Array<MusicResult>, params: MusicParams): 
         // With  seventh  chords:  there  is  one voice  for  each  note,  so  distribute as  fits. If  one 
         // must omit a note from the chord, then omit the 5th.
 
-        const chord = chords[division / BEAT_LENGTH].chord;
+        const chord = chords[division / BEAT_LENGTH].chord; 
         const scale = chords[division / BEAT_LENGTH].scale;
 
         ret[division] = [];
         // Depending on the inversion and chord type, we're doing different things
 
-        if (chord.notes.length == 3) {
-            const rootNote = chord.notes[0];
-            const thirdNote = chord.notes[1];
-            const fifthNote = chord.notes[2];
-            // Triad stuff. Figure out the inversion.
+        type Direction = "up" | "down" | "same";
 
-            let loopDistance = 0;
-            let loopNotes: { [key: number]: Note } = {};
-            let usedNotes: Array<number> = [];
-            let i=0;
-            while (true) {
-                i++;
-                if (i > 1000) {
-                    debugger;
-                    throw new Error("Infinite loop");
-                }
-                // Do passes until we can figure out the inversion
-                for (let partIndex=0; partIndex<4; partIndex++) {
-                    if (loopNotes[partIndex]) {
-                        continue;
-                    }
-                    const lastBeatGlobalSemitone = lastBeatGlobalSemitones[partIndex];
-                    for (let noteIndex=0; noteIndex<chord.notes.length; noteIndex++) {
-                        const note = chord.notes[noteIndex];
-                        if (note.semitone == thirdNote.semitone && partIndex == 3) {
-                            // Never put the third to part 4
-                            continue;
-                        }
-                        if (usedNotes.includes(note.semitone)) {
-                            continue;
-                        }
-                        const distance = semitoneDistance(lastBeatGlobalSemitone, note.semitone);
-                        if (distance <= loopDistance) {
-                            loopNotes[partIndex] = new Note({
-                                semitone: note.semitone,
-                                octave: 1,
-                            })
-                            usedNotes.push(note.semitone);
-                            break;
-                        }
-                    }
-                }
-                if (Object.keys(loopNotes).length > 1) {
-                    break;
-                }
-                loopDistance++;
-            }
+        const inversionCount = chord.notes.length + 1; // TODO
+        let inversionNames = ["root", "first-root", "first-fifth", "second", "third"];
 
-            let inversion;
-            i=0;
-            while (true) {
-                i++;
-                if (i > 1000) {
-                    throw new Error("Infinite loop");
+        // Add a result for each possible inversion
+        type InversionResult = {
+            notes: {[key: number]: RichNote},
+            rating: number,
+            inversionName: string,
+        }
+        const inversionResults: Array<InversionResult> = [];
+
+        for (let inversionIndex=0; inversionIndex<inversionCount; inversionIndex++) {
+            const directions: { [key: number ]: Direction} = {};
+            const directionIsGood = (direction: Direction) => {
+                const downCount = Object.values(directions).filter(d => d == "down").length;
+                const upCount = Object.values(directions).filter(d => d == "up").length;
+
+                // 3 here because the "direction" we're checking is not an unknown
+                const unknownCount = 3 - Object.values(directions).length;
+                if (direction == "same") {
+                    // Same is not good if it was "supposed" to be an up or down
+                    // to balance things out
+                    if (downCount - upCount > 1) {
+                        // Too many downs, this should have been an up.
+                        return false;
+                    }
+                    if (upCount - downCount > 1) {
+                        // Too many ups, this should have been a down.
+                        return false;
+                    }
+                    // Otherwise, all is probably fine
+                    return true;
                 }
-                // Now we got at least two notes. Try to figure out our inversion.
-                let inversionChoices = ['root', 'first', 'second'];
-                if (loopNotes[0]) {
-                    if (loopNotes[0].semitone == rootNote.semitone) {
-                        // highest note is root -> first inversion
-                        inversionChoices = inversionChoices.filter(choice => choice == 'first');
+                if (direction == "down") {
+                    if (downCount == 0) {
+                        // First down is always good
+                        return true;
                     }
-                    if (loopNotes[0].semitone == thirdNote.semitone) {
-                        inversionChoices = inversionChoices.filter(choice => choice == 'second');
+                    if (downCount == 1) {
+                        if (upCount > 0 || unknownCount > 0) {
+                            // Two downs is allowed if there is at least 1 up OR unknown
+                            return true;
+                        }
                     }
-                    if (loopNotes[0].semitone == fifthNote.semitone) {
-                        inversionChoices = inversionChoices.filter(choice => choice == 'root');
-                    }
+                    // More than two is not good
+                    return false;
                 }
-                if (loopNotes[1]) {
-                    if (loopNotes[1].semitone == rootNote.semitone) {
-                        // Second highest note is root -> second inversion
-                        inversionChoices = inversionChoices.filter(choice => choice == 'second');
+                if (direction == "up") {
+                    if (upCount == 0) {
+                        return true;
                     }
-                    if (loopNotes[1].semitone == thirdNote.semitone) {
-                        inversionChoices = inversionChoices.filter(choice => choice == 'root');
+                    if (upCount == 1) {
+                        if (downCount > 0 || unknownCount > 0) {
+                            // Two ups is allowed if there is at least 1 down OR unknown
+                            return true;
+                        }
                     }
-                    if (loopNotes[1].semitone == fifthNote.semitone) {
-                        inversionChoices = inversionChoices.filter(choice => choice == 'first');
-                    }
-                }
-                if (loopNotes[2]) {
-                    if (loopNotes[2].semitone == rootNote.semitone) {
-                        // third hightest note is root -> root inversion
-                        inversionChoices = inversionChoices.filter(choice => choice == 'root');
-                    }
-                    if (loopNotes[2].semitone == thirdNote.semitone) {
-                        inversionChoices = inversionChoices.filter(choice => choice == 'first');
-                    }
-                    if (loopNotes[2].semitone == fifthNote.semitone) {
-                        inversionChoices = inversionChoices.filter(choice => choice == 'second');
-                    }
-                }
-                if (loopNotes[3]) {
-                    // The "doubled note"
-                    // Here we have some options
-                    if (loopNotes[3].semitone == rootNote.semitone) {
-                        // root is doubled -> root or first inversion
-                        inversionChoices = inversionChoices.filter(choice => choice == 'root' || choice == 'first');
-                    }
-                    if (loopNotes[3].semitone == thirdNote.semitone) {
-                        // third is doubled -> this should never happen...
-                        inversionChoices = [];
-                    }
-                    if (loopNotes[3].semitone == fifthNote.semitone) {
-                        // fifth is doubled -> first or second inversion
-                        inversionChoices = inversionChoices.filter(choice => choice == 'first' || choice == 'second');
-                    }
-                }
-                if (inversionChoices.length == 0) {
-                    // Uh oh, no possible inversions. Remove a note
-                    for (let key in loopNotes) {
-                        delete loopNotes[key];
-                        break;
-                    }
-                } else {
-                    // We have an inversion!
-                    inversion = inversionChoices[0];
-                    break;
+                    // More than two is not good
+                    return false;
                 }
             }
-            // Now that we know the inversion, the rest is easy. Just follow the rules.
+            const inversionResult: InversionResult = {
+                notes: {},
+                rating: 0,
+                inversionName: inversionNames[inversionIndex],
+            };
+            inversionResults.push(inversionResult);
 
             const addPartNote = (partIndex: number, note: Note) => {
-                ret[division][partIndex] = {
+                inversionResult.notes[partIndex] = {
                     note: new Note({
                         semitone: note.semitone,
                         octave: 1  // dummy
@@ -605,127 +541,132 @@ const newVoiceLeadingNotes = (chords: Array<MusicResult>, params: MusicParams): 
                     partIndex: partIndex + 1,
                     chord: chord,
                     scale: scale,
-                };
+                } as RichNote;
+            }
+
+            // We try each inversion. Which is best?
+            const inversion = inversionNames[inversionIndex];
+
+            console.log("inversion: ", inversion);
+            let partToIndex: { [key: number]: number } = {};
+            if (inversion == 'root') {
+                partToIndex[0] = 2;
+                partToIndex[1] = 1;
+                partToIndex[2] = 0;
+                partToIndex[3] = 0;  // Root is doubled
+            } else if (inversion == 'first-root') {
+                partToIndex[0] = 0;
+                partToIndex[1] = 2;
+                partToIndex[2] = 1;
+                partToIndex[3] = 0;  // Root is doubled
+            } else if (inversion == 'first-fifth') {
+                partToIndex[0] = 0;
+                partToIndex[1] = 2;
+                partToIndex[2] = 1;
+                partToIndex[3] = 2;  // Fifth is doubled
+            } else if (inversion == 'second') {
+                partToIndex[0] = 1;
+                partToIndex[1] = 0;
+                partToIndex[2] = 2;
+                partToIndex[3] = 2;  // Fifth is doubled
+            } else {
+                // TODO
+                partToIndex[0] = 3;
+                partToIndex[1] = 2;
+                partToIndex[2] = 1;
+                partToIndex[3] = 0;  // Fifth is doubled
             }
 
             for (let partIndex=0; partIndex<4; partIndex++) {
-                if (loopNotes[partIndex]) {
-                    // Add out selected notes
-                    ret[division][partIndex] = {
-                        note: loopNotes[partIndex],
-                        duration: BEAT_LENGTH,
-                        partIndex: partIndex + 1,
-                        chord: chord,
-                        scale: scale,
-                    }
+                if (inversionResult.notes[partIndex]) {
+                    // This part is already set
+                    continue;
                 }
+                addPartNote(partIndex, chord.notes[partToIndex[partIndex]]);
             }
-            console.log("inversion: ", inversion, "notes: ", JSON.stringify([0, 1, 2, 3].map(ri => ret[division][ri] ? ret[division][ri].note.toString() : null)));
-            if (inversion == 'root') {
-                // Root inversion
-                for (let partIndex=0; partIndex<4; partIndex++) {
-                    if (ret[division][partIndex]) {
-                        // This part is already set
-                        continue;
-                    }
-                    if (partIndex == 3) {
-                        addPartNote(partIndex, rootNote);
-                    }
-                    if (partIndex == 2) {
-                        addPartNote(partIndex, rootNote);
-                    }
-                    if (partIndex == 1) {
-                        addPartNote(partIndex, thirdNote);
-                    }
-                    if (partIndex == 0) {
-                        addPartNote(partIndex, fifthNote);
-                    }
-                }
-            }
-            if (inversion == 'first') {
-                // First inversion
-                for (let partIndex=0; partIndex<4; partIndex++) {
-                    if (ret[division][partIndex]) {
-                        // This part is already set
-                        continue;
-                    }
-                    if (partIndex == 3) {
-                        addPartNote(partIndex, rootNote);
-                    }
-                    if (partIndex == 2) {
-                        addPartNote(partIndex, thirdNote);
-                    }
-                    if (partIndex == 1) {
-                        addPartNote(partIndex, fifthNote);
-                    }
-                    if (partIndex == 0) {
-                        addPartNote(partIndex, rootNote);
-                    }
-                }
-            }
-            if (inversion == 'second') {
-                // Second inversion
-                for (let partIndex=0; partIndex<4; partIndex++) {
-                    if (ret[division][partIndex]) {
-                        // This part is already set
-                        continue;
-                    }
-                    if (partIndex == 3) {
-                        addPartNote(partIndex, fifthNote);
-                    }
-                    if (partIndex == 2) {
-                        addPartNote(partIndex, fifthNote);
-                    }
-                    if (partIndex == 1) {
-                        addPartNote(partIndex, rootNote);
-                    }
-                    if (partIndex == 0) {
-                        addPartNote(partIndex, thirdNote);
-                    }
-                }
-            }
-        }
+            // Lastly, we select the octaves
+            let minSemitone = 0;
+            for (let partIndex=3; partIndex>=0; partIndex--) {
+                const note = inversionResult.notes[partIndex].note
+                let gTone = globalSemitone(note);
 
-        // Lastly, we select the octaves
+                let i=0;
+                while (gTone < semitoneLimits[partIndex][0] || gTone < minSemitone) {
+                    i++;
+                    if (i > 1000) {
+                        debugger;
+                        throw "Too many iterations"
+                    }
+                    note.octave += 1;
+                    gTone = globalSemitone(note);
+                    if (gTone >= semitoneLimits[partIndex][0] && gTone >= minSemitone) {
+                        // We're about to break. Check if we should go up one more
+                        if (gTone + 12 <= semitoneLimits[partIndex][1]) {
+                            let distance = Math.abs(gTone - lastBeatGlobalSemitones[partIndex])
+                            let octaveUpDistance = Math.abs(gTone + 12 - lastBeatGlobalSemitones[partIndex])
 
-        // Get part 4 first
-        ret[division][3].note.octave = getClosestOctave(ret[division][3].note, null, lastBeatGlobalSemitones[3]);
-        const part4GlobalSemitone = globalSemitone(ret[division][3].note)
-        if (part4GlobalSemitone < semitoneLimits[3][0]) {
-            ret[division][3].note.octave += 1;
-        }
-        if (part4GlobalSemitone > semitoneLimits[3][1]) {
-            ret[division][3].note.octave -= 1;
-        }
+                            let distanceToStartingTone = Math.abs(gTone - startingGlobalSemitones[partIndex])
+                            let octaveUpDistanceToStartingTone = Math.abs(gTone + 12 - startingGlobalSemitones[partIndex])
 
-        // Build the rest on top
-        let minSemitone = globalSemitone(ret[division][3].note);
-        for (let partIndex=2; partIndex>=0; partIndex--) {
-            const note = ret[division][partIndex].note
-            let gTone = globalSemitone(note);
+                            // Is it worth it to go up one more octave?
+                            let upDiff = distance - octaveUpDistance;
+                            let startingDiff = Math.max(octaveUpDistanceToStartingTone - distanceToStartingTone - 4, 0);
+                            console.log("partIndex:", partIndex, "upDiff: ", upDiff, " startingDiff: ", startingDiff);
 
-            while (gTone < semitoneLimits[partIndex][0] || gTone < minSemitone) {
-                note.octave += 1;
-                gTone = globalSemitone(note);
-                if (gTone >= semitoneLimits[partIndex][0] && gTone >= minSemitone) {
-                    // We're about to break. Check if we should go up one more
-                    let distance = Math.abs(gTone - lastBeatGlobalSemitones[partIndex])
-                    let octaveUpDistance = Math.abs(gTone + 12 - lastBeatGlobalSemitones[partIndex])
-                    if (octaveUpDistance < distance) {
-                        note.octave += 1;
-                        gTone = globalSemitone(note);
-                        // Check one octave more
-                        distance = Math.abs(gTone - lastBeatGlobalSemitones[partIndex])
-                        octaveUpDistance = Math.abs(gTone + 12 - lastBeatGlobalSemitones[partIndex])
-                        if (octaveUpDistance < distance) {
-                            note.octave += 1;
-                            gTone = globalSemitone(note);
+                            if (upDiff > 0 && upDiff > startingDiff) {
+                                note.octave += 1;
+                                gTone = globalSemitone(note);
+                            }
                         }
                     }
                 }
+
+                // Finally, rate the result.
+
+                // Check the direction for a selected gTone, (is it allowed)
+                let distance = gTone - lastBeatGlobalSemitones[partIndex]
+                let direction: Direction;
+
+                if (distance > 0) {
+                    direction = "up";
+                    if (!directionIsGood("up")) {
+                        console.log("note ", note.toString(), "is not good because direction is up from ", new Note({semitone: lastBeatGlobalSemitones[partIndex] % 12}).toString())
+                        inversionResult.rating -= 1;
+                    }
+                } else if (distance < 0) {
+                    direction = "down";
+                    if (!directionIsGood("down")) {
+                        console.log("note ", note.toString(), "is not good because direction is down from", new Note({semitone: lastBeatGlobalSemitones[partIndex] % 12}).toString())
+                        inversionResult.rating -= 1;
+                    }
+                } else {
+                    direction = "same";
+                    if (!directionIsGood("same")) {
+                        console.log("note ", note.toString(), "is not good because direction is same from", new Note({semitone: lastBeatGlobalSemitones[partIndex] % 12}).toString())
+                        inversionResult.rating -= 1;
+                    }
+                }
+                directions[partIndex] = direction
+
+                minSemitone = gTone;
             }
-            minSemitone = gTone;
+
+            console.log(directions);
         }
+
+        // Select the best result
+        const bestInversion = inversionResults.reduce((best, current) => {
+            if (current.rating > best.rating) {
+                return current;
+            }
+            return best;
+        }, inversionResults[0]);
+        console.log("best inversion: ", bestInversion.inversionName);
+
+        ret[division][0] = bestInversion.notes[0];
+        ret[division][1] = bestInversion.notes[1];
+        ret[division][2] = bestInversion.notes[2];
+        ret[division][3] = bestInversion.notes[3];
 
         lastBeatGlobalSemitones = [
             globalSemitone(ret[division][0].note),
@@ -1181,7 +1122,6 @@ const makeChords = (params: MusicParams): Array<MusicResult> => {
     let tensions: Array<number> = [];
     let tensionBeats = []
     let chordCounts = {};
-    let rememberedChords = [];
 
     // for (let i=0; i<maxTensions; i++) {
     //     // tensionBeats.push(Math.floor(Math.random() * (maxBeats - 10)) + 6);
@@ -1217,7 +1157,7 @@ const makeChords = (params: MusicParams): Array<MusicResult> => {
             const criteriaLevel = Math.floor(iterations / (12 * 3));
             newChord = randomChord(currentScale, randomChords, params);
             randomChords.push(newChord.toString());
-            const tensionResult = getTension(prevChord, newChord, currentScale, beatsUntilLastChordInCadence, rememberedChords);
+            const tensionResult = getTension(prevChord, newChord, currentScale, beatsUntilLastChordInCadence);
             tension = tensionResult.tension;
             newScale = tensionResult.newScale;
 
@@ -1271,10 +1211,6 @@ const makeChords = (params: MusicParams): Array<MusicResult> => {
             tension: tension,
             scale: currentScale,
         } as MusicResult)
-        rememberedChords.push(newChordString);
-        if (rememberedChords.length > 6) {
-            rememberedChords.shift();
-        }
         chordCounts[newChordString] = (chordCounts[newChordString] || 0) + 1;
         currentBeat += 1;
     }
