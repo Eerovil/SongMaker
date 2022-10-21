@@ -1,12 +1,9 @@
 import {
     buildTables,
-    Chord,
     Scale,
     ScaleTemplates,
     Note,
-    Instrument,
     Semitone,
-    ChordTemplates,
 } from "musictheoryjs";
 
 const BEAT_LENGTH = 12;
@@ -20,6 +17,45 @@ const arrayOrderBy = function (array: Array<any>, selector: CallableFunction, de
         return (desc ? a > b : a < b) ? -1 : 1;
     });
 }
+
+
+const chordTemplates: { [key: string]: Array<number> } = {
+    maj: [0, 4, 7],
+    min: [0, 3, 7],
+    dim: [0, 3, 6],
+    aug: [0, 4, 8],
+    maj7: [0, 4, 7, 11],
+    min7: [0, 3, 7, 10],
+    dom7: [0, 4, 7, 10],
+    sus2: [0, 2, 7],
+    sus4: [0, 5, 7],
+}
+
+
+class Chord {
+    public notes: Array<Note>;
+    public chordType: string;
+    public toString() {
+        // Find correct Semitone key
+        let semitoneKey = Object.keys(Semitone).find(key => Semitone[key] === this.notes[0].semitone);
+        if (semitoneKey == undefined) {
+            return this.notes.map(note => note.toString()).join(", ");
+        }
+        return semitoneKey + this.chordType;
+    }
+    constructor(semitone: number, chordType: string) {
+        this.chordType = chordType;
+        const template = chordTemplates[chordType];
+        if (template == undefined) {
+            throw "Unknown chord type: " + chordType;
+        }
+        this.notes = [];
+        for (let note of template) {
+            this.notes.push(new Note({semitone: (semitone + note) % 12, octave: 1}));
+        }
+    }
+}
+
 
 type Nullable<T> = T | null
 
@@ -377,19 +413,16 @@ const getTension = (fromChord: Nullable<Chord>, toChord: Chord, currentScale: Sc
 
 
 const randomChord = (scale: Scale, prevChords: Array<string>, params: MusicParams) => {
-    const chordTypes = params.chords || ["maj", "min"] //, "dim", "aug", "maj7", "min7", "7", "dim7", "maj6", "min6", "6"]//, "sus2", "sus4"];
+    const chordTypes = params.chords.filter(chordType => Object.keys(chordTemplates).includes(chordType)) || ["maj", "min"] //, "dim", "aug", "maj7", "min7", "7", "dim7", "maj6", "min6", "6"]//, "sus2", "sus4"];
     //const chordTypes = ["min"]
-    const notes = Object.keys(Semitone).filter(key => isNaN((key as any)))
     while (true) {
-
-        const randomIndex = Math.floor(Math.random() * notes.length);
-        const randomNote = notes[randomIndex];
+        const randomSemitone = Math.floor(Math.random() * 12);
         const randomChordType = chordTypes[Math.floor(Math.random() * chordTypes.length)];
-        const randomChord = `(${randomNote.toString().replace(/\d/, '')})${randomChordType}`;
-        if (prevChords && prevChords.includes(randomChord)) {
+        const chord = new Chord(randomSemitone, randomChordType);
+        if (prevChords && prevChords.includes(chord.toString())) {
             continue;
         }
-        return new Chord(randomChord);
+        return chord;
     }
 }
 
@@ -457,14 +490,18 @@ const newVoiceLeadingNotes = (chords: Array<MusicResult>, params: MusicParams): 
 
         const chord = chords[division / BEAT_LENGTH].chord; 
         const scale = chords[division / BEAT_LENGTH].scale;
+        console.log("notes: ", chord.notes.map(n => n.toString()));
 
         ret[division] = [];
         // Depending on the inversion and chord type, we're doing different things
 
         type Direction = "up" | "down" | "same";
 
-        const inversionCount = chord.notes.length + 1; // TODO
-        let inversionNames = ["root", "first-root", "first-fifth", "second", "third"];
+        const inversionCount = 4; // TODO
+        let inversionNames = ["root", "first-root", "first-fifth", "second"];
+        if (chord.notes.length > 3) {
+            inversionNames = ["root", "first", "second", "third"];
+        }
 
         // Add a result for each possible inversion
         type InversionResult = {
@@ -549,32 +586,52 @@ const newVoiceLeadingNotes = (chords: Array<MusicResult>, params: MusicParams): 
 
             console.log("inversion: ", inversion);
             let partToIndex: { [key: number]: number } = {};
-            if (inversion == 'root') {
-                partToIndex[0] = 2;
-                partToIndex[1] = 1;
-                partToIndex[2] = 0;
-                partToIndex[3] = 0;  // Root is doubled
-            } else if (inversion == 'first-root') {
-                partToIndex[0] = 0;
-                partToIndex[1] = 2;
-                partToIndex[2] = 1;
-                partToIndex[3] = 0;  // Root is doubled
-            } else if (inversion == 'first-fifth') {
-                partToIndex[0] = 0;
-                partToIndex[1] = 2;
-                partToIndex[2] = 1;
-                partToIndex[3] = 2;  // Fifth is doubled
-            } else if (inversion == 'second') {
-                partToIndex[0] = 1;
-                partToIndex[1] = 0;
-                partToIndex[2] = 2;
-                partToIndex[3] = 2;  // Fifth is doubled
+            if (chord.notes.length == 3) {
+                if (inversion == 'root') {
+                    partToIndex[0] = 2;
+                    partToIndex[1] = 1;
+                    partToIndex[2] = 0;
+                    partToIndex[3] = 0;  // Root is doubled
+                } else if (inversion == 'first-root') {
+                    partToIndex[0] = 0;
+                    partToIndex[1] = 2;
+                    partToIndex[2] = 1;
+                    partToIndex[3] = 0;  // Root is doubled
+                } else if (inversion == 'first-fifth') {
+                    partToIndex[0] = 0;
+                    partToIndex[1] = 2;
+                    partToIndex[2] = 1;
+                    partToIndex[3] = 2;  // Fifth is doubled
+                } else if (inversion == 'second') {
+                    partToIndex[0] = 1;
+                    partToIndex[1] = 0;
+                    partToIndex[2] = 2;
+                    partToIndex[3] = 2;  // Fifth is doubled
+                } else {
+                    throw "No inversion?"
+                }
             } else {
-                // TODO
-                partToIndex[0] = 3;
-                partToIndex[1] = 2;
-                partToIndex[2] = 1;
-                partToIndex[3] = 0;  // Fifth is doubled
+                if (inversion == 'root') {
+                    partToIndex[0] = 3;
+                    partToIndex[1] = 2;
+                    partToIndex[2] = 1;
+                    partToIndex[3] = 0;
+                } else if (inversion == 'first') {
+                    partToIndex[0] = 0;
+                    partToIndex[1] = 3;
+                    partToIndex[2] = 2;
+                    partToIndex[3] = 1;
+                } else if (inversion == 'second') {
+                    partToIndex[0] = 1;
+                    partToIndex[1] = 0;
+                    partToIndex[2] = 3;
+                    partToIndex[3] = 2;
+                } else if (inversion == 'third') {
+                    partToIndex[0] = 2;
+                    partToIndex[1] = 1;
+                    partToIndex[2] = 0;
+                    partToIndex[3] = 3;
+                }
             }
 
             for (let partIndex=0; partIndex<4; partIndex++) {
@@ -1218,28 +1275,6 @@ const makeChords = (params: MusicParams): Array<MusicResult> => {
     return result
 }
 
-const testFunc = () => {
-    let currentScale = new Scale("C5(major)");
-    let chords = [
-        new Chord("(C5)maj"),
-        new Chord("(D5)maj"),
-        new Chord("(E5)maj"),
-        new Chord("(G5)maj"),
-        new Chord("(G5)maj"),
-        new Chord("(G5)maj"),
-        new Chord("(C5)maj"),
-        new Chord("(C5)maj"),
-    ]
-    chords = chords.reverse();
-    for (let i = 1; i >= 0; i--) {
-        if (i == 7) {
-            continue
-        }
-        const tension = getTension(chords[i + 1], chords[i], currentScale, i);
-        console.log(i, chords[i].toString(), tension.tension);
-    }
-}
-
 export async function makeMusic(params: MusicParams) {
     console.log(params)
     let chords: Array<MusicResult> = [];
@@ -1269,4 +1304,4 @@ export async function makeMusic(params: MusicParams) {
 
 }
 
-export { buildTables, testFunc }
+export { buildTables }

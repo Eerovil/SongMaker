@@ -1,4 +1,4 @@
-import { Note, Scale, ScaleTemplates, ChordTemplates } from 'musictheoryjs';
+import { Note, Scale, ScaleTemplates } from 'musictheoryjs';
 import { RichNote, DivisionedRichnotes, MusicParams, globalSemitone } from "./chords"
 
 type Nullable<T>  = T | null
@@ -104,25 +104,8 @@ function addRichNoteToMeasure(richNote: RichNote, measure: builder.XMLElement, s
     'beam': richNote.beam ? { '@number': beamNumber, '#text': richNote.beam } : undefined,
   };
   if (writeChord && richNote.chord && staff == 1) {
-    const fixTemplate = (template: Array<number | Array<number>>): Array<number | Array<number>> => {
-      const ret = [];
-      for (const templateRow of template) {
-        if (typeof templateRow !== 'number') {
-          if (templateRow.length > 1) {
-            if (templateRow[1] == 0) {
-              templateRow[1] = -1;
-            }
-          }
-        }
-        ret.push(templateRow)
-      }
-      return ret;
-    }
     let chordType: string = 'major';
-    const keys = Object.keys(ChordTemplates);
-    const values = Object.values(ChordTemplates).map((template) => JSON.stringify(template));
-    const index = values.indexOf(JSON.stringify(fixTemplate(richNote.chord.template)));
-    const chordTemplateKey = keys[index];
+    const chordTemplateKey = richNote.chord.chordType;
 
     let kindText = chordTemplateKey;
     console.log("Chord template key: " + chordTemplateKey);
@@ -150,6 +133,14 @@ function addRichNoteToMeasure(richNote: RichNote, measure: builder.XMLElement, s
     else if (chordTemplateKey == "min7") {
       chordType = 'minor-seventh';
       kindText = "m7";
+    }
+    else if (chordTemplateKey == "sus2") {
+      chordType = 'suspended-second';
+      kindText = "sus2";
+    }
+    else if (chordTemplateKey == "sus4") {
+      chordType = 'suspended-fourth';
+      kindText = "sus4";
     }
 
     const scoreScale = new Scale({key: 0, octave: 4, template: ScaleTemplates.major})
