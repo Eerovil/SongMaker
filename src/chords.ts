@@ -730,13 +730,31 @@ const newVoiceLeadingNotes = (chords: Array<MusicResult>, params: MusicParams): 
         ret[division][2] = bestInversion.notes[2];
         ret[division][3] = bestInversion.notes[3];
 
-        lastBeatGlobalSemitones = [
-            globalSemitone(ret[division][0].note),
-            globalSemitone(ret[division][1].note),
-            globalSemitone(ret[division][2].note),
-            globalSemitone(ret[division][3].note),
-        ];
+        const beatsPerBar = params.beatsPerBar || 4;
+        if (params.halfNotes) {
+            // If this is beat 2, 3 or 4, convert the previous note to double length
+            // if it's continuing with the same
+            if (((division / BEAT_LENGTH) % (beatsPerBar)) > 0) {
+                const previousNotes = ret[division - 12]
+                const indexesToRemove: Array<number> = [];
+                for (let i=0; i<4; i++) {
+                    if (previousNotes[i] && previousNotes[i].note.equals(bestInversion.notes[i].note)) {
+                        previousNotes[i].duration = BEAT_LENGTH * 2;
+                        indexesToRemove.push(i);
+                    }
+                }
+                ret[division] = ret[division].filter((note, index) => {
+                    return indexesToRemove.indexOf(index) == -1;
+                })
+                console.log("previousNotes: ", previousNotes);
+            }
+        }
 
+        for (let i=0; i<4; i++) {
+            if (ret[division][i]) {
+                lastBeatGlobalSemitones[i] = globalSemitone(ret[division][i].note);
+            }
+        }
     }
 
     return ret;
