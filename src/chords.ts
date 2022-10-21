@@ -408,6 +408,10 @@ const getTension = (fromChord: Nullable<Chord>, toChord: Chord, currentScale: Sc
     //     console.log("Lead tension from ", fromChord.toString(), " to ", toChord.toString(), "(", currentScale.toString(), ")", " is ", (tensionBeforelead + tension).toFixed(2));
     // }
 
+    if (fromChord.chordType == "sus4") {
+        console.log("Lead tension from ", fromChord.toString(), " to ", toChord.toString(), "(", currentScale.toString(), ")", " is ", (tensionBeforelead + tension).toFixed(2));
+    }
+
     return { tension, newScale };
 }
 
@@ -675,6 +679,7 @@ const newVoiceLeadingNotes = (chords: Array<MusicResult>, params: MusicParams): 
                                 gTone = globalSemitone(note);
                             }
                         }
+                        minSemitone = gTone;
                     }
                 }
 
@@ -1173,7 +1178,7 @@ const makeChords = (params: MusicParams): Array<MusicResult> => {
 
     const maxBeats = cadences * barsPerCadenceEnd * beatsPerBar;
     let currentBeat = 0;
-    let currentScale = new Scale({ key:0 , octave: 5, template: ScaleTemplates.major});
+    let currentScale = new Scale({ key: Math.floor(Math.random() * 12) , octave: 5, template: ScaleTemplates.major});
 
     let result: Array<MusicResult> = [];
     let tensions: Array<number> = [];
