@@ -530,53 +530,53 @@ const newVoiceLeadingNotes = (chords: Array<MusicResult>, params: MusicParams): 
                 // Now we got at least two notes. Try to figure out our inversion.
                 let inversionChoices = ['root', 'first', 'second'];
                 if (loopNotes[0]) {
-                    if (loopNotes[0] == rootNote) {
+                    if (loopNotes[0].semitone == rootNote.semitone) {
                         // highest note is root -> first inversion
                         inversionChoices = inversionChoices.filter(choice => choice == 'first');
                     }
-                    if (loopNotes[0] == thirdNote) {
+                    if (loopNotes[0].semitone == thirdNote.semitone) {
                         inversionChoices = inversionChoices.filter(choice => choice == 'second');
                     }
-                    if (loopNotes[0] == fifthNote) {
+                    if (loopNotes[0].semitone == fifthNote.semitone) {
                         inversionChoices = inversionChoices.filter(choice => choice == 'root');
                     }
                 }
                 if (loopNotes[1]) {
-                    if (loopNotes[1] == rootNote) {
+                    if (loopNotes[1].semitone == rootNote.semitone) {
                         // Second highest note is root -> second inversion
                         inversionChoices = inversionChoices.filter(choice => choice == 'second');
                     }
-                    if (loopNotes[1] == thirdNote) {
+                    if (loopNotes[1].semitone == thirdNote.semitone) {
                         inversionChoices = inversionChoices.filter(choice => choice == 'root');
                     }
-                    if (loopNotes[1] == fifthNote) {
+                    if (loopNotes[1].semitone == fifthNote.semitone) {
                         inversionChoices = inversionChoices.filter(choice => choice == 'first');
                     }
                 }
                 if (loopNotes[2]) {
-                    if (loopNotes[2] == rootNote) {
+                    if (loopNotes[2].semitone == rootNote.semitone) {
                         // third hightest note is root -> root inversion
                         inversionChoices = inversionChoices.filter(choice => choice == 'root');
                     }
-                    if (loopNotes[2] == thirdNote) {
+                    if (loopNotes[2].semitone == thirdNote.semitone) {
                         inversionChoices = inversionChoices.filter(choice => choice == 'first');
                     }
-                    if (loopNotes[2] == fifthNote) {
+                    if (loopNotes[2].semitone == fifthNote.semitone) {
                         inversionChoices = inversionChoices.filter(choice => choice == 'second');
                     }
                 }
                 if (loopNotes[3]) {
                     // The "doubled note"
                     // Here we have some options
-                    if (loopNotes[3] == rootNote) {
+                    if (loopNotes[3].semitone == rootNote.semitone) {
                         // root is doubled -> root or first inversion
                         inversionChoices = inversionChoices.filter(choice => choice == 'root' || choice == 'first');
                     }
-                    if (loopNotes[3] == thirdNote) {
+                    if (loopNotes[3].semitone == thirdNote.semitone) {
                         // third is doubled -> this should never happen...
                         inversionChoices = [];
                     }
-                    if (loopNotes[3] == fifthNote) {
+                    if (loopNotes[3].semitone == fifthNote.semitone) {
                         // fifth is doubled -> first or second inversion
                         inversionChoices = inversionChoices.filter(choice => choice == 'first' || choice == 'second');
                     }
@@ -589,7 +589,7 @@ const newVoiceLeadingNotes = (chords: Array<MusicResult>, params: MusicParams): 
                     }
                 } else {
                     // We have an inversion!
-                    inversion = inversionChoices[Math.floor(Math.random() * inversionChoices.length)];
+                    inversion = inversionChoices[0];
                     break;
                 }
             }
@@ -620,6 +620,7 @@ const newVoiceLeadingNotes = (chords: Array<MusicResult>, params: MusicParams): 
                     }
                 }
             }
+            console.log("inversion: ", inversion, "notes: ", JSON.stringify([0, 1, 2, 3].map(ri => ret[division][ri] ? ret[division][ri].note.toString() : null)));
             if (inversion == 'root') {
                 // Root inversion
                 for (let partIndex=0; partIndex<4; partIndex++) {
@@ -706,13 +707,20 @@ const newVoiceLeadingNotes = (chords: Array<MusicResult>, params: MusicParams): 
             while (gTone < semitoneLimits[partIndex][0] || gTone < minSemitone) {
                 note.octave += 1;
                 gTone = globalSemitone(note);
-                if (gTone < semitoneLimits[partIndex][0] || gTone < minSemitone) {
+                if (gTone >= semitoneLimits[partIndex][0] && gTone >= minSemitone) {
                     // We're about to break. Check if we should go up one more
-                    const distance = Math.abs(gTone - lastBeatGlobalSemitones[partIndex])
-                    const octaveUpDistance = Math.abs(gTone + 12 - lastBeatGlobalSemitones[partIndex])
+                    let distance = Math.abs(gTone - lastBeatGlobalSemitones[partIndex])
+                    let octaveUpDistance = Math.abs(gTone + 12 - lastBeatGlobalSemitones[partIndex])
                     if (octaveUpDistance < distance) {
                         note.octave += 1;
                         gTone = globalSemitone(note);
+                        // Check one octave more
+                        distance = Math.abs(gTone - lastBeatGlobalSemitones[partIndex])
+                        octaveUpDistance = Math.abs(gTone + 12 - lastBeatGlobalSemitones[partIndex])
+                        if (octaveUpDistance < distance) {
+                            note.octave += 1;
+                            gTone = globalSemitone(note);
+                        }
                     }
                 }
             }
@@ -1167,7 +1175,7 @@ const makeChords = (params: MusicParams): Array<MusicResult> => {
 
     const maxBeats = cadences * barsPerCadenceEnd * beatsPerBar;
     let currentBeat = 0;
-    let currentScale = new Scale({ key: Math.floor((Math.random() * 12)), octave: 5, template: ScaleTemplates.major});
+    let currentScale = new Scale({ key:0 , octave: 5, template: ScaleTemplates.major});
 
     let result: Array<MusicResult> = [];
     let tensions: Array<number> = [];
