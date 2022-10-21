@@ -478,7 +478,7 @@ const newVoiceLeadingNotes = (chords: Array<MusicResult>, params: MusicParams): 
     }
 
     for (let division = 0; division < chords.length * BEAT_LENGTH; division += BEAT_LENGTH) {
-        console.log("Division ", division / BEAT_LENGTH, " of ", chords.length);
+        console.groupCollapsed("Division ", division / BEAT_LENGTH, " of ", chords.length);
         // For each beat, we try to find a good matching semitone for each part.
 
         // Rules:
@@ -685,12 +685,33 @@ const newVoiceLeadingNotes = (chords: Array<MusicResult>, params: MusicParams): 
 
                             // Is it worth it to go up one more octave?
                             let upDiff = distance - octaveUpDistance;
-                            let startingDiff = Math.max(octaveUpDistanceToStartingTone - distanceToStartingTone - 4, 0);
+                            let startingDiff = Math.max(distanceToStartingTone - octaveUpDistanceToStartingTone - 4, 0);
+
+                            console.log(partIndex, "upDiff: ", upDiff, "startingDiff: ", startingDiff, "octaveUpDistanceToStartingTone", octaveUpDistanceToStartingTone, "distanceToStartingTone", distanceToStartingTone);
 
                             if (upDiff > 0 && upDiff > startingDiff) {
                                 note.octave += 1;
                                 gTone = globalSemitone(note);
+
+                                // Is it worth it to go up still one more octave? 
+                                distance = Math.abs(gTone - lastBeatGlobalSemitones[partIndex])
+                                octaveUpDistance = Math.abs(gTone + 12 - lastBeatGlobalSemitones[partIndex])
+    
+                                distanceToStartingTone = Math.abs(gTone - startingGlobalSemitones[partIndex])
+                                octaveUpDistanceToStartingTone = Math.abs(gTone + 12 - startingGlobalSemitones[partIndex])
+    
+                                // Is it worth it to go up one more octave?
+                                upDiff = distance - octaveUpDistance;
+                                startingDiff = Math.max(distanceToStartingTone - octaveUpDistanceToStartingTone - 4, 0);
+
+                                console.log(partIndex, "2 upDiff: ", upDiff, "startingDiff: ", startingDiff);
+    
+                                if (upDiff > 0 && upDiff > startingDiff) {
+                                    note.octave += 1;
+                                    gTone = globalSemitone(note);
+                                }
                             }
+                            
                         }
                         minSemitone = gTone;
                     }
@@ -785,16 +806,13 @@ const newVoiceLeadingNotes = (chords: Array<MusicResult>, params: MusicParams): 
             // if it's continuing with the same
             if (((division / BEAT_LENGTH) % (beatsPerBar)) > 0) {
                 const previousNotes = ret[division - 12]
-                const indexesToRemove: Array<number> = [];
                 for (let i=0; i<4; i++) {
-                    if (previousNotes[i] && previousNotes[i].note.equals(bestInversion.notes[i].note)) {
-                        previousNotes[i].duration = BEAT_LENGTH * 2;
-                        indexesToRemove.push(i);
+                    const previousNote = previousNotes.filter((n) => n.partIndex == i + 1)[0];
+                    if (previousNote && previousNote.note.equals(bestInversion.notes[i].note)) {
+                        previousNote.duration = BEAT_LENGTH * 2;
+                        ret[division] = ret[division].filter(note => note.partIndex != i + 1)
                     }
                 }
-                ret[division] = ret[division].filter((note, index) => {
-                    return indexesToRemove.indexOf(index) == -1;
-                })
                 console.log("previousNotes: ", previousNotes);
             }
         }
@@ -804,6 +822,8 @@ const newVoiceLeadingNotes = (chords: Array<MusicResult>, params: MusicParams): 
                 lastBeatGlobalSemitones[i] = globalSemitone(ret[division][i].note);
             }
         }
+        console.log(ret[division]);
+        console.groupEnd();
     }
 
     return ret;

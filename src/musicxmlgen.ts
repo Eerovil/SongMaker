@@ -91,6 +91,9 @@ function noteToPitch(richNote: RichNote) {
 
 
 function addRichNoteToMeasure(richNote: RichNote, measure: builder.XMLElement, staff: number, voice: number, firstNoteInChord: boolean, writeChord: boolean) {
+  if (richNote.duration == 0) {
+    return;
+  }
   const duration = richNoteDuration(richNote);
   let beamNumber = 1;
 
