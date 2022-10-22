@@ -20,7 +20,7 @@
     </script>
     <script src="dist/bundle.js"></script>
     <style>
-        input[type="range"] {
+        #beatsettings input[type="range"] {
            appearance: slider-vertical;
            width: 1rem;
         }
@@ -68,35 +68,43 @@
         <h4>Soinnut</h4>
         <div>
             <label for="chord-maj">Maj</label>
-            <input type="checkbox" id="chord-maj" value="maj">
+            <input type="checkbox" class="chordbox" id="chord-maj" value="maj">
+            <input type="range" id="chord-maj-weight" value="1" min="-0.5" max="0" step="0.1">
         </div>
         <div>
             <label for="chord-min">Min</label>
-            <input type="checkbox" id="chord-min" value="min">
+            <input type="checkbox" class="chordbox" id="chord-min" value="min">
+            <input type="range" id="chord-min-weight" value="1" min="-0.5" max="0" step="0.1">
         </div>
         <div>
             <label for="chord-aug">Aug</label>
-            <input type="checkbox" id="chord-aug" value="aug">
+            <input type="checkbox" class="chordbox" id="chord-aug" value="aug">
+            <input type="range" id="chord-aug-weight" value="1" min="-0.5" max="0" step="0.1">
         </div>
         <div>
             <label for="chord-dim">Dim</label>
-            <input type="checkbox" id="chord-dim" value="dim">
+            <input type="checkbox" class="chordbox" id="chord-dim" value="dim">
+            <input type="range" id="chord-dim-weight" value="1" min="-0.5" max="0" step="0.1">
         </div>
         <div>
             <label for="chord-maj7">Maj7</label>
-            <input type="checkbox" id="chord-maj7" value="maj7">
+            <input type="checkbox" class="chordbox" id="chord-maj7" value="maj7">
+            <input type="range" id="chord-maj7-weight" value="1" min="-0.5" max="0" step="0.1">
         </div>
         <div>
             <label for="chord-dom7">Dom7</label>
-            <input type="checkbox" id="chord-dom7" value="dom7">
+            <input type="checkbox" class="chordbox" id="chord-dom7" value="dom7">
+            <input type="range" id="chord-dom7-weight" value="1" min="-0.5" max="0" step="0.1">
         </div>
         <div>
             <label for="chord-sus2">sus2</label>
-            <input type="checkbox" id="chord-sus2" value="sus2">
+            <input type="checkbox" class="chordbox" id="chord-sus2" value="sus2">
+            <input type="range" id="chord-sus2-weight" value="1" min="-0.5" max="0" step="0.1">
         </div>
         <div>
             <label for="chord-sus4">sus4</label>
-            <input type="checkbox" id="chord-sus4" value="sus4">
+            <input type="checkbox" class="chordbox" id="chord-sus4" value="sus4">
+            <input type="range" id="chord-sus4-weight" value="1" min="-0.5" max="0" step="0.1">
         </div>
     </div>
     <div>
@@ -209,8 +217,12 @@
             if (typeof chords === "string") {
                 chords = chords.split(",");
             }
+            let i=-1;
             for (const chord of chords) {
+                i++;
                 (document.querySelector(`#chord-${chord}`) || {}).checked = true;
+                const setting = params.chordSettings[i];
+                (document.querySelector(`#chord-${chord}-weight`) || {}).value = (setting || {}).weight || 0;
             }
         }
         if (params.halfNotes) {
@@ -257,7 +269,7 @@
         params.baseTension = document.querySelector("#base-tension").value;
         params.tempo = document.querySelector("#tempo").value;
         const chords = [];
-        for (const chord of document.querySelectorAll("input[type=checkbox]:checked")) {
+        for (const chord of document.querySelectorAll("input.chordbox[type=checkbox]:checked")) {
             chords.push(chord.value);
         }
         params.chords = chords;
@@ -285,6 +297,15 @@
             });
         }
         params.beatSettings = beatSettings;
+
+        const chordSettings = [];
+        for (const chord of params.chords) {
+            const weight = document.querySelector(`#chord-${chord}-weight`).value;
+            chordSettings.push({
+                weight
+            });
+        }
+        params.chordSettings = chordSettings;
 
         // create url from params and follow the link
         const url = new URL(window.location.href);

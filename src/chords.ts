@@ -91,6 +91,9 @@ export class MusicParams {
         tension: number,
     }> = [];
     testMode?: boolean = false;
+    chordSettings: Array<{
+        weight: number
+    }> = [];
 
     constructor(params: Partial<MusicParams> | undefined = undefined) {
         if (params) {
@@ -1499,47 +1502,43 @@ const makeChords = (params: MusicParams): Array<MusicResult> => {
                 continue;
             }
             const tensionResult = getTension(prevChord, newChord, currentScale, beatsUntilLastChordInCadence);
+            for (let i=0; i<params.chords.length; i++) {
+                const chord = params.chords[i];
+                const chordWeight = parseFloat(params.chordSettings[i].weight || 0);
+                if (newChord.chordType == chord) {
+                    tensionResult.tension += ((chordWeight * 10) ** 2) / 10;
+                }
+            }
             tension = tensionResult.tension;
             newScale = tensionResult.newScale;
 
-            if (prevChord == null) {
-                if (tension > 0 || newChord.notes.filter(note => !currentScaleSemitones.includes(note.semitone)).length > 0) {
-                    continue;
-                }
-                chordIsGood = true;
-                // } else if (currentBeat % 4 == 1 && tension <= 0) {
-                //     newChord = prevChord.copy();
-                //     chordIsGood = true;
+            let wantedTension = baseTension;
+            // if (tensionBeats.includes(currentBeat)) {
+            //     wantedTension = highTension;
+            // }
+            if (maxBeats - currentBeat < 4) {
+                // Final bar
+                wantedTension = -0.5
+            }
+            if (beatsUntilLastChordInCadence < 3) {
+                wantedTension = -0.7;
             } else {
+                wantedTension += (0.1 * criteriaLevel);
+            }
 
-                let wantedTension = baseTension;
-                // if (tensionBeats.includes(currentBeat)) {
-                //     wantedTension = highTension;
-                // }
-                if (maxBeats - currentBeat < 4) {
-                    // Final bar
-                    wantedTension = -0.5
-                }
-                if (beatsUntilLastChordInCadence < 3) {
-                    wantedTension = -0.7;
-                } else {
-                    wantedTension += (0.1 * criteriaLevel);
-                }
+            if (tensionOverride != null) {
+                wantedTension = tensionOverride;
+                wantedTension += (0.1 * criteriaLevel);
+            }
 
-                if (tensionOverride != null) {
-                    wantedTension = tensionOverride;
-                    wantedTension += (0.1 * criteriaLevel);
-                }
+            const minTension = wantedTension - 0.3 - (0.2 * criteriaLevel);
 
-                const minTension = wantedTension - 0.3 - (0.2 * criteriaLevel);
-
-                if (tension < wantedTension && tension > minTension) {
-                    chordIsGood = true;
-                } else {
-                    //console.log("Tension too high: ", tension, wantedTension);
-                    if (Math.abs(tension - wantedTension) < Math.abs(closestTension - wantedTension)) {
-                        closestTension = tension;
-                    }
+            if (tension < wantedTension && tension > minTension) {
+                chordIsGood = true;
+            } else {
+                //console.log("Tension too high: ", tension, wantedTension);
+                if (Math.abs(tension - wantedTension) < Math.abs(closestTension - wantedTension)) {
+                    closestTension = tension;
                 }
             }
         }
