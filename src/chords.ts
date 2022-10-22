@@ -640,7 +640,7 @@ const newVoiceLeadingNotes = (chords: Array<MusicResult>, params: MusicParams): 
                         octave: 1  // dummy
                     }),
                     duration: BEAT_LENGTH,
-                    partIndex: partIndex + 1,
+                    partIndex: partIndex,
                     chord: chord,
                     scale: scale,
                 } as RichNote;
@@ -955,11 +955,11 @@ const makeVoiceLeadingNotes = (chords: Array<MusicResult>, melody: { [key: numbe
         duration: melody[0].duration,
         chord: firstChord,
         scale: firstScale,
-        partIndex: 1,
+        partIndex: 0,
         beam: melody[0].beam,
     });
 
-    let tmpPartIndex = 2
+    let tmpPartIndex = 1;
     for (const richNote of firstBeatNotes) {
         const note: Note = richNote.note;
         const fixedNote: Note = note.copy();
@@ -1078,7 +1078,7 @@ const makeVoiceLeadingNotes = (chords: Array<MusicResult>, melody: { [key: numbe
                 note: fixedNote,
                 chord: musicalResult.chord,
                 duration: closestNote.duration,
-                partIndex: partIndex + 1,
+                partIndex: partIndex,
                 scale: musicalResult.scale,
                 beam: closestNote.beam,
             });
@@ -1107,7 +1107,7 @@ const makeVoiceLeadingNotes = (chords: Array<MusicResult>, melody: { [key: numbe
                         ret[i].push({
                             note: fixedNote,
                             duration: melody[i].duration,
-                            partIndex: partIndex + 1,
+                            partIndex: partIndex,
                             scale: musicalResult.scale,
                             beam: melody[i].beam,
                         });
@@ -1198,7 +1198,7 @@ const randomChordNote = (chord: Chord, notesInThisBar: Array<Note>, scale: Scale
 }
 
 
-const buildMelody = (chordList: Array<MusicResult>, params: MusicParams) => {
+const buildMelody = (divisionedNotes: DivisionedRichnotes, params: MusicParams) => {
     // Initial melody, just half beats
 
     // Return value will be an object kwyed by "ticks", containing
@@ -1206,6 +1206,7 @@ const buildMelody = (chordList: Array<MusicResult>, params: MusicParams) => {
 
     // Lets just say a beat is 12 ticks
     const beatsPerCadence = 4 * params.barsPerCadence;
+    const lastDivision = BEAT_LENGTH * 4 * beatsPerCadence * params.cadenceCount;
     const sixteenthChance = params.sixteenthNotes;
     const ret: { [key: number]: RichNote } = {};
     const maxDistance = 2;
@@ -1221,17 +1222,22 @@ const buildMelody = (chordList: Array<MusicResult>, params: MusicParams) => {
 
     let barDirection = 'same'
     let notesInThisBar: Array<Note> = []
+    let counter = -1;
 
-    for (let i = 0; i < chordList.length - 0.5; i += 0.5) {
+    for (let i = 0; i < lastDivision; i += BEAT_LENGTH / 2) {
+        counter++;
+        const division = i;
+        const lastBeat = Math.floor(division / BEAT_LENGTH) * BEAT_LENGTH;
         let beatsUntilLastChordInCadence = Math.floor(i) % beatsPerCadence
         let cadenceEnding = beatsUntilLastChordInCadence >= beatsPerCadence - 1 || beatsUntilLastChordInCadence == 0
         console.log("cadenceEnding: ", cadenceEnding, "beatsUntilLastChordInCadence", beatsUntilLastChordInCadence)
         let noteIsGood = false;
         let randomNote: Nullable<Note> = null;
         let iterations = 0;
-        const chord = chordList[Math.floor(i)].chord
-        const scale = chordList[Math.floor(i)].scale
-        if (i % NOTES_PER_MELODY_PART == 0 && notesInThisBar.length > 0) {
+        const chord = divisionedNotes[lastBeat][0].chord
+        const prevChord = divisionedNotes[lastBeat - BEAT_LENGTH] ? divisionedNotes[lastBeat - BEAT_LENGTH][0].chord : null;
+        const scale = divisionedNotes[lastBeat][0].scale
+        if (counter % NOTES_PER_MELODY_PART == 0 && notesInThisBar.length > 0) {
             barDirection = directions[Math.floor(Math.random() * directions.length)];
             if (notesInThisBar[notesInThisBar.length - 1].octave >= 5) {
                 barDirection = 'down';
@@ -1257,7 +1263,6 @@ const buildMelody = (chordList: Array<MusicResult>, params: MusicParams) => {
             if (!randomNote) {
                 continue
             }
-            const prevChord = (chordList[Math.floor(i - 0.5)] || {}).chord;
             const prevNote = notesInThisBar[notesInThisBar.length - 1];
             if (prevNote && prevChord && prevChord.toString() == chord.toString()) {
                 if (criteriaLevel < 4) {
@@ -1279,56 +1284,124 @@ const buildMelody = (chordList: Array<MusicResult>, params: MusicParams) => {
         }
         console.log("randomNote: ", randomNote.toString());
         notesInThisBar.push(randomNote);
-        ret[i * 12] = {
-            note: randomNote,
-            duration: cadenceEnding ? 12 : 6
+        // find the note in the chord, and reduce its duration
+        let foundRichNote;
+        for (const richNote of divisionedNotes[lastBeat]) {
+            if (richNote.note.semitone == randomNote.semitone) {
+                richNote.duration = BEAT_LENGTH / 2;
+                foundRichNote = richNote;
+                break;
+            }
         }
+        if (!foundRichNote) {
+            debugger;
+            throw "Failed to find note in chord";
+        }
+
+        if (i % BEAT_LENGTH != 0) {
+            // we're on off-beat, so additionally we need to add a new note
+            const newRichNote = {
+                note: foundRichNote.note.copy(),
+                duration: BEAT_LENGTH / 2,
+                chord: foundRichNote.chord,
+                scale: foundRichNote.scale,
+            }
+            divisionedNotes[i] = [newRichNote];
+        } 
+
         prevPrevNote = prevNote;
         prevNote = randomNote;
 
-        if ((i * 12 - 6) % BEAT_LENGTH == 0 && ret[i * 12 - 6].duration == 6 && ret[i * 12].duration == 6) {
-            // Add beam info if previous melody note was on beat
-            ret[i * 12 - 6].beam = 'begin';
-            ret[i * 12].beam = 'end';
-        }
+        // if ((i * 12 - 6) % BEAT_LENGTH == 0 && ret[i * 12 - 6].duration == 6 && ret[i * 12].duration == 6) {
+        //     // Add beam info if previous melody note was on beat
+        //     ret[i * 12 - 6].beam = 'begin';
+        //     ret[i * 12].beam = 'end';
+        // }
 
-        if (!cadenceEnding && (ret[(i - 1) * 12] || {}).duration == 6 && i > 1 && (Math.random() < sixteenthChance || barDirection == 'repeat') && prevPrevNote && prevNote) {
-            // Add a note between prev and prevprev
-            let randomBetweenNote;
-            for (const note of scale.notes) {
-                if (note.semitone > prevPrevNote.semitone && note.semitone < prevNote.semitone) {
-                    randomBetweenNote = note;
-                    randomBetweenNote.octave = prevPrevNote.octave;
-                    break;
-                }
-                if (note.semitone < prevPrevNote.semitone && note.semitone > prevNote.semitone) {
-                    randomBetweenNote = note;
-                    randomBetweenNote.octave = prevPrevNote.octave;
-                    break;
-                }
-            }
-            if (randomBetweenNote) {
-                console.log("Adding note ", randomBetweenNote.toString(), " before ", prevPrevNote.toString());
-                ret[(i - 1) * 12].duration -= (3);
-                const noteBefore = ret[(i - 1) * 12 - 6];
-                if (noteBefore && noteBefore.duration == 6 && noteBefore.beam == "begin") {
-                    noteBefore.beam = undefined;
-                }
-                ret[(i - 1) * 12].beam = 'begin';
-                ret[((i - 1) * 12) + (3)] = {
-                    note: randomBetweenNote,
-                    duration: (3),
-                    beam: "end",
-                }
-            } else {
-                console.log("no note between", prevPrevNote.semitone, prevNote.semitone);
-            }
-        }
-        if (cadenceEnding && i == Math.floor(i)) {
-            i += 0.5;
-        }
+        // if (!cadenceEnding && (ret[(i - 1) * 12] || {}).duration == 6 && i > 1 && (Math.random() < sixteenthChance || barDirection == 'repeat') && prevPrevNote && prevNote) {
+        //     // Add a note between prev and prevprev
+        //     let randomBetweenNote;
+        //     for (const note of scale.notes) {
+        //         if (note.semitone > prevPrevNote.semitone && note.semitone < prevNote.semitone) {
+        //             randomBetweenNote = note;
+        //             randomBetweenNote.octave = prevPrevNote.octave;
+        //             break;
+        //         }
+        //         if (note.semitone < prevPrevNote.semitone && note.semitone > prevNote.semitone) {
+        //             randomBetweenNote = note;
+        //             randomBetweenNote.octave = prevPrevNote.octave;
+        //             break;
+        //         }
+        //     }
+        //     if (randomBetweenNote) {
+        //         console.log("Adding note ", randomBetweenNote.toString(), " before ", prevPrevNote.toString());
+        //         ret[(i - 1) * 12].duration -= (3);
+        //         const noteBefore = ret[(i - 1) * 12 - 6];
+        //         if (noteBefore && noteBefore.duration == 6 && noteBefore.beam == "begin") {
+        //             noteBefore.beam = undefined;
+        //         }
+        //         ret[(i - 1) * 12].beam = 'begin';
+        //         ret[((i - 1) * 12) + (3)] = {
+        //             note: randomBetweenNote,
+        //             duration: (3),
+        //             beam: "end",
+        //         }
+        //     } else {
+        //         console.log("no note between", prevPrevNote.semitone, prevNote.semitone);
+        //     }
+        // }
+        // if (cadenceEnding && i == Math.floor(i)) {
+        //     i += 0.5;
+        // }
     }
     return ret;
+}
+
+
+const addEighthNotes = (divisionedNotes: DivisionedRichnotes, params: MusicParams) => {
+    // For each part, add 8th notes between two beats, depending on things...
+    const beatsPerCadence = 4 * params.barsPerCadence;
+    const lastDivision = BEAT_LENGTH * 4 * beatsPerCadence * params.cadenceCount;
+
+    for (let partIndex=0; partIndex<4; partIndex++) {
+        for (let division=0; division<lastDivision; division += BEAT_LENGTH) {
+            const note = (divisionedNotes[division] || []).filter(n => n.partIndex == partIndex)[0];
+            const nextNote = (divisionedNotes[division + BEAT_LENGTH] || []).filter(n => n.partIndex == partIndex)[0];
+            if (!note || !nextNote || note.duration != BEAT_LENGTH || nextNote.duration != BEAT_LENGTH) {
+                console.log("Not adding 8th notes between ", note, " and ", nextNote);
+                continue;
+            }
+            const noteGTone = globalSemitone(note.note);
+            const nextNoteGTone = globalSemitone(nextNote.note);
+            const distance = noteGTone - nextNoteGTone;
+            const scale = note.scale;
+            const scaleIndex = scale.notes.findIndex(n => n.semitone == note.note.semitone);
+            const nextNoteInScale = scale.notes[(scaleIndex + 1) % scale.notes.length];
+            const prevNoteInScale = scale.notes[(scaleIndex - 1 + scale.notes.length) % scale.notes.length];
+            const addNote = (newNote: Note) => {
+                const newRichNote = {
+                    note: new Note({
+                        semitone: newNote.semitone,
+                        octave: getClosestOctave(newNote, nextNote.note),
+                    }),
+                    duration: BEAT_LENGTH / 2,
+                    partIndex: partIndex,
+                }
+                note.duration = BEAT_LENGTH / 2;
+                divisionedNotes[division + BEAT_LENGTH / 2] = [newRichNote];
+            }
+            if (distance == -3 || distance == -4) {
+                // We're going up by a minor third or a major third
+                // Add a note between them, that's in scale
+                addNote(nextNoteInScale);
+            }
+            if (distance == 3 || distance == 4) {
+                // We're going down by a minor third or a major third
+                // Add a note between them, that's in scale
+                addNote(prevNoteInScale);
+            }
+        }
+    }
 }
 
 
@@ -1471,6 +1544,7 @@ export async function makeMusic(params: MusicParams) {
     // console.groupEnd();
 
     const divisionedNotes: DivisionedRichnotes = newVoiceLeadingNotes(chords, params);
+    addEighthNotes(divisionedNotes, params)
 
     return {
         chords: chords,

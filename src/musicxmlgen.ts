@@ -181,7 +181,7 @@ function firstMeasureInit(voicePartIndex: number, measure: builder.XMLElement, p
     globalSemitone(new Note(params.noteP4 || "C3")),
   ]
 
-  const mySemitone = semitones[voicePartIndex - 1];
+  const mySemitone = semitones[voicePartIndex];
   if (mySemitone < 40) {
     clef = {
       '@number': 1,
@@ -366,9 +366,9 @@ export function toXml(divisionedNotes: DivisionedRichnotes, params: MusicParams)
   for (let partIndex=0; partIndex<parts.length; partIndex++) {
     for (let voiceIndex=0; voiceIndex<1; voiceIndex++) {
       const part = parts[partIndex];
-      const voice = voiceIndex + 1;
+      const voice = voiceIndex;
       // const voicePartIndex = ((partIndex * 2) + voiceIndex) + 1;
-      const voicePartIndex = partIndex + 1;
+      const voicePartIndex = partIndex;
       if (voiceIndex == 0) {
         measures[partIndex].push(part.ele({ 'measure': { '@number': 1 }}));
         firstMeasureInit(voicePartIndex, measures[partIndex][measures[partIndex].length - 1], params);
@@ -388,7 +388,7 @@ export function toXml(divisionedNotes: DivisionedRichnotes, params: MusicParams)
           if (richNote.partIndex != voicePartIndex) {
             continue;
           }
-          let staff = partIndex + 1;
+          let staff = partIndex;
           addRichNoteToMeasure(richNote, measures[partIndex][measures[partIndex].length - 1], staff, voice, true, divisionNumber % BEAT_LENGTH == 0);
         }
       }
