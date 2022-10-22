@@ -11,11 +11,30 @@
                 var pair = vars[i].split("=");
                 params[pair[0]] = decodeURIComponent(pair[1]);
             }
+            if (params.fulldata) {
+                return JSON.parse(params.fulldata);
+            }
             return params;
         }
         window.params = loadQueryParams();
     </script>
     <script src="dist/bundle.js"></script>
+    <style>
+        input[type="range"] {
+           appearance: slider-vertical;
+           width: 1rem;
+        }
+        #beatsettings {
+            display: flex;
+        }
+        .beatsetting {
+            display: flex;
+            flex-direction: column;
+        }
+        .beatsetting:nth-child(4n) {
+            margin-right: 1rem;
+        }
+    </style>
 </head>
 
 <body>
@@ -106,6 +125,10 @@
     </div>
     <div>
         <button onclick="updateParamsFromSettings()">OK</button>
+        <button onclick="window.location.href = '/'">Reset</button>
+    </div>
+    <div style="width: 100%" id="beatsettings">
+
     </div>
 </div>
 <button id="btn-play">PLAY</button>
@@ -196,29 +219,33 @@
         if (params.sixteenthNotes) {
             document.querySelector("#sixteenth-notes").value = params.sixteenthNotes;
         }
-        if (params.voiceP1) {
-            document.querySelector("#voice-p1").value = params.voiceP1;
+        for (const voiceParam of params.parts) {
+            const voice = voiceParam.voice;
+            const note = voiceParam.note;
+            const voiceInput = document.querySelector(`#voice-p${voice}`);
+            const noteInput = document.querySelector(`#note-p${voice}`);
+            if (voiceInput) {
+                voiceInput.value = voice;
+            }
+            if (noteInput) {
+                noteInput.value = note;
+            }
         }
-        if (params.voiceP2) {
-            document.querySelector("#voice-p2").value = params.voiceP2;
-        }
-        if (params.voiceP3) {
-            document.querySelector("#voice-p3").value = params.voiceP3;
-        }
-        if (params.voiceP4) {
-            document.querySelector("#voice-p4").value = params.voiceP4;
-        }
-        if (params.noteP1) {
-            document.querySelector("#note-p1").value = params.noteP1;
-        }
-        if (params.noteP2) {
-            document.querySelector("#note-p2").value = params.noteP2;
-        }
-        if (params.noteP3) {
-            document.querySelector("#note-p3").value = params.noteP3;
-        }
-        if (params.noteP4) {
-            document.querySelector("#note-p4").value = params.noteP4;
+        const beatCount = params.barsPerCadence * params.cadenceCount * 4;
+        const beatSettingWrapper = document.querySelector("#beatsettings");
+        for (let i=0; i<beatCount; i++) {
+            const el = document.createElement("div");
+            el.classList.add("beatsetting");
+            const beatSetting = params.beatSettings[i];
+            let tension = 0.3;
+            if (beatSetting) {
+                tension = beatSetting.tension;
+            }
+            el.innerHTML = `
+                <label for="beat-${i}">${i}</label>
+                <input id="beat-${i}" type="range" step="0.1" min="-2" max="2" value="${tension}">
+            `;
+            beatSettingWrapper.appendChild(el);
         }
     }
     updateSettingsFromParams();
@@ -233,21 +260,39 @@
         for (const chord of document.querySelectorAll("input[type=checkbox]:checked")) {
             chords.push(chord.value);
         }
-        params.chords = chords.join(",");
+        params.chords = chords;
         params.halfNotes = document.querySelector("#half-notes").checked;
         params.sixteenthNotes = document.querySelector("#sixteenth-notes").value;
-        params.voiceP1 = document.querySelector("#voice-p1").value;
-        params.voiceP2 = document.querySelector("#voice-p2").value;
-        params.voiceP3 = document.querySelector("#voice-p3").value;
-        params.voiceP4 = document.querySelector("#voice-p4").value;
-        params.noteP1 = document.querySelector("#note-p1").value;
-        params.noteP2 = document.querySelector("#note-p2").value;
-        params.noteP3 = document.querySelector("#note-p3").value;
-        params.noteP4 = document.querySelector("#note-p4").value;
+
+        const voices = [];
+        for (const voice of [1, 2, 3, 4]) {
+            const voiceInput = document.querySelector(`#voice-p${voice}`);
+            const noteInput = document.querySelector(`#note-p${voice}`);
+            if (voiceInput && noteInput) {
+                voices.push({
+                    voice: voiceInput.value,
+                    note: noteInput.value
+                });
+            }
+        }
+        params.parts = voices;
+
+        const beatSettings = [];
+        for (const beatSetting of document.querySelectorAll(".beatsetting")) {
+            const tension = beatSetting.querySelector("input").value;
+            beatSettings.push({
+                tension
+            });
+        }
+        params.beatSettings = beatSettings;
 
         // create url from params and follow the link
         const url = new URL(window.location.href);
-        url.search = new URLSearchParams(params).toString();
+        const searchParams = new URLSearchParams();
+
+        searchParams.set("fulldata", JSON.stringify(params));
+
+        url.search = searchParams.toString();
         window.location.href = url;
     }
 

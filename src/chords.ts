@@ -74,24 +74,31 @@ class Chord {
 
 type Nullable<T> = T | null
 
-export type MusicParams = {
-    beatsPerBar?: number,
-    baseTension?: number,
-    cadenceCount?: number,
-    barsPerCadence?: number,
-    chords?: Array<string>,
-    tempo?: number,
-    halfNotes?: boolean,
-    sixteenthNotes?: number,
-    voiceP1?: string,
-    voiceP2?: string,
-    voiceP3?: string,
-    voiceP4?: string,
-    noteP1?: string,
-    noteP2?: string,
-    noteP3?: string,
-    noteP4?: string,
-    testMode?: boolean,
+export class MusicParams {
+    beatsPerBar?: number = 4;
+    baseTension?: number = 0.3;
+    cadenceCount?: number = 2
+    barsPerCadence?: number = 4
+    chords?: Array<string> = ["maj", "min"];
+    tempo?: number = 40;
+    halfNotes?: boolean = true;
+    sixteenthNotes?: number = 0.5;
+    parts: Array<{
+        voice: string,
+        note: string,
+    }> = [];
+    beatSettings: Array<{
+        tension: number,
+    }> = [];
+    testMode?: boolean = false;
+
+    constructor(params: Partial<MusicParams> | undefined = undefined) {
+        if (params) {
+            for (let key in params) {
+                this[key] = params[key];
+            }
+        }
+    }
 }
 
 export type MusicResult = {
@@ -1429,6 +1436,11 @@ const makeChords = (params: MusicParams): Array<MusicResult> => {
     // }
 
     while (currentBeat < maxBeats) {
+        const beatSetting = params.beatSettings[currentBeat];
+        let tensionOverride = null;
+        if (beatSetting) {
+            tensionOverride = beatSetting.tension;
+        }
         let chordIsGood = false;
         const randomGenerator = new RandomChordGenerator(params)
         let newChord: Nullable<Chord> = null;
@@ -1451,7 +1463,7 @@ const makeChords = (params: MusicParams): Array<MusicResult> => {
 
         while (!chordIsGood) {
             iterations++;
-            if (iterations > 12 * 12) {
+            if (iterations > 500) {
                 console.log("Too many iterations, breaking, lowestTension: ", lowestTension);
                 return [];
             }
@@ -1490,6 +1502,11 @@ const makeChords = (params: MusicParams): Array<MusicResult> => {
                 if (beatsUntilLastChordInCadence < 3) {
                     wantedTension = -0.7;
                 } else {
+                    wantedTension += (0.1 * criteriaLevel);
+                }
+
+                if (tensionOverride != null) {
+                    wantedTension = tensionOverride;
                     wantedTension += (0.1 * criteriaLevel);
                 }
 

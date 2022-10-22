@@ -14,10 +14,10 @@ try {
 }
 // testFunc();
 console.groupCollapsed("makeMusic")
-let params = {} as MusicParams;
+let params = new MusicParams();
 if (browser) {
-    params = (window as any).params as MusicParams;
-    params.chords = (params.chords as unknown as string).split(",");
+    params = new MusicParams((window as any).params);
+    (window as any).params = params;
 }
 let promise: Promise;
 if (params.testMode) {
