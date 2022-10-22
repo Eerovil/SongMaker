@@ -43,7 +43,22 @@ class Chord {
         }
         return semitoneKey + this.chordType;
     }
-    constructor(semitone: number, chordType: string) {
+    constructor(semitoneOrName: number | string, chordType: string | undefined = undefined) {
+        let semitone;
+        if (typeof semitoneOrName === "string") {
+            semitone = semitoneOrName.match(/^\d+/);
+            const parsedType = semitoneOrName.match(/^\d+(.*)/);
+            if (semitone == null) {
+                throw "Invalid chord name " + semitoneOrName;
+            }
+            if (parsedType == null) {
+                throw "Invalid chord name " + semitoneOrName;
+            }
+            semitone = parseInt(semitone[0]);
+            chordType = chordType || parsedType[1];
+        } else {
+            semitone = semitoneOrName;
+        }
         this.chordType = chordType;
         const template = chordTemplates[chordType];
         if (template == undefined) {
@@ -416,17 +431,57 @@ const getTension = (fromChord: Nullable<Chord>, toChord: Chord, currentScale: Sc
 }
 
 
-const randomChord = (scale: Scale, prevChords: Array<string>, params: MusicParams) => {
-    const chordTypes = params.chords.filter(chordType => Object.keys(chordTemplates).includes(chordType)) || ["maj", "min"] //, "dim", "aug", "maj7", "min7", "7", "dim7", "maj6", "min6", "6"]//, "sus2", "sus4"];
-    //const chordTypes = ["min"]
-    while (true) {
-        const randomSemitone = Math.floor(Math.random() * 12);
-        const randomChordType = chordTypes[Math.floor(Math.random() * chordTypes.length)];
-        const chord = new Chord(randomSemitone, randomChordType);
-        if (prevChords && prevChords.includes(chord.toString())) {
-            continue;
+class RandomChordGenerator {
+    private chordTypes: string[];
+    private availableChords: Array<string>;
+    private usedChords: Set<string>;
+
+    constructor(params: MusicParams) {
+        this.chordTypes = params.chords.filter(chordType => Object.keys(chordTemplates).includes(chordType)) || ["maj", "min"]
+        this.usedChords = new Set();
+        this.buildAvailableChords();
+    };
+
+    private buildAvailableChords() {
+        this.availableChords = (this.availableChords || []).filter(chord => !this.usedChords.has(chord));
+        console.log("Rebuilding available chords, now ", this.availableChords.length, " chords available, ", this.usedChords.size, " used");
+        for (let i=0; i<100; i++) {
+            const randomType = this.chordTypes[Math.floor(Math.random() * this.chordTypes.length)];
+            const randomRoot = Math.floor(Math.random() * 12);
+            if (!this.usedChords.has(randomRoot + randomType)) {
+                this.availableChords.push(randomRoot + randomType);
+            } else {
+                console.log("Skipping ", randomRoot + randomType, " because it is already used");
+            }
         }
-        return chord;
+        console.log("availableChords: ", JSON.stringify(this.availableChords))
+    };
+
+    public cleanUp() {
+        this.usedChords.clear();
+        this.availableChords = [];
+        delete this.usedChords;
+        delete this.availableChords;
+    }
+
+    public getChord() {
+        let iterations = 0;
+        console.log("getChord")
+        while (true) {
+            if (iterations++ > 100) {
+                return null;
+            }
+            while (this.availableChords.length - 3 > 0) {
+                const chordType = this.availableChords[Math.floor(Math.random() * this.availableChords.length)];
+                if (!this.usedChords.has(chordType)) {
+                    this.usedChords.add(chordType);
+                    this.availableChords = this.availableChords.filter(chord => chord !== chordType);
+                    console.log("getChord OK")
+                    return new Chord(chordType);
+                }
+            }
+            this.buildAvailableChords();
+        }
     }
 }
 
@@ -1278,7 +1333,7 @@ const makeChords = (params: MusicParams): Array<MusicResult> => {
 
     while (currentBeat < maxBeats) {
         let chordIsGood = false;
-        let randomChords: Array<string> = [];
+        const randomGenerator = new RandomChordGenerator(params)
         let newChord: Nullable<Chord> = null;
         let tension = 0;
         let newScale: Nullable<Scale> = null;
@@ -1304,8 +1359,11 @@ const makeChords = (params: MusicParams): Array<MusicResult> => {
                 return [];
             }
             const criteriaLevel = Math.floor(iterations / (12 * 3));
-            newChord = randomChord(currentScale, randomChords, params);
-            randomChords.push(newChord.toString());
+            newChord = randomGenerator.getChord();
+            if (!newChord) {
+                console.log("Failed to get a new chord (all used)");
+                return [];
+            }
             const tensionResult = getTension(prevChord, newChord, currentScale, beatsUntilLastChordInCadence);
             tension = tensionResult.tension;
             newScale = tensionResult.newScale;
@@ -1361,6 +1419,7 @@ const makeChords = (params: MusicParams): Array<MusicResult> => {
             scale: currentScale,
         } as MusicResult)
         chordCounts[newChordString] = (chordCounts[newChordString] || 0) + 1;
+        randomGenerator.cleanUp();
         currentBeat += 1;
     }
 

@@ -19,20 +19,22 @@ if (browser) {
     params = (window as any).params as MusicParams;
     params.chords = (params.chords as unknown as string).split(",");
 }
-makeMusic(params).then((result) => {
-    console.groupEnd();
-
-    const divisionedNotes: DivisionedRichnotes = result.divisionedNotes;
-    console.groupCollapsed("xml");
-    const scoreXML = toXml(divisionedNotes, params);
-    console.groupEnd();
+setTimeout(() => {
+    makeMusic(params).then((result) => {
+        console.groupEnd();
     
-    if (browser) {
-        // console.log((window as any).result);
-        (window as any).loadPlayer = loadPlayer;
-        setTimeout(() => {
-            loadPlayer(scoreXML);
-        }, 2000)
-    }
-    
-})
+        const divisionedNotes: DivisionedRichnotes = result.divisionedNotes;
+        console.groupCollapsed("xml");
+        const scoreXML = toXml(divisionedNotes, params);
+        console.groupEnd();
+        
+        if (browser) {
+            // console.log((window as any).result);
+            (window as any).loadPlayer = loadPlayer;
+            setTimeout(() => {
+                loadPlayer(scoreXML);
+            }, 2000)
+        }
+        
+    })
+}, 3000)
