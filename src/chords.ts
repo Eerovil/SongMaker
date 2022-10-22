@@ -91,6 +91,7 @@ export type MusicParams = {
     noteP2?: string,
     noteP3?: string,
     noteP4?: string,
+    testMode?: boolean,
 }
 
 export type MusicResult = {
@@ -211,10 +212,11 @@ const getTension = (fromChord: Nullable<Chord>, toChord: Chord, currentScale: Sc
     *   @param toChord: Chord
     *   @return: tension value between -1 and 1
     */
-    // console.log("getTension: ", fromChord.toString(), toChord.toString(), currentScale.toString())
+
     if (!fromChord) {
         fromChord = toChord;
     }
+    console.groupCollapsed("getTension: ", fromChord.toString(), toChord.toString(), currentScale.toString())
     const noteCount = Math.max(fromChord.notes.length, toChord.notes.length);
     const fromNotes = fromChord.notes;
     const toNotes = toChord.notes;
@@ -256,19 +258,13 @@ const getTension = (fromChord: Nullable<Chord>, toChord: Chord, currentScale: Sc
                     }
                 }
             }
-            let multiplier = 0.1;
+            let multiplier = 0.5;
             if (closestScaleDistance > 1) {
-                multiplier = 0.5;
+                multiplier = 1;
                 if (closestScaleDistance > 2) {
-                    multiplier = 1;
+                    multiplier = 2;
                     if (closestScaleDistance > 3) {
-                        multiplier = 5;
-                        if (closestScaleDistance > 4) {
-                            multiplier = 10;
-                            if (closestScaleDistance > 5) {
-                                multiplier = 20;
-                            }
-                        }
+                        multiplier = 1000;
                     }
                 }
             }
@@ -276,8 +272,8 @@ const getTension = (fromChord: Nullable<Chord>, toChord: Chord, currentScale: Sc
                 // No scale change in the last 4 beats
                 multiplier = 2000;
             }
-            // console.log("Scale: ", closestScale, "d: ", closestScaleDistance, "c: ", toChord.toString());
-            // console.log("differingNotesNotInScale: ", differingNotesNotInScale)
+            console.log("Scale: ", closestScale, "d: ", closestScaleDistance, "c: ", toChord.toString());
+            console.log("differingNotesNotInScale: ", differingNotesNotInScale)
             tension += differingNotesNotInScale.length * multiplier;
 
             // Scale change
@@ -300,22 +296,22 @@ const getTension = (fromChord: Nullable<Chord>, toChord: Chord, currentScale: Sc
         }
     }).filter(Boolean);
     // Does fromChord have any tensioning intervals?
-    for (let i = 0; i < fromIntervals.length; i++) {
-        // Seconds want to "grow" by one semitone
-        if (fromIntervals[i] === 2) {
-            const goodTones = [fromSemitones[i] - 1, fromSemitones[i + 1] + 1].map(semitone => semitone % 12);
-            if (toSemitones.filter(semitone => goodTones.includes(semitone)).length === 1) {
-                tension -= 0.5;
-            }
-        }
-        // Perfect Fourths want to "shrink" by one semitones
-        if (fromIntervals[i] === 5) {
-            const goodTones = [fromSemitones[i] + 1, fromSemitones[i + 1] - 1].map(semitone => semitone % 12);
-            if (toSemitones.filter(semitone => goodTones.includes(semitone)).length === 1) {
-                tension -= 0.5;
-            }
-        }
-    }
+    // for (let i = 0; i < fromIntervals.length; i++) {
+    //     // Seconds want to "grow" by one semitone
+    //     if (fromIntervals[i] === 2) {
+    //         const goodTones = [fromSemitones[i] - 1, fromSemitones[i + 1] + 1].map(semitone => (semitone + 12) % 12);
+    //         if (toSemitones.filter(semitone => goodTones.includes(semitone)).length === 1) {
+    //             tension -= 0.5;
+    //         }
+    //     }
+    //     // Perfect Fourths want to "shrink" by one semitones
+    //     if (fromIntervals[i] === 5) {
+    //         const goodTones = [fromSemitones[i] + 1, fromSemitones[i + 1] - 1].map(semitone => (semitone + 12) % 12);
+    //         if (toSemitones.filter(semitone => goodTones.includes(semitone)).length === 1) {
+    //             tension -= 0.5;
+    //         }
+    //     }
+    // }
     const toIntervals: Array<number> = (toSemitones.map((semitone, index) => {
         if (index < toSemitones.length - 1) {
             const nextSemitone = toSemitones[(index + 1)];
@@ -327,16 +323,20 @@ const getTension = (fromChord: Nullable<Chord>, toChord: Chord, currentScale: Sc
     // Does toChord have any tensioning intervals?
     for (let i = 0; i < toIntervals.length; i++) {
         if (toIntervals[i] === 1) {
-            tension += (1 / noteCount) * 2.0;
+            tension += 2;
+            console.log("interval 1 causing tension")
         }
         if (toIntervals[i] === 2) {
-            tension += (1 / noteCount) * 1.0;
+            tension += 1;
+            console.log("interval 2 causing tension")
         }
         if (toIntervals[i] === 5) {
-            tension += (1 / noteCount) * 1.0;
+            tension += 0.5;
+            console.log("interval 5 causing tension")
         }
         if (toIntervals[i] === 6) {
-            tension += (1 / noteCount) * 1.0;
+            tension += 1;
+            console.log("interval 6 causing tension")
         }
     }
 
@@ -401,6 +401,7 @@ const getTension = (fromChord: Nullable<Chord>, toChord: Chord, currentScale: Sc
             const nextSemitone = parseInt((isNaN(parseInt(nextSemitoneKey)) ? -1 : nextSemitoneKey) as string);
             if (toSemitones.includes(nextSemitone)) {
                 tension -= forwardTension;
+                console.log("leading ", fromSemitone, " to next note, ", nextSemitone, " causing tension reduction")
             } else {
                 // Not resolving these leads causes more tension
                 tension += forwardTension / 2;
@@ -411,6 +412,7 @@ const getTension = (fromChord: Nullable<Chord>, toChord: Chord, currentScale: Sc
             if (tensionToItself > 0) {
                 if (toSemitones.includes(fromSemitone)) {
                     tension -= tensionToItself;
+                    console.log("leading ", fromSemitone, " to itself causing tension reduction")
                 } else {
                     // Not resolving these leads causes more tension
                     tension += tensionToItself / 2;
@@ -427,6 +429,7 @@ const getTension = (fromChord: Nullable<Chord>, toChord: Chord, currentScale: Sc
         console.log("Lead tension from ", fromChord.toString(), " to ", toChord.toString(), "(", currentScale.toString(), ")", " is ", (tensionBeforelead + tension).toFixed(2));
     }
 
+    console.groupEnd()
     return { tension, newScale };
 }
 
@@ -444,17 +447,13 @@ class RandomChordGenerator {
 
     private buildAvailableChords() {
         this.availableChords = (this.availableChords || []).filter(chord => !this.usedChords.has(chord));
-        console.log("Rebuilding available chords, now ", this.availableChords.length, " chords available, ", this.usedChords.size, " used");
         for (let i=0; i<100; i++) {
             const randomType = this.chordTypes[Math.floor(Math.random() * this.chordTypes.length)];
             const randomRoot = Math.floor(Math.random() * 12);
             if (!this.usedChords.has(randomRoot + randomType)) {
                 this.availableChords.push(randomRoot + randomType);
-            } else {
-                console.log("Skipping ", randomRoot + randomType, " because it is already used");
             }
         }
-        console.log("availableChords: ", JSON.stringify(this.availableChords))
     };
 
     public cleanUp() {
@@ -466,7 +465,6 @@ class RandomChordGenerator {
 
     public getChord() {
         let iterations = 0;
-        console.log("getChord")
         while (true) {
             if (iterations++ > 100) {
                 return null;
@@ -476,7 +474,6 @@ class RandomChordGenerator {
                 if (!this.usedChords.has(chordType)) {
                     this.usedChords.add(chordType);
                     this.availableChords = this.availableChords.filter(chord => chord !== chordType);
-                    console.log("getChord OK")
                     return new Chord(chordType);
                 }
             }
@@ -504,6 +501,8 @@ const semitoneDistance = (tone1: number, tone2: number) => {
 
 const newVoiceLeadingNotes = (chords: Array<MusicResult>, params: MusicParams): DivisionedRichnotes => {
     // New voice leading algorithm, only for the initial chords (no melody yet)
+    const beatsPerCadence = 4 * params.barsPerCadence;
+
     const ret: DivisionedRichnotes = {};
 
     const p1Note = params.noteP1 || "F4";
@@ -534,6 +533,11 @@ const newVoiceLeadingNotes = (chords: Array<MusicResult>, params: MusicParams): 
 
     for (let division = 0; division < chords.length * BEAT_LENGTH; division += BEAT_LENGTH) {
         console.groupCollapsed("Division ", division / BEAT_LENGTH, " of ", chords.length);
+
+        let beatsUntilLastChordInCadence = Math.floor(division / BEAT_LENGTH) % beatsPerCadence
+        let cadenceEnding = beatsUntilLastChordInCadence >= beatsPerCadence - 1 || beatsUntilLastChordInCadence == 0
+        console.log("cadenceEnding: ", cadenceEnding, "beatsUntilLastChordInCadence", beatsUntilLastChordInCadence)
+
         // For each beat, we try to find a good matching semitone for each part.
 
         // Rules:
@@ -549,6 +553,9 @@ const newVoiceLeadingNotes = (chords: Array<MusicResult>, params: MusicParams): 
 
         const chord = chords[division / BEAT_LENGTH].chord; 
         const scale = chords[division / BEAT_LENGTH].scale;
+
+        const firstInterval = semitoneDistance(chord.notes[0].semitone, chord.notes[1].semitone)
+        const thirdIsGood = firstInterval == 3 || firstInterval == 4;
         console.log("notes: ", chord.notes.map(n => n.toString()));
 
         ret[division] = [];
@@ -570,6 +577,7 @@ const newVoiceLeadingNotes = (chords: Array<MusicResult>, params: MusicParams): 
         const inversionResults: Array<InversionResult> = [];
 
         for (let inversionIndex=0; inversionIndex<inversionNames.length; inversionIndex++) {
+
             const directions: { [key: number ]: Direction} = {};
             const directionIsGood = (direction: Direction) => {
                 const downCount = Object.values(directions).filter(d => d == "down").length;
@@ -624,7 +632,6 @@ const newVoiceLeadingNotes = (chords: Array<MusicResult>, params: MusicParams): 
                 rating: 0,
                 inversionName: inversionNames[inversionIndex],
             };
-            inversionResults.push(inversionResult);
 
             const addPartNote = (partIndex: number, note: Note) => {
                 inversionResult.notes[partIndex] = {
@@ -660,11 +667,19 @@ const newVoiceLeadingNotes = (chords: Array<MusicResult>, params: MusicParams): 
                     partToIndex[1] = 0;
                     partToIndex[2] = 2;
                     partToIndex[3] = 1;
+                    if (!thirdIsGood) {
+                        console.log("thirdIsGood is false, skipping ", inversion);
+                        continue;
+                    }
                 } else if (inversion == 'first-third') {
                     partToIndex[0] = 0;
                     partToIndex[1] = 2;
                     partToIndex[2] = 1;
                     partToIndex[3] = 1;  // Third is doubled
+                    if (!thirdIsGood) {
+                        console.log("thirdIsGood is false, skipping ", inversion);
+                        continue;
+                    }
                 } else if (inversion == 'first-fifth') {
                     partToIndex[0] = 0;
                     partToIndex[1] = 2;
@@ -675,6 +690,10 @@ const newVoiceLeadingNotes = (chords: Array<MusicResult>, params: MusicParams): 
                     partToIndex[1] = 0;
                     partToIndex[2] = 2;
                     partToIndex[3] = 1;
+                    if (!thirdIsGood) {
+                        console.log("thirdIsGood is false, skipping ", inversion);
+                        continue;
+                    }
                 } else if (inversion == 'second') {
                     partToIndex[0] = 1;
                     partToIndex[1] = 0;
@@ -694,6 +713,10 @@ const newVoiceLeadingNotes = (chords: Array<MusicResult>, params: MusicParams): 
                     partToIndex[1] = 3;
                     partToIndex[2] = 2;
                     partToIndex[3] = 1;
+                    if (!thirdIsGood) {
+                        console.log("thirdIsGood is false, skipping ", inversion);
+                        continue;
+                    }
                 } else if (inversion == 'second') {
                     partToIndex[0] = 1;
                     partToIndex[1] = 0;
@@ -800,6 +823,7 @@ const newVoiceLeadingNotes = (chords: Array<MusicResult>, params: MusicParams): 
                 directions[partIndex] = direction
 
                 minSemitone = gTone;
+                inversionResults.push(inversionResult);
             }
 
             // Check for parallel motion (if this note had a 1st, 5th or 8th with another note
@@ -856,7 +880,7 @@ const newVoiceLeadingNotes = (chords: Array<MusicResult>, params: MusicParams): 
         ret[division][3] = bestInversion.notes[3];
 
         const beatsPerBar = params.beatsPerBar || 4;
-        if (params.halfNotes) {
+        if (params.halfNotes && !cadenceEnding) {
             // If this is beat 2, 3 or 4, convert the previous note to double length
             // if it's continuing with the same
             if (((division / BEAT_LENGTH) % (beatsPerBar)) > 0) {
@@ -1412,7 +1436,7 @@ const makeChords = (params: MusicParams): Array<MusicResult> => {
             currentScale = newScale;
             console.log("new scale: ", currentScale.toString());
         }
-        console.log(`${beatsUntilLastChordInCadence}: ${tension.toFixed(1)} - ${newChordString}`)
+        console.log(`${beatsUntilLastChordInCadence}: ${tension.toFixed(1)} - ${newChordString} (${currentScale.toString()})`);
         result.push({
             chord: newChord,
             tension: tension,
@@ -1453,6 +1477,46 @@ export async function makeMusic(params: MusicParams) {
         divisionedNotes: divisionedNotes,
     }
 
+}
+
+export async function testFunc(params: MusicParams) {
+    console.log(params)
+    let chords: Array<MusicResult> = [];
+
+    chords.push({
+        chord: new Chord('5maj'),
+        tension: 0,
+        scale: new Scale({ key: 0, octave: 5, template: ScaleTemplates.major}),
+    })
+
+    chords.push({
+        chord: new Chord('2sus4'),
+        tension: 0,
+        scale: new Scale({ key: 0, octave: 5, template: ScaleTemplates.major}),
+    })
+
+    console.log(getTension(chords[0].chord, chords[1].chord, chords[1].scale, 0));
+
+    chords.push({
+        chord: new Chord('7maj'),
+        tension: 0,
+        scale: new Scale({ key: 0, octave: 5, template: ScaleTemplates.major}),
+    })
+
+
+    chords.push({
+        chord: new Chord('5sus4'),
+        tension: 0,
+        scale: new Scale({ key: 0, octave: 5, template: ScaleTemplates.major}),
+    })
+
+
+    const divisionedNotes: DivisionedRichnotes = newVoiceLeadingNotes(chords, params);
+
+    return {
+        chords: chords,
+        divisionedNotes: divisionedNotes,
+    }
 }
 
 export { buildTables }
