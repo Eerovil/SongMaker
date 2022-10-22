@@ -905,10 +905,10 @@ const newVoiceLeadingNotes = (chords: Array<MusicResult>, params: MusicParams): 
             if (((division / BEAT_LENGTH) % (beatsPerBar)) > 0) {
                 const previousNotes = ret[division - 12]
                 for (let i=0; i<4; i++) {
-                    const previousNote = previousNotes.filter((n) => n.partIndex == i + 1)[0];
+                    const previousNote = previousNotes.filter((n) => n.partIndex == i)[0];
                     if (previousNote && previousNote.note.equals(bestInversion.notes[i].note)) {
                         previousNote.duration = BEAT_LENGTH * 2;
-                        ret[division] = ret[division].filter(note => note.partIndex != i + 1)
+                        ret[division] = ret[division].filter(note => note.partIndex != i)
                     }
                 }
                 console.log("previousNotes: ", previousNotes);
