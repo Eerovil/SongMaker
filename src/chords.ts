@@ -517,6 +517,7 @@ const semitoneDistance = (tone1: number, tone2: number) => {
 
 const newVoiceLeadingNotes = (chords: Array<MusicResult>, params: MusicParams): DivisionedRichnotes => {
     // New voice leading algorithm, only for the initial chords (no melody yet)
+    console.groupCollapsed("newVoiceLeadingNotes");
     const beatsPerCadence = 4 * params.barsPerCadence;
 
     const ret: DivisionedRichnotes = {};
@@ -922,7 +923,7 @@ const newVoiceLeadingNotes = (chords: Array<MusicResult>, params: MusicParams): 
         console.log(ret[division]);
         console.groupEnd();
     }
-
+    console.groupEnd();
     return ret;
 }
 
@@ -1377,16 +1378,19 @@ const buildMelody = (divisionedNotes: DivisionedRichnotes, params: MusicParams) 
 
 
 const addEighthNotes = (divisionedNotes: DivisionedRichnotes, params: MusicParams) => {
+    console.groupCollapsed("addEighthNotes");
     // For each part, add 8th notes between two beats, depending on things...
     const beatsPerCadence = 4 * params.barsPerCadence;
     const lastDivision = BEAT_LENGTH * 4 * beatsPerCadence * params.cadenceCount;
 
     for (let partIndex=0; partIndex<4; partIndex++) {
         for (let division=0; division<lastDivision; division += BEAT_LENGTH) {
+            console.groupCollapsed("partIndex: ", partIndex, "division: ", division);
             const note = (divisionedNotes[division] || []).filter(n => n.partIndex == partIndex)[0];
             const nextNote = (divisionedNotes[division + BEAT_LENGTH] || []).filter(n => n.partIndex == partIndex)[0];
             if (!note || !nextNote || note.duration != BEAT_LENGTH || nextNote.duration != BEAT_LENGTH) {
                 console.log("Not adding 8th notes between ", note, " and ", nextNote);
+                console.groupEnd();
                 continue;
             }
             const noteGTone = globalSemitone(note.note);
@@ -1406,7 +1410,9 @@ const addEighthNotes = (divisionedNotes: DivisionedRichnotes, params: MusicParam
                     partIndex: partIndex,
                 }
                 note.duration = BEAT_LENGTH / 2;
-                divisionedNotes[division + BEAT_LENGTH / 2] = [newRichNote];
+                divisionedNotes[division + BEAT_LENGTH / 2] = divisionedNotes[division + BEAT_LENGTH / 2] || [];
+                divisionedNotes[division + BEAT_LENGTH / 2].push(newRichNote);
+                console.log("Added note ", newNote.toString(), " between ", note.note.toString(), " and ", nextNote.note.toString());
             }
             if (distance == -3 || distance == -4) {
                 // We're going up by a minor third or a major third
@@ -1418,8 +1424,10 @@ const addEighthNotes = (divisionedNotes: DivisionedRichnotes, params: MusicParam
                 // Add a note between them, that's in scale
                 addNote(prevNoteInScale);
             }
+            console.groupEnd();
         }
     }
+    console.groupEnd();
 }
 
 
