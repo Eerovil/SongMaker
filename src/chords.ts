@@ -115,6 +115,7 @@ export type RichNote = {
     partIndex?: number,
     scale?: Scale,
     beam?: string,
+    tension?: number,
 }
 
 export type DivisionedRichnotes = {
@@ -453,6 +454,9 @@ class RandomChordGenerator {
     };
 
     private buildAvailableChords() {
+        if (!this.usedChords) {
+            this.usedChords = new Set();
+        }
         this.availableChords = (this.availableChords || []).filter(chord => !this.usedChords.has(chord));
         for (let i=0; i<100; i++) {
             const randomType = this.chordTypes[Math.floor(Math.random() * this.chordTypes.length)];
@@ -464,13 +468,18 @@ class RandomChordGenerator {
     };
 
     public cleanUp() {
-        this.usedChords.clear();
+        if (this.usedChords) {
+            this.usedChords.clear();
+        }
         this.availableChords = [];
         delete this.usedChords;
         delete this.availableChords;
     }
 
     public getChord() {
+        if (!this.availableChords || this.availableChords.length === 0) {
+            this.buildAvailableChords();
+        }
         let iterations = 0;
         while (true) {
             if (iterations++ > 100) {
@@ -560,6 +569,7 @@ const newVoiceLeadingNotes = (chords: Array<MusicResult>, params: MusicParams): 
 
         const chord = chords[division / BEAT_LENGTH].chord; 
         const scale = chords[division / BEAT_LENGTH].scale;
+        const tension = chords[division / BEAT_LENGTH].tension;
 
         const firstInterval = semitoneDistance(chord.notes[0].semitone, chord.notes[1].semitone)
         const thirdIsGood = firstInterval == 3 || firstInterval == 4;
@@ -650,6 +660,7 @@ const newVoiceLeadingNotes = (chords: Array<MusicResult>, params: MusicParams): 
                     partIndex: partIndex,
                     chord: chord,
                     scale: scale,
+                    tension: tension,
                 } as RichNote;
             }
 
@@ -1439,7 +1450,7 @@ const makeChords = (params: MusicParams): Array<MusicResult> => {
         const beatSetting = params.beatSettings[currentBeat];
         let tensionOverride = null;
         if (beatSetting) {
-            tensionOverride = beatSetting.tension;
+            tensionOverride = parseFloat(beatSetting.tension as string);
         }
         let chordIsGood = false;
         const randomGenerator = new RandomChordGenerator(params)
@@ -1450,7 +1461,7 @@ const makeChords = (params: MusicParams): Array<MusicResult> => {
         let iterations = 0;
         let currentScaleSemitones = currentScale.notes.map(note => note.semitone);
 
-        let lowestTension = 100;
+        let closestTension = -100;
 
         // currentBeat == 0 -> 7
         // currentBeat == 7 -> 0
@@ -1464,22 +1475,24 @@ const makeChords = (params: MusicParams): Array<MusicResult> => {
         while (!chordIsGood) {
             iterations++;
             if (iterations > 500) {
-                console.log("Too many iterations, breaking, lowestTension: ", lowestTension);
+                console.log("Too many iterations, breaking, closestTension: ", closestTension);
                 return [];
             }
-            const criteriaLevel = Math.floor(iterations / (12 * 3));
+            const criteriaLevel = Math.floor(iterations / (50));
+            if (iterations % 100 == 0) {
+                // Try previous chords again with different criteriaLevel...
+                randomGenerator.cleanUp();
+            }
             newChord = randomGenerator.getChord();
             if (!newChord) {
                 console.log("Failed to get a new chord (all used)");
-                return [];
+                // Try again
+                randomGenerator.cleanUp();
+                continue;
             }
             const tensionResult = getTension(prevChord, newChord, currentScale, beatsUntilLastChordInCadence);
             tension = tensionResult.tension;
             newScale = tensionResult.newScale;
-
-            if (tension < lowestTension) {
-                lowestTension = tension;
-            }
 
             if (prevChord == null) {
                 if (tension > 0 || newChord.notes.filter(note => !currentScaleSemitones.includes(note.semitone)).length > 0) {
@@ -1510,10 +1523,15 @@ const makeChords = (params: MusicParams): Array<MusicResult> => {
                     wantedTension += (0.1 * criteriaLevel);
                 }
 
-                if (tension < wantedTension) {
+                const minTension = wantedTension - 0.3 - (0.2 * criteriaLevel);
+
+                if (tension < wantedTension && tension > minTension) {
                     chordIsGood = true;
                 } else {
                     //console.log("Tension too high: ", tension, wantedTension);
+                    if (Math.abs(tension - wantedTension) < Math.abs(closestTension - wantedTension)) {
+                        closestTension = tension;
+                    }
                 }
             }
         }

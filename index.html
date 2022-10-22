@@ -50,7 +50,7 @@
     </div>
     <div>
         <label for="base-tension">Vaikeusaste</label>
-        <input type="number" id="base-tension" value="0.3" min="-10" max="10" step="0.1" style="width: 100px">
+        <input type="number" id="base-tension" value="0.3" min="-10" max="10" step="0.1" style="width: 100px" onchange="changeBaseTension()">
     </div>
     <div>
         <label for="tempo">Tempo</label>
@@ -237,13 +237,13 @@
             const el = document.createElement("div");
             el.classList.add("beatsetting");
             const beatSetting = params.beatSettings[i];
-            let tension = 0.3;
+            let tension = params.baseTension;
             if (beatSetting) {
                 tension = beatSetting.tension;
             }
             el.innerHTML = `
                 <label for="beat-${i}">${i}</label>
-                <input id="beat-${i}" type="range" step="0.1" min="-2" max="2" value="${tension}">
+                <input id="beat-${i}" type="range" step="0.1" min="-1" max="1" value="${tension}">
             `;
             beatSettingWrapper.appendChild(el);
         }
@@ -294,6 +294,20 @@
 
         url.search = searchParams.toString();
         window.location.href = url;
+    }
+
+    const changeBaseTension = () => {
+        const oldBaseTension = window.params.baseTension;
+        const newBaseTension = document.querySelector("#base-tension").value;
+        const beatSettings = window.params.beatSettings;
+        for (let i=0; i<beatSettings.length; i++) {
+            const beatSetting = beatSettings[i];
+            if (beatSetting.tension === oldBaseTension) {
+                beatSetting.tension = newBaseTension;
+                document.querySelector(`#beat-${i}`).value = newBaseTension;
+            }
+        }
+        window.params.baseTension = newBaseTension;
     }
 
     //console.log(window.scoreXML)

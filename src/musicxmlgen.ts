@@ -105,6 +105,7 @@ function addRichNoteToMeasure(richNote: RichNote, measure: builder.XMLElement, s
     'type': duration.type,
     'staff': staff,
     'beam': richNote.beam ? { '@number': beamNumber, '#text': richNote.beam } : undefined,
+    'lyric': richNote.tension && staff == 0 ? { 'text': { '#text': richNote.tension.toFixed(2) } } : undefined,
   };
   if (writeChord && richNote.chord && staff == 1) {
     let chordType: string = 'major';
