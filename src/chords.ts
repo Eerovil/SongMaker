@@ -94,6 +94,7 @@ export class MusicParams {
     chordSettings: Array<{
         weight: number
     }> = [];
+    scaleTemplate: string = "major";
 
     constructor(params: Partial<MusicParams> | undefined = undefined) {
         if (params) {
@@ -216,7 +217,7 @@ const majScaleDifference = (semitone1: number, semitone2: number) => {
 }
 
 
-const getTension = (passedFromNotes: Array<Note>, toNotes: Array<Note>, currentScale: Scale, beatsUntilLastChordInCadence: number) => {
+const getTension = (passedFromNotes: Array<Note>, toNotes: Array<Note>, currentScale: Scale, beatsUntilLastChordInCadence: number, params: MusicParams) => {
     /*
     *   Get the tension between two chords
     *   @param fromChord: Chord
@@ -254,10 +255,15 @@ const getTension = (passedFromNotes: Array<Note>, toNotes: Array<Note>, currentS
         differingNotesNotInScale = differingNotes.filter(semitone => !scaleSemitones.includes(semitone));
         if (differingNotesNotInScale.length > 0) {
             // How bad is the scale difference?
-            const majorSemitones = [0, 2, 4, 5, 7, 9, 11];
+            const goodSemitones = [];
+            let start = 0;
+            for (const interval of currentScale.template) {
+                goodSemitones.push(start + interval);
+                start += interval;
+            }
             const candidateScales: Array<number> = []
             for (let scaleCandidate = 0; scaleCandidate < 12; scaleCandidate++) {
-                const scaleSemitones = majorSemitones.map(semitone => (semitone + scaleCandidate) % 12);
+                const scaleSemitones = goodSemitones.map(semitone => (semitone + scaleCandidate) % 12);
                 if (toSemitones.every(semitone => scaleSemitones.includes(semitone))) {
                     candidateScales.push(scaleCandidate);
                 }
@@ -296,7 +302,7 @@ const getTension = (passedFromNotes: Array<Note>, toNotes: Array<Note>, currentS
             newScale = new Scale({
                 key: closestScale,
                 octave: 5,
-                template: ScaleTemplates.major
+                template: ScaleTemplates[params.scaleTemplate]
             });
 
         }
@@ -1265,8 +1271,8 @@ const makeChords = (params: MusicParams): DivisionedRichnotes => {
 
     const maxBeats = cadences * barsPerCadenceEnd * beatsPerBar;
     let currentBeat = 0;
-    let currentScale = new Scale({ key: Math.floor(Math.random() * 12) , octave: 5, template: ScaleTemplates.major});
-    //let currentScale = new Scale({ key: 0, octave: 5, template: ScaleTemplates.major});
+    let currentScale = new Scale({ key: Math.floor(Math.random() * 12) , octave: 5, template: ScaleTemplates[params.scaleTemplate]});
+    //let currentScale = new Scale({ key: 0, octave: 5, template: ScaleTemplates.dorian});
 
     let result: DivisionedRichnotes = {};
     let tensions: Array<number> = [];
@@ -1329,7 +1335,7 @@ const makeChords = (params: MusicParams): DivisionedRichnotes => {
             }
             randomNotes.splice(0, randomNotes.length);
             randomNotes.push(...partialVoiceLeading(newChord, prevNotes, currentBeat, params));
-            const tensionResult = getTension(prevNotes, randomNotes, currentScale, beatsUntilLastChordInCadence);
+            const tensionResult = getTension(prevNotes, randomNotes, currentScale, beatsUntilLastChordInCadence, params);
             for (let i=0; i<params.chords.length; i++) {
                 const chord = params.chords[i];
                 const chordWeight = parseFloat(params.chordSettings[i].weight || 0);
@@ -1445,33 +1451,6 @@ export async function testFunc(params: MusicParams) {
     console.log(params)
     let chords: Array<MusicResult> = [];
 
-    chords.push({
-        chord: new Chord('5maj'),
-        tension: 0,
-        scale: new Scale({ key: 0, octave: 5, template: ScaleTemplates.major}),
-    })
-
-    chords.push({
-        chord: new Chord('2sus4'),
-        tension: 0,
-        scale: new Scale({ key: 0, octave: 5, template: ScaleTemplates.major}),
-    })
-
-    console.log(getTension(chords[0].chord, chords[1].chord, chords[1].scale, 0));
-
-    chords.push({
-        chord: new Chord('7maj'),
-        tension: 0,
-        scale: new Scale({ key: 0, octave: 5, template: ScaleTemplates.major}),
-    })
-
-
-    chords.push({
-        chord: new Chord('5sus4'),
-        tension: 0,
-        scale: new Scale({ key: 0, octave: 5, template: ScaleTemplates.major}),
-    })
-
 
     const divisionedNotes: DivisionedRichnotes = newVoiceLeadingNotes(chords, params);
 
@@ -1481,4 +1460,4 @@ export async function testFunc(params: MusicParams) {
     }
 }
 
-export { buildTables }
+export { buildTables, ScaleTemplates }

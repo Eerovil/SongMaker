@@ -40,6 +40,7 @@
 <body>
 <p id="currentChord"></p>
 <div style="margin-top: 3rem; display: flex; justify-content: space-between; padding: 1rem 5rem; border: 1px solid black; flex-wrap: wrap;">
+    <div style="width: 100%; display: flex;">
     <div>
         <label for="cadence-count">Sointukulkujen määrä</label>
         <input type="number" id="cadence-count" value="2" min="1" max="300" step="1" style="width: 100px">
@@ -63,6 +64,10 @@
     <div>
         <label for="sixteenth-notes">16-osien osuus</label>
         <input type="number" id="sixteenth-notes" value="0.5" min="0" max="1" step="0.1" style="width: 100px">
+    </div>
+    <div>
+        <label for="scale-template">Asteikko</label>
+        <select id="scale-template"></select>
     </div>
     <div>
         <h4>Soinnut</h4>
@@ -106,6 +111,7 @@
             <input type="checkbox" class="chordbox" id="chord-sus4" value="sus4">
             <input type="range" id="chord-sus4-weight" value="1" min="-0.5" max="0" step="0.1">
         </div>
+    </div>
     </div>
     <div>
         <label for="note-p1">Lähtösävel</label>
@@ -261,6 +267,18 @@
             `;
             beatSettingWrapper.appendChild(el);
         }
+
+        const scaleTemplateSelect = document.querySelector("#scale-template");
+        for (const scaleTemplateChoice of window.scaleTemplateChoices) {
+            const option = document.createElement("option");
+            option.value = scaleTemplateChoice;
+            option.innerHTML = scaleTemplateChoice;
+            scaleTemplateSelect.appendChild(option);
+        }
+        if (params.scaleTemplate) {
+            scaleTemplateSelect.value = params.scaleTemplate;
+        }
+
     }
     updateSettingsFromParams();
 
@@ -306,6 +324,8 @@
             });
         }
         params.chordSettings = chordSettings;
+
+        params.scaleTemplate = document.querySelector("#scale-template").value;
 
         // create url from params and follow the link
         const url = new URL(window.location.href);
