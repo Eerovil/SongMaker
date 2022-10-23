@@ -29,6 +29,12 @@ promise.then((result) => {
     console.groupEnd();
 
     const divisionedNotes: DivisionedRichnotes = result.divisionedNotes;
+    if (Object.keys(divisionedNotes).length === 0) {
+        if (browser) {
+            window.alert("Epäonnistui");
+        }
+        return;
+    }
     console.groupCollapsed("xml");
     const scoreXML = toXml(divisionedNotes, params);
     console.groupEnd();

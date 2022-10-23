@@ -216,7 +216,7 @@ const majScaleDifference = (semitone1: number, semitone2: number) => {
 }
 
 
-const getTension = (fromChord: Nullable<Chord>, toChord: Chord, currentScale: Scale, beatsUntilLastChordInCadence: number) => {
+const getTension = (passedFromNotes: Array<Note>, toNotes: Array<Note>, currentScale: Scale, beatsUntilLastChordInCadence: number) => {
     /*
     *   Get the tension between two chords
     *   @param fromChord: Chord
@@ -224,22 +224,25 @@ const getTension = (fromChord: Nullable<Chord>, toChord: Chord, currentScale: Sc
     *   @return: tension value between -1 and 1
     */
 
-    if (!fromChord) {
-        fromChord = toChord;
+    let fromNotes;
+    if (passedFromNotes.length == 0) {
+        fromNotes = toNotes;
+    } else {
+        fromNotes = passedFromNotes;
     }
-    console.groupCollapsed("getTension: ", fromChord.toString(), toChord.toString(), currentScale.toString())
-    const noteCount = Math.max(fromChord.notes.length, toChord.notes.length);
-    const fromNotes = fromChord.notes;
-    const toNotes = toChord.notes;
+    const toChordString = toNotes.map(n => n.toString()).join(', ');
+    const fromChordString = fromNotes.map(n => n.toString()).join(', ');
+
+    console.groupCollapsed("getTension: ", fromChordString, "to: ", toChordString, currentScale.toString())
+    const noteCount = Math.max(fromNotes.length, toNotes.length);
     // Compare the notes. Each differing note increases the tension a bit
     let tension = 0;
     const fromSemitones = fromNotes.map(note => note.semitone);
     const toSemitones = toNotes.map(note => note.semitone);
     const differingNotes = toSemitones.filter(semitone => !fromSemitones.includes(semitone));
 
-    const toChordString = toChord.toString();
-    const fromChordString = fromChord.toString();
     tension += differingNotes.length * (1 / noteCount) * 0.5;
+    console.log("Differing notes: ", tension);
 
     // If the differing notes are not in the current scale, increase the tension
     let differingNotesNotInScale: Array<number> = []
@@ -283,7 +286,7 @@ const getTension = (fromChord: Nullable<Chord>, toChord: Chord, currentScale: Sc
                 // No scale change in the last 4 beats
                 multiplier = 2000;
             }
-            console.log("Scale: ", closestScale, "d: ", closestScaleDistance, "c: ", toChord.toString());
+            console.log("Scale: ", closestScale, "d: ", closestScaleDistance, "c: ", toChordString);
             console.log("differingNotesNotInScale: ", differingNotesNotInScale)
             tension += differingNotesNotInScale.length * multiplier;
 
@@ -298,14 +301,14 @@ const getTension = (fromChord: Nullable<Chord>, toChord: Chord, currentScale: Sc
     }
 
     // Figure out where the fromChord resolves to. If it resolves to the toChord, decrease the tension
-    const fromIntervals = fromSemitones.map((semitone, index) => {
-        if (index < fromSemitones.length - 1) {
-            const nextSemitone = fromSemitones[(index + 1)];
-            return ((nextSemitone - semitone) + 24) % 12;
-        } else {
-            return null;
-        }
-    }).filter(Boolean);
+    // const fromIntervals = fromSemitones.map((semitone, index) => {
+    //     if (index < fromSemitones.length - 1) {
+    //         const nextSemitone = fromSemitones[(index + 1)];
+    //         return ((nextSemitone - semitone) + 24) % 12;
+    //     } else {
+    //         return null;
+    //     }
+    // }).filter(Boolean);
     // Does fromChord have any tensioning intervals?
     // for (let i = 0; i < fromIntervals.length; i++) {
     //     // Seconds want to "grow" by one semitone
@@ -351,10 +354,10 @@ const getTension = (fromChord: Nullable<Chord>, toChord: Chord, currentScale: Sc
         }
     }
 
-    // If chord has not 5th with base, increase tension
-    if (toIntervals.length > 1 && toIntervals[0] + toIntervals[1] !== 7) {
-        tension += 0.5;
-    }
+    // // If chord has not 5th with base, increase tension
+    // if (toIntervals.length > 1 && toIntervals[0] + toIntervals[1] !== 7) {
+    //     tension += 0.5;
+    // }
 
     const semitoneScaleIndex: { [key: number]: number } = {
         [currentScale.notes[0].semitone]: 0,
@@ -416,6 +419,7 @@ const getTension = (fromChord: Nullable<Chord>, toChord: Chord, currentScale: Sc
             } else {
                 // Not resolving these leads causes more tension
                 tension += forwardTension / 2;
+                console.log("not leading ", fromSemitone, " to next note, ", nextSemitone, " causing tension increase")
             }
 
             // Each note is also laeding to itself
@@ -427,18 +431,21 @@ const getTension = (fromChord: Nullable<Chord>, toChord: Chord, currentScale: Sc
                 } else {
                     // Not resolving these leads causes more tension
                     tension += tensionToItself / 2;
+                    console.log("not leading ", fromSemitone, " to itself causing tension increase")
                 }
             }
         }
     }
 
-    // if (toChord.notes[0].semitone == currentScale.notes[0].semitone) {
-    //     console.log("Lead tension from ", fromChord.toString(), " to ", toChord.toString(), "(", currentScale.toString(), ")", " is ", (tensionBeforelead + tension).toFixed(2));
+    // if (toNotes[0].semitone == currentScale.notes[0].semitone) {
+    //     console.log("Lead tension from ", fromChordString, " to ", toChordString, "(", currentScale.toString(), ")", " is ", (tensionBeforelead + tension).toFixed(2));
     // }
 
-    if (fromChord.chordType == "sus4") {
-        console.log("Lead tension from ", fromChord.toString(), " to ", toChord.toString(), "(", currentScale.toString(), ")", " is ", (tensionBeforelead + tension).toFixed(2));
-    }
+    // if (fromChord.chordType == "sus4") {
+    //     console.log("Lead tension from ", fromChordString, " to ", toChordString, "(", currentScale.toString(), ")", " is ", (tensionBeforelead + tension).toFixed(2));
+    // }
+
+    console.log("Tension from ", fromChordString, " to ", toChordString, "(", currentScale.toString(), ")", " is ", (tensionBeforelead + tension).toFixed(2));
 
     console.groupEnd()
     return { tension, newScale };
@@ -518,17 +525,17 @@ const semitoneDistance = (tone1: number, tone2: number) => {
     return Math.abs((tone1 + 6) % 12 - (tone2 + 6) % 12);
 }
 
-const newVoiceLeadingNotes = (chords: Array<MusicResult>, params: MusicParams): DivisionedRichnotes => {
-    // New voice leading algorithm, only for the initial chords (no melody yet)
-    console.groupCollapsed("newVoiceLeadingNotes");
+const partialVoiceLeading = (chord: Chord, prevNotes: Array<Note>, beat: number, params: MusicParams): Array<Note> => {
+    // Return Notes in the Chord that are closest to the previous notes
+    // For each part
+    console.groupCollapsed("newVoiceLeadingNotes: ", chord.toString(), " beat: ", beat);
     const beatsPerCadence = 4 * params.barsPerCadence;
+    const ret = [];
 
-    const ret: DivisionedRichnotes = {};
-
-    const p1Note = params.noteP1 || "F4";
-    const p2Note = params.noteP2 || "C4";
-    const p3Note = params.noteP3 || "A3";
-    const p4Note = params.noteP4 || "C3";
+    const p1Note = params.parts[0].note || "F4";
+    const p2Note = params.parts[1].note || "C4";
+    const p3Note = params.parts[2].note || "A3";
+    const p4Note = params.parts[3].note || "C3";
 
     const startingGlobalSemitones = [
         globalSemitone(new Note(p1Note)),
@@ -546,15 +553,16 @@ const newVoiceLeadingNotes = (chords: Array<MusicResult>, params: MusicParams): 
     console.log(semitoneLimits)
 
     let lastBeatGlobalSemitones = [...startingGlobalSemitones]
+    if (prevNotes) {
+        lastBeatGlobalSemitones = prevNotes.map(note => globalSemitone(note));
+    }
 
-    if (chords.length == 0) {
+    if (!chord) {
         return [];
     }
 
-    for (let division = 0; division < chords.length * BEAT_LENGTH; division += BEAT_LENGTH) {
-        console.groupCollapsed("Division ", division / BEAT_LENGTH, " of ", chords.length);
-
-        let beatsUntilLastChordInCadence = Math.floor(division / BEAT_LENGTH) % beatsPerCadence
+    if (chord) {
+        let beatsUntilLastChordInCadence = (beatsPerCadence - beat) % beatsPerCadence
         let cadenceEnding = beatsUntilLastChordInCadence >= beatsPerCadence - 1 || beatsUntilLastChordInCadence == 0
         console.log("cadenceEnding: ", cadenceEnding, "beatsUntilLastChordInCadence", beatsUntilLastChordInCadence)
 
@@ -571,15 +579,10 @@ const newVoiceLeadingNotes = (chords: Array<MusicResult>, params: MusicParams): 
         // With  seventh  chords:  there  is  one voice  for  each  note,  so  distribute as  fits. If  one 
         // must omit a note from the chord, then omit the 5th.
 
-        const chord = chords[division / BEAT_LENGTH].chord; 
-        const scale = chords[division / BEAT_LENGTH].scale;
-        const tension = chords[division / BEAT_LENGTH].tension;
-
         const firstInterval = semitoneDistance(chord.notes[0].semitone, chord.notes[1].semitone)
         const thirdIsGood = firstInterval == 3 || firstInterval == 4;
         console.log("notes: ", chord.notes.map(n => n.toString()));
 
-        ret[division] = [];
         // Depending on the inversion and chord type, we're doing different things
 
         type Direction = "up" | "down" | "same";
@@ -591,7 +594,7 @@ const newVoiceLeadingNotes = (chords: Array<MusicResult>, params: MusicParams): 
 
         // Add a result for each possible inversion
         type InversionResult = {
-            notes: {[key: number]: RichNote},
+            notes: {[key: number]: Note},
             rating: number,
             inversionName: string,
         }
@@ -655,17 +658,10 @@ const newVoiceLeadingNotes = (chords: Array<MusicResult>, params: MusicParams): 
             };
 
             const addPartNote = (partIndex: number, note: Note) => {
-                inversionResult.notes[partIndex] = {
-                    note: new Note({
-                        semitone: note.semitone,
-                        octave: 1  // dummy
-                    }),
-                    duration: BEAT_LENGTH,
-                    partIndex: partIndex,
-                    chord: chord,
-                    scale: scale,
-                    tension: tension,
-                } as RichNote;
+                inversionResult.notes[partIndex] = new Note({
+                    semitone: note.semitone,
+                    octave: 1  // dummy
+                });
             }
 
             // We try each inversion. Which is best?
@@ -762,7 +758,7 @@ const newVoiceLeadingNotes = (chords: Array<MusicResult>, params: MusicParams): 
             // Lastly, we select the octaves
             let minSemitone = 0;
             for (let partIndex=3; partIndex>=0; partIndex--) {
-                const note = inversionResult.notes[partIndex].note
+                const note = inversionResult.notes[partIndex];
                 let gTone = globalSemitone(note);
 
                 let i=0;
@@ -852,7 +848,7 @@ const newVoiceLeadingNotes = (chords: Array<MusicResult>, params: MusicParams): 
             // and it still has it, then it's parallel motion)
             for (let partIndex=0; partIndex<4; partIndex++) {
                 const prevNote: number = lastBeatGlobalSemitones[partIndex];
-                const currentNote: number = globalSemitone(inversionResult.notes[partIndex].note);
+                const currentNote: number = globalSemitone(inversionResult.notes[partIndex]);
                 if (prevNote == currentNote) {
                     continue;
                 }
@@ -861,7 +857,7 @@ const newVoiceLeadingNotes = (chords: Array<MusicResult>, params: MusicParams): 
                         continue;
                     }
                     const prevNote2 = lastBeatGlobalSemitones[partIndex];
-                    const currentNote2 = globalSemitone(inversionResult.notes[partIndex2].note);
+                    const currentNote2 = globalSemitone(inversionResult.notes[partIndex2]);
                     if (prevNote2 == currentNote2) {
                         continue;
                     }
@@ -896,252 +892,40 @@ const newVoiceLeadingNotes = (chords: Array<MusicResult>, params: MusicParams): 
         }, inversionResults[0]);
         console.log("best inversion: ", bestInversion.inversionName);
 
-        ret[division][0] = bestInversion.notes[0];
-        ret[division][1] = bestInversion.notes[1];
-        ret[division][2] = bestInversion.notes[2];
-        ret[division][3] = bestInversion.notes[3];
+        ret[0] = bestInversion.notes[0];
+        ret[1] = bestInversion.notes[1];
+        ret[2] = bestInversion.notes[2];
+        ret[3] = bestInversion.notes[3];
 
         const beatsPerBar = params.beatsPerBar || 4;
-        if (params.halfNotes && !cadenceEnding) {
-            // If this is beat 2, 3 or 4, convert the previous note to double length
-            // if it's continuing with the same
-            if (((division / BEAT_LENGTH) % (beatsPerBar)) > 0) {
-                const previousNotes = ret[division - 12]
-                for (let i=0; i<4; i++) {
-                    const previousNote = previousNotes.filter((n) => n.partIndex == i)[0];
-                    if (previousNote && previousNote.note.equals(bestInversion.notes[i].note)) {
-                        previousNote.duration = BEAT_LENGTH * 2;
-                        ret[division] = ret[division].filter(note => note.partIndex != i)
-                    }
-                }
-                console.log("previousNotes: ", previousNotes);
-            }
-        }
+        // if (params.halfNotes && !cadenceEnding) {
+        //     // If this is beat 2, 3 or 4, convert the previous note to double length
+        //     // if it's continuing with the same
+        //     if (((division / BEAT_LENGTH) % (beatsPerBar)) > 0) {
+        //         const previousNotes = ret[division - 12]
+        //         for (let i=0; i<4; i++) {
+        //             const previousNote = previousNotes.filter((n) => n.partIndex == i)[0];
+        //             if (previousNote && previousNote.note.equals(bestInversion.notes[i].note)) {
+        //                 previousNote.duration = BEAT_LENGTH * 2;
+        //                 ret[division] = ret[division].filter(note => note.partIndex != i)
+        //             }
+        //         }
+        //         console.log("previousNotes: ", previousNotes);
+        //     }
+        // }
 
-        for (let i=0; i<4; i++) {
-            if (ret[division][i]) {
-                lastBeatGlobalSemitones[i] = globalSemitone(ret[division][i].note);
-            }
-        }
-        console.log(ret[division]);
-        console.groupEnd();
+        // for (let i=0; i<4; i++) {
+        //     if (ret[division][i]) {
+        //         lastBeatGlobalSemitones[i] = globalSemitone(ret[division][i].note);
+        //     }
+        // }
+        // console.log(ret[division]);
     }
     console.groupEnd();
+
     return ret;
 }
 
-const makeVoiceLeadingNotes = (chords: Array<MusicResult>, melody: { [key: number]: RichNote }, params: MusicParams) => {
-    // return value will be an object ,keyed by division. It can contain an array of RichNotes with each note 
-    // Marked with "partIndex" to indicate which voice it belongs to.
-    // NOTE: For each partIndex, the durations should match, so that at any division, if we add "duration"
-    // To any given part note in, we will get something at "division + duration" (empty spaces not allowed)
-    const ret: DivisionedRichnotes = {};
-
-    const p1Note = params.noteP1 || "F4";
-    const p2Note = params.noteP2 || "C4";
-    const p3Note = params.noteP3 || "A3";
-    const p4Note = params.noteP4 || "C3";
-
-    const startingGlobalSemitones = [
-        globalSemitone(new Note(p1Note)),
-        globalSemitone(new Note(p2Note)),
-        globalSemitone(new Note(p3Note)),
-        globalSemitone(new Note(p4Note)),
-    ]
-
-    const semitoneLimits = [
-        [startingGlobalSemitones[0] + -12, startingGlobalSemitones[0] + 12],
-        [startingGlobalSemitones[1] + -12, startingGlobalSemitones[1] + 12],
-        [startingGlobalSemitones[2] + -12, startingGlobalSemitones[2] + 12],
-        [startingGlobalSemitones[3] + -12, startingGlobalSemitones[3] + 12],
-    ]
-    console.log(semitoneLimits)
-
-    let lastBeatGlobalSemitones = [...startingGlobalSemitones]
-
-    if (chords.length == 0) {
-        return [];
-    }
-
-    // Initial note spread.
-    ret[0] = [];
-
-    const firstMelodyNote = melody[0].note;
-    firstMelodyNote.octave = getClosestOctave(firstMelodyNote, null, startingGlobalSemitones[0])
-    const firstBeatNotes: Array<RichNote> = chords[0].chord.notes.map(n => ({ note: n, duration: BEAT_LENGTH }));
-    const firstChord: Chord = chords[0].chord
-    const firstScale: Scale = chords[0].scale;
-
-    ret[0].push({
-        note: firstMelodyNote,
-        duration: melody[0].duration,
-        chord: firstChord,
-        scale: firstScale,
-        partIndex: 0,
-        beam: melody[0].beam,
-    });
-
-    let tmpPartIndex = 1;
-    for (const richNote of firstBeatNotes) {
-        const note: Note = richNote.note;
-        const fixedNote: Note = note.copy();
-        fixedNote.octave = getClosestOctave(fixedNote, firstMelodyNote, startingGlobalSemitones[tmpPartIndex - 1]);
-        ret[0].push({
-            note: fixedNote,
-            duration: BEAT_LENGTH,
-            chord: firstChord,
-            scale: firstScale,
-            partIndex: tmpPartIndex,
-        });
-        tmpPartIndex++;
-    }
-    ret[0] = arrayOrderBy(ret[0], (richNote: { freq: number; }) => richNote.freq);
-
-    console.log("fixedNotes: ", ret[0].map(res => res.note.toString()))
-
-    console.log("lastBeatGlobalSemitones:", lastBeatGlobalSemitones)
-
-    const weighedAvailableSort = (partIndex: number, richNote: RichNote) => {
-        const partLastSemitone = lastBeatGlobalSemitones[partIndex];
-        const minSemitone = semitoneLimits[partIndex][0];
-        const maxSemitone = semitoneLimits[partIndex][1];
-        let direction = 'all';
-        if (partLastSemitone >= maxSemitone) {
-            direction = 'down';
-        } else if (partLastSemitone <= minSemitone) {
-            direction = 'up';
-        }
-        let ret = semitoneDistance(richNote.note.semitone, partLastSemitone % 12);
-        if (richNote.chord && richNote.chord.notes[0].semitone == richNote.note.semitone) {
-            // Try to keep the root note in part 4
-            if (partIndex == 3) {
-                if (ret > 0) {
-                    ret -= 2;
-                }
-            } else {
-                ret += 2;
-            }
-        }
-        if (richNote.duration < BEAT_LENGTH) {
-            // Try to keep the melody in part 1
-            if (partIndex == 0) {
-                if (ret > 0) {
-                    ret -= 2;
-                }
-            } else {
-                ret += 2;
-                if (partIndex == 3) {
-                    ret += 2;
-                }
-            }
-        }
-        const newGlobalSemitone = globalSemitone(richNote.note)
-        if (direction == 'up') {
-            // Trick: Try to add 1 semitone to richNote. If the distance is smaller after adding 1, it means that it's closer to lower side
-            if (semitoneDistance(richNote.note.semitone, partLastSemitone) > semitoneDistance(richNote.note.semitone + 1, partLastSemitone)) {
-                ret += 5
-            }
-        }
-        if (direction == 'up') {
-            // Trick: Try to add 1 semitone to richNote. If the distance is bigger after adding 1, it means that it's closer from the up side
-            if (semitoneDistance(richNote.note.semitone, partLastSemitone) < semitoneDistance(richNote.note.semitone + 1, partLastSemitone)) {
-                ret += 5
-            }
-        }
-        // const distanceFromOriginal = Math.abs(
-        //     globalSemitone(richNote.note) - startingGlobalSemitones[partIndex]
-        // );
-        // ret += Math.floor(distanceFromOriginal / 6);
-        return ret;
-    }
-
-    for (let division = BEAT_LENGTH; division < chords.length * BEAT_LENGTH; division += BEAT_LENGTH) {
-        // For each beat, we try to find a good matching semitone for each part.
-        const firstBeatOfBar = division % (BEAT_LENGTH * 4) == 0;
-        const musicalResult = chords[division / BEAT_LENGTH]
-        let availableBeatNotes: Array<RichNote> = musicalResult.chord.notes.map(n => ({
-            note: n,
-            duration: BEAT_LENGTH,
-            chord: musicalResult.chord,
-            scale: musicalResult.scale,
-        }));
-        availableBeatNotes.push(melody[division]);
-        ret[division] = [];
-        for (let partIndex = 0; partIndex < 4; partIndex++) {
-            const partLastSemitone = lastBeatGlobalSemitones[partIndex];
-            const availableNotesByDistance: Array<RichNote> = arrayOrderBy(
-                availableBeatNotes, (richNote: RichNote) => weighedAvailableSort(partIndex, richNote)
-            )
-            const closestNote: RichNote = availableNotesByDistance[0];
-            if (!closestNote) {
-                throw "No closest note found";
-            }
-            const closestNoteIndex = availableBeatNotes.findIndex(richNote => richNote.note.equals(closestNote.note) && richNote.duration == closestNote.duration);
-            availableBeatNotes.splice(closestNoteIndex, 1);
-            console.log("Available notes for part ", partIndex, " at division ", division, ": ", availableNotesByDistance.map(richNote => richNote.note.toString()), partLastSemitone)
-
-            // move the available note to the right octave
-            let fixedNote = closestNote.note.copy();
-            let oldOctave = fixedNote.octave;
-            fixedNote.octave = getClosestOctave(closestNote.note, null, partLastSemitone)
-            const fixedGlobalSemitone = globalSemitone(fixedNote);
-            if (semitoneLimits[partIndex][0] - 2 > fixedGlobalSemitone) {
-                fixedNote.octave += 1;
-            } else if (semitoneLimits[partIndex][1] + 2 < fixedGlobalSemitone) {
-                fixedNote.octave -= 1;
-            }
-
-            let octaveDiff = fixedNote.octave - oldOctave;
-            console.log("octaveDiff: ", octaveDiff)
-            lastBeatGlobalSemitones[partIndex] = globalSemitone(fixedNote);
-
-            // TODO: Use closestNote.duration instead of BEAT_LENGTH
-            ret[division].push({
-                note: fixedNote,
-                chord: musicalResult.chord,
-                duration: closestNote.duration,
-                partIndex: partIndex,
-                scale: musicalResult.scale,
-                beam: closestNote.beam,
-            });
-
-            // Check if the previous beat note is the same for this part
-            if (!firstBeatOfBar && params.halfNotes && closestNote.duration == BEAT_LENGTH && ret[division - BEAT_LENGTH]) {
-                const previousBeatNote = ret[division - BEAT_LENGTH].findIndex(richNote => richNote.partIndex == partIndex + 1);
-                if (previousBeatNote != -1) {
-                    if (ret[division - BEAT_LENGTH][previousBeatNote].note.equals(fixedNote) && ret[division - BEAT_LENGTH][previousBeatNote].duration == BEAT_LENGTH) {
-                        // If it is the same, we add duration to it
-                        ret[division - BEAT_LENGTH][previousBeatNote].duration += BEAT_LENGTH;
-                        // And remove the note we just added
-                        ret[division].splice(ret[division].length - 1, 1);
-                    }
-                }
-            }
-
-
-            if (closestNote.duration < BEAT_LENGTH) {
-                // Add any notes between this and the next beat to this part
-                for (let i = division + closestNote.duration; i < division + BEAT_LENGTH; i += 1) {
-                    if (melody.hasOwnProperty(i)) {
-                        ret[i] = ret[i] || [];
-                        let fixedNote = melody[i].note.copy();
-                        fixedNote.octave += octaveDiff;
-                        ret[i].push({
-                            note: fixedNote,
-                            duration: melody[i].duration,
-                            partIndex: partIndex,
-                            scale: musicalResult.scale,
-                            beam: melody[i].beam,
-                        });
-                        i += melody[i].duration - 1;  // Just for fool-proofing and we shouldn't have to check the next
-                    }
-                }
-            }
-        }
-    }
-    return ret;
-
-}
 const NOTES_PER_MELODY_PART = 8
 
 const randomChordNote = (chord: Chord, notesInThisBar: Array<Note>, scale: Scale, criteriaLevel: number, barDirection: string) => {
@@ -1434,7 +1218,7 @@ const addEighthNotes = (divisionedNotes: DivisionedRichnotes, params: MusicParam
 }
 
 
-const makeChords = (params: MusicParams): Array<MusicResult> => {
+const makeChords = (params: MusicParams): DivisionedRichnotes => {
     // generate a progression
     const beatsPerBar = params.beatsPerBar || 4;
     const barsPerCadenceEnd = params.barsPerCadence || 4;
@@ -1448,16 +1232,18 @@ const makeChords = (params: MusicParams): Array<MusicResult> => {
     let currentBeat = 0;
     let currentScale = new Scale({ key: Math.floor(Math.random() * 12) , octave: 5, template: ScaleTemplates.major});
 
-    let result: Array<MusicResult> = [];
+    let result: DivisionedRichnotes = {};
     let tensions: Array<number> = [];
     let tensionBeats = []
     let chordCounts = {};
+    const prevNotes: Array<Note> = [];
 
     // for (let i=0; i<maxTensions; i++) {
     //     // tensionBeats.push(Math.floor(Math.random() * (maxBeats - 10)) + 6);
     // }
 
     while (currentBeat < maxBeats) {
+        console.groupCollapsed("currentBeat: ", currentBeat);
         const beatSetting = params.beatSettings[currentBeat];
         let tensionOverride = null;
         if (beatSetting) {
@@ -1468,7 +1254,9 @@ const makeChords = (params: MusicParams): Array<MusicResult> => {
         let newChord: Nullable<Chord> = null;
         let tension = 0;
         let newScale: Nullable<Scale> = null;
-        const prevChord: Nullable<Chord> = (result[result.length - 1] || {} as any).chord || null;
+
+        const randomNotes: Array<Note> = [];
+
         let iterations = 0;
         let currentScaleSemitones = currentScale.notes.map(note => note.semitone);
 
@@ -1487,7 +1275,8 @@ const makeChords = (params: MusicParams): Array<MusicResult> => {
             iterations++;
             if (iterations > 500) {
                 console.log("Too many iterations, breaking, closestTension: ", closestTension);
-                return [];
+                console.groupEnd();
+                return {};
             }
             const criteriaLevel = Math.floor(iterations / (50));
             if (iterations % 100 == 0) {
@@ -1501,7 +1290,9 @@ const makeChords = (params: MusicParams): Array<MusicResult> => {
                 randomGenerator.cleanUp();
                 continue;
             }
-            const tensionResult = getTension(prevChord, newChord, currentScale, beatsUntilLastChordInCadence);
+            randomNotes.splice(0, randomNotes.length);
+            randomNotes.push(...partialVoiceLeading(newChord, prevNotes, currentBeat, params));
+            const tensionResult = getTension(prevNotes, randomNotes, currentScale, beatsUntilLastChordInCadence);
             for (let i=0; i<params.chords.length; i++) {
                 const chord = params.chords[i];
                 const chordWeight = parseFloat(params.chordSettings[i].weight || 0);
@@ -1543,7 +1334,8 @@ const makeChords = (params: MusicParams): Array<MusicResult> => {
             }
         }
         if (newChord == null) {
-            return [];
+            console.groupEnd();
+            return {};
         }
         tensions.push(tension);
         const newChordString = newChord.toString();
@@ -1552,14 +1344,21 @@ const makeChords = (params: MusicParams): Array<MusicResult> => {
             console.log("new scale: ", currentScale.toString());
         }
         console.log(`${beatsUntilLastChordInCadence}: ${tension.toFixed(1)} - ${newChordString} (${currentScale.toString()})`);
-        result.push({
+        result[currentBeat * BEAT_LENGTH] = randomNotes.map((note, index) => ({
+            note: note,
+            partIndex: index,
+            duration: BEAT_LENGTH,
             chord: newChord,
-            tension: tension,
             scale: currentScale,
-        } as MusicResult)
+        }) as RichNote);
+
+        prevNotes.splice(0, prevNotes.length);
+        prevNotes.push(...randomNotes);
+
         chordCounts[newChordString] = (chordCounts[newChordString] || 0) + 1;
         randomGenerator.cleanUp();
         currentBeat += 1;
+        console.groupEnd();
     }
 
     return result
@@ -1567,12 +1366,21 @@ const makeChords = (params: MusicParams): Array<MusicResult> => {
 
 export async function makeMusic(params: MusicParams) {
     console.log(params)
-    let chords: Array<MusicResult> = [];
+    let divisionedNotes: DivisionedRichnotes = {};
+    let iterations = 0;
     while (true) {
+        iterations++;
+        if (iterations > 5) {
+            console.log("Too many iterations, breaking");
+            return {
+                divisionedNotes: {},
+            }
+        }
         console.groupCollapsed("makeChords");
-        chords = makeChords(params);
+        divisionedNotes = makeChords(params);
         console.groupEnd();
-        if (chords.length != 0) {
+        console.log("divisionedNotes: ", divisionedNotes);
+        if (Object.keys(divisionedNotes).length != 0) {
             break;
         }
         await new Promise((resolve) => setTimeout(resolve, 1000))
@@ -1585,11 +1393,10 @@ export async function makeMusic(params: MusicParams) {
     // const divisionedNotes: DivisionedRichnotes = makeVoiceLeadingNotes(chords, melody, params)
     // console.groupEnd();
 
-    const divisionedNotes: DivisionedRichnotes = newVoiceLeadingNotes(chords, params);
+    // const divisionedNotes: DivisionedRichnotes = newVoiceLeadingNotes(chords, params);
     addEighthNotes(divisionedNotes, params)
 
     return {
-        chords: chords,
         divisionedNotes: divisionedNotes,
     }
 
