@@ -176,10 +176,10 @@ function addRichNoteToMeasure(richNote: RichNote, measure: builder.XMLElement, s
 function firstMeasureInit(voicePartIndex: number, measure: builder.XMLElement, params: MusicParams) {
   let clef;
   const semitones = [
-    globalSemitone(new Note(params.noteP1 || "F4")),
-    globalSemitone(new Note(params.noteP2 || "C4")),
-    globalSemitone(new Note(params.noteP3 || "A3")),
-    globalSemitone(new Note(params.noteP4 || "C3")),
+    globalSemitone(new Note(params.parts[0].note || "F4")),
+    globalSemitone(new Note(params.parts[1].note || "C4")),
+    globalSemitone(new Note(params.parts[2].note || "A3")),
+    globalSemitone(new Note(params.parts[3].note || "C3")),
   ]
 
   const mySemitone = semitones[voicePartIndex];

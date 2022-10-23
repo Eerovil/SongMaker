@@ -231,11 +231,13 @@
         if (params.sixteenthNotes) {
             document.querySelector("#sixteenth-notes").value = params.sixteenthNotes;
         }
-        for (const voiceParam of params.parts) {
+
+        for (let i=0; i<4; i++) {
+            const voiceParam = params.parts[i];
             const voice = voiceParam.voice;
             const note = voiceParam.note;
-            const voiceInput = document.querySelector(`#voice-p${voice}`);
-            const noteInput = document.querySelector(`#note-p${voice}`);
+            const voiceInput = document.querySelector(`#voice-p${i+1}`);
+            const noteInput = document.querySelector(`#note-p${i+1}`);
             if (voiceInput) {
                 voiceInput.value = voice;
             }
@@ -278,14 +280,12 @@
 
         const voices = [];
         for (const voice of [1, 2, 3, 4]) {
-            const voiceInput = document.querySelector(`#voice-p${voice}`);
+            const voiceInput = document.querySelector(`#voice-p${voice}`) || "1";
             const noteInput = document.querySelector(`#note-p${voice}`);
-            if (voiceInput && noteInput) {
-                voices.push({
-                    voice: voiceInput.value,
-                    note: noteInput.value
-                });
-            }
+            voices.push({
+                voice: voiceInput.value,
+                note: noteInput.value
+            });
         }
         params.parts = voices;
 
