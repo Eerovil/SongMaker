@@ -869,7 +869,7 @@ const partialVoiceLeading = (chord: Chord, prevNotes: Array<Note>, beat: number,
                     if (partIndex == partIndex2) {
                         continue;
                     }
-                    const prevNote2 = lastBeatGlobalSemitones[partIndex];
+                    const prevNote2 = lastBeatGlobalSemitones[partIndex2];
                     const currentNote2 = globalSemitone(inversionResult.notes[partIndex2]);
                     if (prevNote2 == currentNote2) {
                         continue;
@@ -1212,6 +1212,16 @@ const addEighthNotes = (divisionedNotes: DivisionedRichnotes, params: MusicParam
             }
             const nextNoteInScale = scale.notes[(scaleIndex + 1) % scale.notes.length];
             const prevNoteInScale = scale.notes[(scaleIndex - 1 + scale.notes.length) % scale.notes.length];
+            if (globalSemitone(nextNoteInScale) < noteGTone) {
+                console.log("Next note in scale is lower than this note, so we can't add 8th notes");
+                console.groupEnd();
+                continue;
+            }
+            if (globalSemitone(prevNoteInScale) > noteGTone) {
+                console.log("Prev note in scale is higher than this note, so we can't add 8th notes");
+                console.groupEnd();
+                continue;
+            }
             const addNote = (newNote: Note) => {
                 const newRichNote = {
                     note: new Note({
