@@ -90,7 +90,14 @@ function noteToPitch(richNote: RichNote) {
 }
 
 
-function addRichNoteToMeasure(richNote: RichNote, measure: builder.XMLElement, staff: number, voice: number, firstNoteInChord: boolean, writeChord: boolean) {
+type KeyChange = {
+  fifths: number,
+  cancel: number,
+  mode: string,
+}
+
+
+function addRichNoteToMeasure(richNote: RichNote, measure: builder.XMLElement, staff: number, voice: number, firstNoteInChord: boolean, writeChord: boolean, keychange: KeyChange | undefined = undefined) {
   if (richNote.duration == 0) {
     return;
   }
@@ -170,6 +177,14 @@ function addRichNoteToMeasure(richNote: RichNote, measure: builder.XMLElement, s
       }
     })
   }
+  if (keychange) {
+    const attributes = measure.ele('attributes');
+    attributes.ele({ 'key': {
+        'cancel': { '#text': keychange.cancel },
+        'fifths': { '#text': keychange.fifths },
+        'mode': { '#text': keychange.mode },
+    }})
+  }
   measure.ele({ 'note': attrs });
 }
 
@@ -235,6 +250,29 @@ function firstMeasureInit(voicePartIndex: number, measure: builder.XMLElement, p
 });
 }
 
+
+const getScaleSharpCount = (scale: Scale) => {
+  let sharpCount = 0;
+  const semitone = scale.key;
+  const baseTones = [0, 2, 4, 5, 7, 9, 11];
+  if (semitone == 0 || semitone == 2 || semitone == 4 || semitone == 7 || semitone == 9 || semitone == 11) {
+    // Add sharps to the scale
+    for (const note of scale.notes) {
+      if (!baseTones.includes(note.semitone)) {
+        sharpCount++;
+      }
+    }
+    return sharpCount;
+  } else {
+    // Add flats to the scale
+    for (const note of scale.notes) {
+      if (!baseTones.includes(note.semitone)) {
+        sharpCount--;
+      }
+    }
+    return sharpCount;
+  }
+}
 
 export function toXml(divisionedNotes: DivisionedRichnotes, params: MusicParams): string {
   const root = builder.create({ 'score-partwise' : { '@version': 3.1 }},
@@ -364,6 +402,7 @@ export function toXml(divisionedNotes: DivisionedRichnotes, params: MusicParams)
   // 1 + 0 = 2
   // 1 + 1 = 3
 
+
   for (let partIndex=0; partIndex<parts.length; partIndex++) {
     for (let voiceIndex=0; voiceIndex<1; voiceIndex++) {
       const part = parts[partIndex];
@@ -374,6 +413,7 @@ export function toXml(divisionedNotes: DivisionedRichnotes, params: MusicParams)
         measures[partIndex].push(part.ele({ 'measure': { '@number': 1 }}));
         firstMeasureInit(voicePartIndex, measures[partIndex][measures[partIndex].length - 1], params);
       }
+      let currentScale = new Scale({ key: 0 });
       for (const division in divisionedNotes) {
         const divisionNumber = parseInt(division);
         let measureIndex = Math.floor(divisionNumber / (BEATS_PER_MEASURE * BEAT_LENGTH))
@@ -390,7 +430,52 @@ export function toXml(divisionedNotes: DivisionedRichnotes, params: MusicParams)
             continue;
           }
           let staff = partIndex;
-          addRichNoteToMeasure(richNote, measures[partIndex][measures[partIndex].length - 1], staff, voice, true, divisionNumber % BEAT_LENGTH == 0);
+          let keyChange: KeyChange | undefined = undefined
+          if (divisionNumber % (BEATS_PER_MEASURE * BEAT_LENGTH) == 0 && richNote.scale.key != currentScale.key) {
+            const prevSharpCount = getScaleSharpCount(currentScale);
+            const newSharpCount = getScaleSharpCount(richNote.scale);
+            let fifths = 0;
+            let cancel = 0;
+            if (prevSharpCount >= 0 && newSharpCount > prevSharpCount) {
+              // There were sharps, and now there are more sharps
+              fifths = newSharpCount - prevSharpCount;
+            } else if (prevSharpCount <= 0 && newSharpCount < prevSharpCount) {
+              // There were flats, and now there are more flats
+              fifths = newSharpCount - prevSharpCount;
+            } else if (prevSharpCount >= 0 && newSharpCount < prevSharpCount) {
+              // There were sharps, and now there are fewer sharps (maybe even flats)
+              for (let i=prevSharpCount; i>newSharpCount; i--) {
+                if (i > 0) {
+                  // Turn these fifths into cancels
+                  cancel++;
+                  fifths--;
+                }
+                if (i < 0) {
+                  fifths--;
+                }
+              }
+              //TODO
+            }else if (prevSharpCount <= 0 && newSharpCount > prevSharpCount) {
+              // There were flats, and now there are fewer flats (maybe even sharps)
+              //TODO
+              for (let i=prevSharpCount; i>newSharpCount; i++) {
+                if (i < 0) {
+                  // Turn these flats into cancels
+                  cancel++;
+                  fifths--;
+                }
+                if (i < 0) {
+                  fifths++;
+                }
+              }
+            }
+            console.log(`prevSharpCount: ${prevSharpCount}, newSharpCount: ${newSharpCount}, fifths: ${fifths}, cancel: ${cancel}`);
+            keyChange = {
+              fifths: fifths,
+              cancel: cancel,
+            } as KeyChange
+          }
+          addRichNoteToMeasure(richNote, measures[partIndex][measures[partIndex].length - 1], staff, voice, true, divisionNumber % BEAT_LENGTH == 0, keyChange);
         }
       }
     }

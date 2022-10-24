@@ -224,6 +224,16 @@ const getTension = (passedFromNotes: Array<Note>, toNotes: Array<Note>, currentS
     *   @param toChord: Chord
     *   @return: tension value between -1 and 1
     */
+    let wantedFunction = null;
+    if (beatsUntilLastChordInCadence < 6) {
+        wantedFunction = "sub-dominant";
+    }
+    if (beatsUntilLastChordInCadence < 4) {
+        wantedFunction = "dominant";
+    }
+    if (beatsUntilLastChordInCadence < 2) {
+        wantedFunction = "tonic";
+    }
 
     let fromNotes;
     if (passedFromNotes.length == 0) {
@@ -247,13 +257,13 @@ const getTension = (passedFromNotes: Array<Note>, toNotes: Array<Note>, currentS
     tension += differingNotes.length * (1 / noteCount) * 0.5;
     console.log("Differing notes: ", tension);
 
-    // If the differing notes are not in the current scale, increase the tension
-    let differingNotesNotInScale: Array<number> = []
+    // If the notes are not in the current scale, increase the tension
+    let notesNotInScale: Array<number> = []
     let newScale: Nullable<Scale> = null;
     if (currentScale) {
         const scaleSemitones = currentScale.notes.map(note => note.semitone);
-        differingNotesNotInScale = differingNotes.filter(semitone => !scaleSemitones.includes(semitone));
-        if (differingNotesNotInScale.length > 0) {
+        notesNotInScale = toSemitones.filter(semitone => !scaleSemitones.includes(semitone));
+        if (notesNotInScale.length > 0) {
             // How bad is the scale difference?
             const goodSemitones = [];
             let start = 0;
@@ -282,21 +292,28 @@ const getTension = (passedFromNotes: Array<Note>, toNotes: Array<Note>, currentS
             }
             let multiplier = 1;
             if (closestScaleDistance > 1) {
-                multiplier = 2;
+                multiplier = 4;
                 if (closestScaleDistance > 2) {
-                    multiplier = 4;
+                    multiplier = 8;
                     if (closestScaleDistance > 3) {
                         multiplier = 1000;
                     }
                 }
             }
-            if (beatsUntilLastChordInCadence <= 3) {
+            if (beatsUntilLastChordInCadence < 4) {
                 // No scale change in the last 4 beats
                 multiplier = 2000;
             }
+            if (passedFromNotes.length == 0) {
+                // No scale change in the first chord
+                multiplier = 2000;
+            }
+
+            // TODO TEMP
+            // multiplier = 2000;
             console.log("Scale: ", closestScale, "d: ", closestScaleDistance, "c: ", toChordString);
-            console.log("differingNotesNotInScale: ", differingNotesNotInScale)
-            tension += differingNotesNotInScale.length * multiplier;
+            console.log("differingNotesNotInScale: ", notesNotInScale)
+            tension += notesNotInScale.length * multiplier;
 
             // Scale change
             newScale = new Scale({
@@ -377,75 +394,138 @@ const getTension = (passedFromNotes: Array<Note>, toNotes: Array<Note>, currentS
         [currentScale.notes[6].semitone]: 6,
     }
 
-    let noteTensionsForward: { [key: number]: number } = {
-        0: 0.1,  // Tonic (1st, 3rd, 6th) are leading softly (strongly to itself)
-        1: 0.3,  // Subdominant (2nd, 4th) are leading a bitmore
-        2: 0.1,
-        3: 0.3,
-        4: 0.6,  // Dominant (5th, 7th) is leading strongly
-        5: 0.1,
-        6: 0.6,
-    }
 
-    if (beatsUntilLastChordInCadence < 4 && beatsUntilLastChordInCadence >= 2) {
-        // Try to get a chord with as much "leading" to tonic notes as possible
-        // we change the tensions...
-        noteTensionsForward = {
-            0: 1.6,
-            1: 0,
-            2: 0.1,
-            3: 1.6,
-            4: 0,
-            5: 1.6,
-            6: 0,
-        }
-    } else if (beatsUntilLastChordInCadence < 2) {
-        // Try to get a chord with as much tonic notes as possible
-        noteTensionsForward = {
-            0: 0,
-            1: 1.6,
-            2: 0,
-            3: 1.6,
-            4: 0,
-            5: 0,  // 6th is good also for minor
-            6: 1.6,
-        }
+    // Major / Minor
+    // C 0: Tonic
+    // D 1: SubDominant
+    // E 2: Tonic
+    // F 3: SubDominant
+    // G 4: Dominant
+    // A 5: Tonic
+    // B 6: Dominant
+
+    // I notes:
+    // 0, 2, 4
+    // ii notes:
+    // 1, 3, 5
+    // iii notes:
+    // 2, 4, 6
+    // IV notes:
+    // 3, 5, 0
+    // V notes:
+    // 4, 6, 1
+    // vi notes:
+    // 5, 0, 2
+    // viio notes:
+    // 6, 1, 3
+
+    // -> Tonic notes =       0,    2,    4,(5) (fake tonic)
+    // -> SubDominant notes = 0, 1,    3,    5
+    // -> Dominant notes =       1,    3, 4,   6
+
+    // Use relative diffs here for easy comparison
+    let chordLeads: { [key: number]: { [key: number]: number } } = {
+        0: {
+            1: 1,  // As subdominant leading ahead 1
+        },
+        1: {
+            // D: Leading to closest T notes (also is SD that leads to itself...)
+            [-1]: 1,
+            0: 1,
+            1: 1,
+        },
+        2: {},
+        3: {
+            // SD: Leading to closest D notes
+            0: 1,
+            1: 1,
+        },
+        4: {
+            // D: Leading to closest T notes
+            0: 1,
+            1: 0.5,
+        },  // Dominant (5th, 7th) is leading strongly
+        5: {
+            // SD: Leading to closest D notes
+            [-1]: 1,
+            1: 1,
+        },
+        6: {
+            // D: Leading to closest T notes
+            [-2]: 1,
+            [-1]: 0.5,
+            0: -1,  // This D DOES NOT LIKE TO STAY
+            1: 1,
+        },
     }
 
     let tensionBeforelead = tension;
+    const resolvedLeads: { [key: number]: number } = {};
 
     for (const fromGlobalSemitone of fromGlobalSemitones) {
-        // We mark each note as "leading" to the next note. If that happens, reduce tension
+        // Each note may be "leading" somewhere.
         const fromSemitone = (fromGlobalSemitone + 12) % 12;
         const scaleIndex: number = semitoneScaleIndex[fromSemitone];
-        const forwardTension: number = noteTensionsForward[scaleIndex];
-        if (forwardTension != undefined) {
-            const nextSemitoneKey = Object.keys(semitoneScaleIndex).find(k => semitoneScaleIndex[k] === (scaleIndex + 1) % 7) as string;
-            const nextSemitone = parseInt((isNaN(parseInt(nextSemitoneKey)) ? -1 : nextSemitoneKey) as string);
-            const distance = semitoneDistance(fromSemitone, nextSemitone);
-            const nextGlobalSemitone = fromGlobalSemitone + distance;
-            if (toGlobalSemitones.includes(nextGlobalSemitone)) {
-                tension -= forwardTension;
-                console.log("leading ", fromSemitone, " to next note, ", nextSemitone, " causing tension reduction")
-            } else {
-                // Not resolving these leads causes more tension
-                tension += forwardTension / 4;
-                console.log("not leading ", fromSemitone, " to next note, ", nextSemitone, " causing tension increase")
-            }
+        const leadsTo: { [key: number]: number } = chordLeads[scaleIndex];
 
-            // Each note is also laeding to itself
-            const tensionToItself = (0.6 - forwardTension) * 0.7;
-            if (tensionToItself > 0) {
-                if (toGlobalSemitones.includes(fromGlobalSemitone)) {
-                    tension -= tensionToItself;
-                    console.log("leading ", fromSemitone, " to itself causing tension reduction")
-                } else {
-                    // Not resolving these leads causes more tension
-                    tension += tensionToItself / 4;
-                    console.log("not leading ", fromSemitone, " to itself causing tension increase")
-                }
+        for (const relativeDiff in leadsTo) {
+            const nextGTone = fromGlobalSemitone + parseInt(relativeDiff)
+            resolvedLeads[nextGTone] = resolvedLeads[nextGTone] || 0
+            resolvedLeads[nextGTone] += leadsTo[relativeDiff];
+            // Add leads to all octaves
+            for (let i=-12*5; i<12*5; i+=12) {
+                resolvedLeads[nextGTone+i] = resolvedLeads[nextGTone+i] || 0
+                resolvedLeads[nextGTone+i] += leadsTo[relativeDiff];
             }
         }
+    }
+
+    const handledSemitones: number[] = []
+    for (const toGlobalSemitone of toGlobalSemitones) {
+        const toSemitone = (toGlobalSemitone + 12) % 12;
+        if (handledSemitones.includes(toSemitone)) {
+            continue;
+        }
+        handledSemitones.push(toSemitone);
+
+        const scaleIndex: number = semitoneScaleIndex[toSemitone];
+
+        if (wantedFunction) {
+            let wantedScaleIndexes;
+            if (wantedFunction == "sub-dominant") {
+                // Modify weights so that all lead to subdominants (0, 1, 3, 5)
+                wantedScaleIndexes = [0, 1, 3, 5];
+            }
+            if (wantedFunction == "dominant") {
+                // Modify weights so that all lead to dominants (1, 3, 4, 6)
+                wantedScaleIndexes = [1, 3, 4, 6];
+            }
+            if (wantedFunction == "tonic") {
+                // Modify weights so that all lead to tonic (0, 2, 4)
+                wantedScaleIndexes = [0, 2, 4];
+            }
+            
+            if (wantedScaleIndexes.indexOf(parseInt(scaleIndex)) === -1) {
+                tension += 1;
+                console.log("Tension from wanted function: ", scaleIndex, " : ", wantedFunction);
+                continue;
+            }
+        }
+
+        const leadsTo: { [key: number]: number } = chordLeads[scaleIndex];
+        if (leadsTo && leadsTo[0]) {
+            // This note is leading to itself, with some tension.
+            tension -= leadsTo[0];
+            console.log("Tension from lead to itself: ", scaleIndex, leadsTo[0], " : ", wantedFunction);
+            continue;
+        }
+
+        if (resolvedLeads[toGlobalSemitone] !== undefined) {
+            tension -= resolvedLeads[toGlobalSemitone];
+            console.log("Tension from lead: ", scaleIndex, resolvedLeads[toGlobalSemitone], " : ", wantedFunction);
+            continue;
+        }
+
     }
 
     // if (toNotes[0].semitone == currentScale.notes[0].semitone) {
@@ -464,7 +544,7 @@ const getTension = (passedFromNotes: Array<Note>, toNotes: Array<Note>, currentS
         tension += (nextWideness - prevWideness) * 0.1;
     }
 
-    console.log("Tension from ", fromChordString, " to ", toChordString, "(", currentScale.toString(), ")", " is ", tension.toFixed(2));
+    console.log("Tension from ", fromChordString, " to ", toChordString, "(", currentScale.toString(), ")", " is ", tension.toFixed(2), " before lead ", tensionBeforelead.toFixed(2));
 
     console.groupEnd()
     return { tension, newScale };
@@ -475,10 +555,12 @@ class RandomChordGenerator {
     private chordTypes: string[];
     private availableChords: Array<string>;
     private usedChords: Set<string>;
+    private currentScale: Scale;
 
-    constructor(params: MusicParams) {
+    constructor(params: MusicParams, scale: Scale) {
         this.chordTypes = params.chords.filter(chordType => Object.keys(chordTemplates).includes(chordType)) || ["maj", "min"]
         this.usedChords = new Set();
+        this.currentScale = scale;
         this.buildAvailableChords();
     };
 
@@ -487,6 +569,19 @@ class RandomChordGenerator {
             this.usedChords = new Set();
         }
         this.availableChords = (this.availableChords || []).filter(chord => !this.usedChords.has(chord));
+        // First try to add the simplest chords
+        for (const simpleChordType of this.chordTypes.filter(chordType => ["maj", "min"].includes(chordType))) {
+            for (let randomRoot=0; randomRoot<12; randomRoot++) {
+                if (!this.usedChords.has(randomRoot + simpleChordType)) {
+                    this.availableChords.push(randomRoot + simpleChordType);
+                }
+            }
+        }
+
+        if (this.availableChords.length > 0) {
+            return;
+        }
+
         for (let i=0; i<100; i++) {
             const randomType = this.chordTypes[Math.floor(Math.random() * this.chordTypes.length)];
             const randomRoot = Math.floor(Math.random() * 12);
@@ -924,22 +1019,6 @@ const partialVoiceLeading = (chord: Chord, prevNotes: Array<Note>, beat: number,
         ret[3] = randomInversion.notes[3];
 
         const beatsPerBar = params.beatsPerBar || 4;
-        // if (params.halfNotes && !cadenceEnding) {
-        //     // If this is beat 2, 3 or 4, convert the previous note to double length
-        //     // if it's continuing with the same
-        //     if (((division / BEAT_LENGTH) % (beatsPerBar)) > 0) {
-        //         const previousNotes = ret[division - 12]
-        //         for (let i=0; i<4; i++) {
-        //             const previousNote = previousNotes.filter((n) => n.partIndex == i)[0];
-        //             if (previousNote && previousNote.note.equals(bestInversion.notes[i].note)) {
-        //                 previousNote.duration = BEAT_LENGTH * 2;
-        //                 ret[division] = ret[division].filter(note => note.partIndex != i)
-        //             }
-        //         }
-        //         console.log("previousNotes: ", previousNotes);
-        //     }
-        // }
-
         // for (let i=0; i<4; i++) {
         //     if (ret[division][i]) {
         //         lastBeatGlobalSemitones[i] = globalSemitone(ret[division][i].note);
@@ -1031,6 +1110,7 @@ const randomChordNote = (chord: Chord, notesInThisBar: Array<Note>, scale: Scale
 
 
 const buildMelody = (divisionedNotes: DivisionedRichnotes, params: MusicParams) => {
+    console.groupCollapsed("buildMelody");
     // Initial melody, just half beats
 
     // Return value will be an object kwyed by "ticks", containing
@@ -1038,9 +1118,8 @@ const buildMelody = (divisionedNotes: DivisionedRichnotes, params: MusicParams) 
 
     // Lets just say a beat is 12 ticks
     const beatsPerCadence = 4 * params.barsPerCadence;
-    const lastDivision = BEAT_LENGTH * 4 * beatsPerCadence * params.cadenceCount;
+    const lastDivision = BEAT_LENGTH * beatsPerCadence * params.cadenceCount;
     const sixteenthChance = params.sixteenthNotes;
-    const ret: { [key: number]: RichNote } = {};
     const maxDistance = 2;
     let prevNote: Nullable<Note> = null;
     let prevPrevNote: Nullable<Note> = null;
@@ -1056,7 +1135,7 @@ const buildMelody = (divisionedNotes: DivisionedRichnotes, params: MusicParams) 
     let notesInThisBar: Array<Note> = []
     let counter = -1;
 
-    for (let i = 0; i < lastDivision; i += BEAT_LENGTH / 2) {
+    for (let i = 0; i < lastDivision - BEAT_LENGTH; i += BEAT_LENGTH / 2) {
         counter++;
         const division = i;
         const lastBeat = Math.floor(division / BEAT_LENGTH) * BEAT_LENGTH;
@@ -1111,8 +1190,9 @@ const buildMelody = (divisionedNotes: DivisionedRichnotes, params: MusicParams) 
             // }
         }
         if (!randomNote) {
+            console.groupEnd();
             console.log("Failed to build melody")
-            return ret;
+            return;
         }
         console.log("randomNote: ", randomNote.toString());
         notesInThisBar.push(randomNote);
@@ -1186,7 +1266,108 @@ const buildMelody = (divisionedNotes: DivisionedRichnotes, params: MusicParams) 
         //     i += 0.5;
         // }
     }
-    return ret;
+    console.groupEnd();
+    return;
+}
+
+
+const buildTopMelody = (divisionedNotes: DivisionedRichnotes, params: MusicParams) => {
+    // Convert 4th notes in part 1 to 8th notes. Add random 8th and 16th notes between them. (and pauses?)
+
+    const beatsPerCadence = 4 * params.barsPerCadence;
+    const lastDivision = BEAT_LENGTH * beatsPerCadence * params.cadenceCount;
+    const sixteenthChance = params.sixteenthNotes;
+
+    let prevNote: Nullable<Note> = null;
+    let prevPrevNote: Nullable<Note> = null;
+    const directions = [
+        'up',
+        'same',
+        'down',
+        'repeat',
+        'repeat',
+    ]
+
+    let barDirection = 'same'
+    let notesInThisBar: Array<Note> = []
+    let counter = -1;
+
+    for (let i = 0; i < lastDivision - BEAT_LENGTH; i += BEAT_LENGTH) {
+        const beatNumber = i / BEAT_LENGTH;
+        const lastBeatInCadence = (beatNumber % beatsPerCadence) == beatsPerCadence - 1;
+        if (lastBeatInCadence) {
+            continue;
+        }
+
+        const beatRichNote = divisionedNotes[i].filter(note => note.duration == BEAT_LENGTH && note.partIndex == 0)[0];
+        if (!beatRichNote || !beatRichNote.note) {
+            continue;
+        }
+        const scale = beatRichNote.scale;
+        const semitoneChoices = divisionedNotes[i].map(note => note.note.semitone);
+        const randomSemitone = semitoneChoices[Math.floor(Math.random() * semitoneChoices.length)];
+        const randomNote = beatRichNote.note.copy();
+        randomNote.semitone = randomSemitone;
+        randomNote.octave = getClosestOctave(randomNote, beatRichNote.note);
+        beatRichNote.duration = BEAT_LENGTH / 2;
+        divisionedNotes[i + BEAT_LENGTH / 2] = divisionedNotes[i + BEAT_LENGTH / 2] || [];
+        const newRandomRichNote = {
+            note: randomNote,
+            duration: BEAT_LENGTH / 2,
+            chord: beatRichNote.chord,
+            scale: beatRichNote.scale,
+            partIndex: 0,
+        }
+        divisionedNotes[i + BEAT_LENGTH / 2].push(newRandomRichNote);
+
+        if (!lastBeatInCadence && (Math.random() < sixteenthChance)) {
+            // Convert the 8th notes to 16th notes
+            const scaleSemitones = scale.notes.map(note => note.semitone);
+            for (let j=0; j<2; j++) {
+                let note;
+                if (j == 0) {
+                    note = beatRichNote.note;
+                } else if (j == 1) {
+                    note = randomNote;
+                }
+                const minGSemitone = globalSemitone(note) - 2;
+                const maxGSemitone = globalSemitone(note) + 2;
+                const choices = [];
+                for (let semitone=minGSemitone; semitone<=maxGSemitone; semitone++) {
+                    if (scaleSemitones.includes(semitone % 12)) {
+                        choices.push(semitone);
+                    }
+                }
+                const randomSemitone = choices[Math.floor(Math.random() * choices.length)];
+                const newNote = note.copy()
+                newNote.semitone = randomSemitone % 12;
+                newNote.octave = getClosestOctave(newNote, note);
+
+                if (j == 0) {
+                    beatRichNote.duration = BEAT_LENGTH / 4;
+                    divisionedNotes[i + BEAT_LENGTH / 4] = divisionedNotes[i + BEAT_LENGTH / 4] || [];
+                    divisionedNotes[i + BEAT_LENGTH / 4].push({
+                        note: newNote,
+                        duration: BEAT_LENGTH / 4,
+                        chord: beatRichNote.chord,
+                        scale: beatRichNote.scale,
+                        partIndex: 0,
+                    });
+                } else if (j == 1) {
+                    newRandomRichNote.duration = BEAT_LENGTH / 4;
+                    divisionedNotes[i + BEAT_LENGTH / 2 + BEAT_LENGTH / 4] = divisionedNotes[i + BEAT_LENGTH / 2 + BEAT_LENGTH / 4] || [];
+                    divisionedNotes[i + BEAT_LENGTH / 2 + BEAT_LENGTH / 4].push({
+                        note: newNote,
+                        duration: BEAT_LENGTH / 4,
+                        chord: beatRichNote.chord,
+                        scale: beatRichNote.scale,
+                        partIndex: 0,
+                    });
+                }
+            }
+        }
+
+    }
 }
 
 
@@ -1258,6 +1439,33 @@ const addEighthNotes = (divisionedNotes: DivisionedRichnotes, params: MusicParam
     console.groupEnd();
 }
 
+const addHalfNotes = (divisionedNotes: DivisionedRichnotes, params: MusicParams) => {
+
+    const beatsPerCadence = 4 * params.barsPerCadence;
+    const beatsPerBar = 4;
+    const lastDivision = BEAT_LENGTH * beatsPerCadence * params.cadenceCount;
+
+    for (let division = 0; division < lastDivision - BEAT_LENGTH; division += BEAT_LENGTH) {
+        const lastBeat = Math.floor(division / BEAT_LENGTH) * BEAT_LENGTH;
+        let beatsUntilLastChordInCadence = Math.floor(i) % beatsPerCadence
+        let cadenceEnding = beatsUntilLastChordInCadence >= beatsPerCadence - 1 || beatsUntilLastChordInCadence == 0
+        if (params.halfNotes && !cadenceEnding) {
+            // If this is beat 2, 3 or 4, convert the previous note to double length
+            // if it's continuing with the same
+            if (((division / BEAT_LENGTH) % (beatsPerBar)) > 0) {
+                const previousNotes = divisionedNotes[division - 12]
+                for (let i=0; i<4; i++) {
+                    const previousNote = previousNotes.filter((n) => n.partIndex == i)[0];
+                    if (previousNote && previousNote.note.equals(notes[i].note)) {
+                        previousNote.duration = BEAT_LENGTH * 2;
+                        divisionedNotes[division] = divisionedNotes[division].filter(note => note.partIndex != i)
+                    }
+                }
+                console.log("previousNotes: ", previousNotes);
+            }
+        }
+    }
+}
 
 const makeChords = (params: MusicParams): DivisionedRichnotes => {
     // generate a progression
@@ -1265,19 +1473,14 @@ const makeChords = (params: MusicParams): DivisionedRichnotes => {
     const barsPerCadenceEnd = params.barsPerCadence || 4;
     const cadences = params.cadenceCount || 2
 
-    const maxTensions = 1
     const baseTension = params.baseTension || 0.4;
-    const highTension = 0.6;
 
     const maxBeats = cadences * barsPerCadenceEnd * beatsPerBar;
-    let currentBeat = 0;
     let currentScale = new Scale({ key: Math.floor(Math.random() * 12) , octave: 5, template: ScaleTemplates[params.scaleTemplate]});
-    //let currentScale = new Scale({ key: 0, octave: 5, template: ScaleTemplates.dorian});
+    //let currentScale = new Scale({ key: 0, octave: 5, template: ScaleTemplates.major});
 
     let result: DivisionedRichnotes = {};
     let tensions: Array<number> = [];
-    let tensionBeats = []
-    let chordCounts = {};
     let prevChord = null;
     const prevNotes: Array<Note> = [];
 
@@ -1285,15 +1488,18 @@ const makeChords = (params: MusicParams): DivisionedRichnotes => {
     //     // tensionBeats.push(Math.floor(Math.random() * (maxBeats - 10)) + 6);
     // }
 
-    while (currentBeat < maxBeats) {
-        console.groupCollapsed("currentBeat: ", currentBeat, "currentScale: ", currentScale.toString(), " : ", prevChord ? prevChord.toString(): "");
+    for (let division=0; division<maxBeats * BEAT_LENGTH; division += BEAT_LENGTH) {
+        const currentBeat = Math.floor(division / BEAT_LENGTH);
+        const beatsUntilLastChordInCadence = (barsPerCadenceEnd * beatsPerBar) - ((currentBeat - 1) % (barsPerCadenceEnd * beatsPerBar)) - 1;
+
+        console.groupCollapsed("currentBeat: ", currentBeat, "beatsUntilLastChordInCadence", beatsUntilLastChordInCadence, "currentScale: ", currentScale.toString(), " : ", prevChord ? prevChord.toString(): "");
         const beatSetting = params.beatSettings[currentBeat];
         let tensionOverride = null;
         if (beatSetting) {
-            tensionOverride = parseFloat(beatSetting.tension as string);
+            tensionOverride = parseFloat(beatSetting.tension as unknown as string);
         }
         let chordIsGood = false;
-        const randomGenerator = new RandomChordGenerator(params)
+        const randomGenerator = new RandomChordGenerator(params, currentScale)
         let newChord: Nullable<Chord> = null;
         let tension = 0;
         let newScale: Nullable<Scale> = null;
@@ -1301,18 +1507,8 @@ const makeChords = (params: MusicParams): DivisionedRichnotes => {
         const randomNotes: Array<Note> = [];
 
         let iterations = 0;
-        let currentScaleSemitones = currentScale.notes.map(note => note.semitone);
 
         let closestTension = -100;
-
-        // currentBeat == 0 -> 7
-        // currentBeat == 7 -> 0
-        // currentBeat == 8 -> 7
-        // currentBeat == 4 -> 7-4 = 3
-        // currentBeat == 9 -> 9 % 8 = 1 -> 7-1 = 6
-        // currentBeat == 8 -> 8 % 8 = 0 -> 7-0 = 7
-        const beatsUntilLastChordInCadence = (barsPerCadenceEnd * beatsPerBar) - currentBeat % (barsPerCadenceEnd * beatsPerBar) - 1;
-        // console.log("beatsUntilLastChordInCadence: ", beatsUntilLastChordInCadence);
 
         while (!chordIsGood) {
             iterations++;
@@ -1338,7 +1534,7 @@ const makeChords = (params: MusicParams): DivisionedRichnotes => {
             const tensionResult = getTension(prevNotes, randomNotes, currentScale, beatsUntilLastChordInCadence, params);
             for (let i=0; i<params.chords.length; i++) {
                 const chord = params.chords[i];
-                const chordWeight = parseFloat(params.chordSettings[i].weight || 0);
+                const chordWeight = parseFloat(`${params.chordSettings[i].weight}` || '0');
                 if (newChord.chordType == chord) {
                     tensionResult.tension += ((chordWeight * 10) ** 2) / 10;
                 }
@@ -1365,7 +1561,10 @@ const makeChords = (params: MusicParams): DivisionedRichnotes => {
                 wantedTension += (0.1 * criteriaLevel);
             }
 
-            const minTension = wantedTension - 0.3 - (0.2 * criteriaLevel);
+            let minTension = wantedTension - 0.3 - (0.2 * criteriaLevel);
+            if (beatsUntilLastChordInCadence < 5) {
+                minTension = -999;
+            }
 
             if (tension < wantedTension && tension > minTension) {
                 chordIsGood = true;
@@ -1400,9 +1599,7 @@ const makeChords = (params: MusicParams): DivisionedRichnotes => {
         prevNotes.splice(0, prevNotes.length);
         prevNotes.push(...randomNotes);
 
-        chordCounts[newChordString] = (chordCounts[newChordString] || 0) + 1;
         randomGenerator.cleanUp();
-        currentBeat += 1;
         console.groupEnd();
     }
 
@@ -1439,7 +1636,10 @@ export async function makeMusic(params: MusicParams) {
     // console.groupEnd();
 
     // const divisionedNotes: DivisionedRichnotes = newVoiceLeadingNotes(chords, params);
+    buildTopMelody(divisionedNotes, params);
     addEighthNotes(divisionedNotes, params)
+    // addHalfNotes(divisionedNotes, params)
+    
 
     return {
         divisionedNotes: divisionedNotes,
