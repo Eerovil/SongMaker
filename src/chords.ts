@@ -337,6 +337,11 @@ const getTension = (passedFromNotes: Array<Note>, toNotes: Array<Note>, currentS
                 template: ScaleTemplates[params.scaleTemplate]
             });
 
+            if (tension > 100) {
+                // Quick return, this chord sucks
+                console.groupEnd()
+                return { tension, newScale };
+            }
         }
     }
 
@@ -472,7 +477,7 @@ const getTension = (passedFromNotes: Array<Note>, toNotes: Array<Note>, currentS
 
     let tensionBeforelead = tension;
     const resolvedLeads: { [key: number]: number } = {};
-    let availableLeads: { [key: number]: number } = {};
+    let availableLeads: { [key: number]: { [key: number]: number } } = {};
 
     for (const fromGlobalSemitone of fromGlobalSemitones) {
         // Each note may be "leading" somewhere.
@@ -1517,7 +1522,11 @@ const addHalfNotes = (divisionedNotes: DivisionedRichnotes, params: MusicParams)
     }
 }
 
-const makeChords = (params: MusicParams): DivisionedRichnotes => {
+const sleepMS = async (ms: number): Promise<null> => {
+    return new Promise(resolve => setTimeout(resolve, ms));
+}
+
+const makeChords = async (params: MusicParams): Promise<DivisionedRichnotes> => {
     // generate a progression
     const beatsPerBar = params.beatsPerBar || 4;
     const barsPerCadenceEnd = params.barsPerCadence || 4;
@@ -1563,7 +1572,10 @@ const makeChords = (params: MusicParams): DivisionedRichnotes => {
 
         while (!chordIsGood) {
             iterations++;
-            if (iterations > 1500) {
+            if (iterations % 1000) {
+                await sleepMS(100);
+            }
+            if (iterations > 5000) {
                 console.log("Too many iterations, breaking, closestTension: ", closestTension);
                 console.groupEnd();
                 return {};
@@ -1673,7 +1685,7 @@ export async function makeMusic(params: MusicParams) {
             }
         }
         console.groupCollapsed("makeChords");
-        divisionedNotes = makeChords(params);
+        divisionedNotes = await makeChords(params);
         console.groupEnd();
         console.log("divisionedNotes: ", divisionedNotes);
         if (Object.keys(divisionedNotes).length != 0) {
