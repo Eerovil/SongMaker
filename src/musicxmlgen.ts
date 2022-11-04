@@ -296,13 +296,13 @@ export function toXml(divisionedNotes: DivisionedRichnotes, params: MusicParams)
       'score-instrument': {
         '@id': 'P1-I1',
         'instrument-name': {
-          '#text': `${params.voiceP1}`
+          '#text': `${params.parts[0].voice}`
         },
       },
       'midi-instrument': {
         '@id': 'P1-I1',
         'midi-channel': 1,
-        'midi-program': params.voiceP1,
+        'midi-program': params.parts[0].voice,
         'volume': 90,
         'pan': 0
       }
@@ -320,13 +320,13 @@ export function toXml(divisionedNotes: DivisionedRichnotes, params: MusicParams)
       'score-instrument': {
         '@id': 'P2-I1',
         'instrument-name': {
-          '#text': `${params.voiceP2}`
+          '#text': `${params.parts[1].voice}`
         },
       },
       'midi-instrument': {
         '@id': 'P2-I1',
         'midi-channel': 1,
-        'midi-program': params.voiceP2,
+        'midi-program': params.parts[1].voice,
         'volume': 70,
         'pan': 0
       }
@@ -344,13 +344,13 @@ export function toXml(divisionedNotes: DivisionedRichnotes, params: MusicParams)
       'score-instrument': {
         '@id': 'P3-I1',
         'instrument-name': {
-          '#text': `${params.voiceP3}`
+          '#text': `${params.parts[2].voice}`
         },
       },
       'midi-instrument': {
         '@id': 'P3-I1',
         'midi-channel': 1,
-        'midi-program': params.voiceP3,
+        'midi-program': params.parts[2].voice,
         'volume': 70,
         'pan': 0
       }
@@ -368,13 +368,13 @@ export function toXml(divisionedNotes: DivisionedRichnotes, params: MusicParams)
       'score-instrument': {
         '@id': 'P4-I1',
         'instrument-name': {
-          '#text': `${params.voiceP4}`
+          '#text': `${params.parts[3].voice}`
         },
       },
       'midi-instrument': {
         '@id': 'P4-I1',
         'midi-channel': 1,
-        'midi-program': params.voiceP4,
+        'midi-program': params.parts[3].voice,
         'volume': 90,
         'pan': 0
       }
