@@ -209,7 +209,7 @@ function firstMeasureInit(voicePartIndex: number, measure: builder.XMLElement, p
   ]
 
   const mySemitone = semitones[voicePartIndex];
-  if (mySemitone < 40) {
+  if (mySemitone < 45) {
     clef = {
       '@number': 1,
       'sign': 'F',

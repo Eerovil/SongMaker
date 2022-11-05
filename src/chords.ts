@@ -286,6 +286,19 @@ const getTension = (passedFromNotes: Array<Note>, toNotes: Array<Note>, currentS
     const differingNotes = toSemitones.filter(semitone => !fromSemitones.includes(semitone));
     const sameNotes = toSemitones.filter(semitone => fromSemitones.includes(semitone));
 
+    if (differingNotes.length > 0) {
+        tension += 0.1;
+        if (differingNotes.length > 1) {
+            tension += 0.3;
+            if (differingNotes.length > 2) {
+                tension += 0.5;
+                if (differingNotes.length > 3) {
+                    tension += 0.5;
+                }
+            }
+        }
+    }
+
     tension += differingNotes.length * (1 / noteCount) * 0.5;
     // tension += sameNotes.length * (1 / noteCount) * -0.5;
     console.log("Differing notes: ", tension);
@@ -695,7 +708,7 @@ const semitoneDistance = (tone1: number, tone2: number) => {
     return Math.abs((tone1 + 6) % 12 - (tone2 + 6) % 12);
 }
 
-const partialVoiceLeading = (chord: Chord, prevNotes: Array<Note>, beat: number, params: MusicParams): {tension: number, notes: Array<Note>} => {
+const partialVoiceLeading = (chord: Chord, prevNotes: Array<Note>, beat: number, params: MusicParams): Array<{tension: number, notes: Array<Note>}> => {
     // Return Notes in the Chord that are closest to the previous notes
     // For each part
     console.groupCollapsed("newVoiceLeadingNotes: ", chord.toString(), " beat: ", beat);
@@ -790,6 +803,10 @@ const partialVoiceLeading = (chord: Chord, prevNotes: Array<Note>, beat: number,
                     }
                     if (upCount - downCount > 1) {
                         // Too many ups, this should have been a down.
+                        return false;
+                    }
+                    if (upCount == 0 && downCount == 0) {
+                        // Can't have all of them be same
                         return false;
                     }
                     // Otherwise, all is probably fine
@@ -1033,29 +1050,24 @@ const partialVoiceLeading = (chord: Chord, prevNotes: Array<Note>, beat: number,
         // Sort the results by rating
         inversionResults.sort((a, b) => b.rating - a.rating);
 
-        // Select a random inversion from the best 3 randomly
         const bestInversions = inversionResults.slice(0, 3);
-        const randomInversion = bestInversions[Math.floor(Math.random() * bestInversions.length)];
-        tension = randomInversion.rating * -1;
+        for (let bestInversion of bestInversions) {
+            tension = bestInversion.rating * -1;
+            const notes = []
+            notes[0] = bestInversion.notes[0];
+            notes[1] = bestInversion.notes[1];
+            notes[2] = bestInversion.notes[2];
+            notes[3] = bestInversion.notes[3];
+            ret.push({
+                tension: tension,
+                notes: notes,
+            })
+        }
 
-        console.log("best inversion: ", randomInversion.inversionName, " - tension: ", tension);
-
-        ret[0] = randomInversion.notes[0];
-        ret[1] = randomInversion.notes[1];
-        ret[2] = randomInversion.notes[2];
-        ret[3] = randomInversion.notes[3];
-
-        const beatsPerBar = params.beatsPerBar || 4;
-        // for (let i=0; i<4; i++) {
-        //     if (ret[division][i]) {
-        //         lastBeatGlobalSemitones[i] = globalSemitone(ret[division][i].note);
-        //     }
-        // }
-        // console.log(ret[division]);
     }
     console.groupEnd();
 
-    return {notes: ret, tension: tension};
+    return ret;
 }
 
 const NOTES_PER_MELODY_PART = 8
@@ -1568,9 +1580,9 @@ const melodyTension = (newNote: Note, prevNotes: Note[], params: MusicParams): n
     if (prevNotes.length > 0) {
         const prevNote = prevNotes[prevNotes.length - 1];
         const prevGlobalSemitone = globalSemitone(prevNote);
-        if (newGlobalSemitone > prevGlobalSemitone) {
+        if (newGlobalSemitone > prevGlobalSemitone + 2) {  // 2 semitones difference is considered same
             newDirection = "up";
-        } else if (newGlobalSemitone < prevGlobalSemitone) {
+        } else if (newGlobalSemitone < prevGlobalSemitone - 2) {
             newDirection = "down";
         }
     }
@@ -1600,8 +1612,14 @@ const melodyTension = (newNote: Note, prevNotes: Note[], params: MusicParams): n
         directionTensions["up"] += 1;
     } else if (directionCounts["down"] > 4) {
         directionTensions["down"] += 1;
-    } else if (directionCounts["same"] > 4) {
+    } else if (directionCounts["same"] > 2) {
         directionTensions["same"] += 1;
+        if (directionCounts["same"] > 3) {
+            directionTensions["same"] += 1;
+            if (directionCounts["same"] > 4) {
+                directionTensions["same"] += 1;
+            }
+        }
     }
 
     // Keep going in the same direction
@@ -1629,7 +1647,7 @@ const melodyTension = (newNote: Note, prevNotes: Note[], params: MusicParams): n
         }
     }
 
-    const ret = directionTensions[newDirection] * 2;
+    const ret = Math.max(-0.5, directionTensions[newDirection] * 2);
 
     console.groupCollapsed("melody tension: ", ret);
     console.log(directionTensions)
@@ -1706,72 +1724,77 @@ const makeChords = async (params: MusicParams, progressCallback: Nullable<Functi
                 randomGenerator.cleanUp();
                 continue;
             }
-            randomNotes.splice(0, randomNotes.length);
-            const voiceLeading = partialVoiceLeading(newChord, prevNotes, currentBeat, params)
-            randomNotes.push(...voiceLeading.notes);
-            const tensionResult = getTension(prevNotes, randomNotes, currentScale, beatsUntilLastChordInCadence, params);
-            for (let i=0; i<params.chords.length; i++) {
-                const chord = params.chords[i];
-                const chordWeight = parseFloat(`${params.chordSettings[i].weight}` || '0');
-                if (newChord.chordType == chord) {
-                    tensionResult.tension += ((chordWeight * 10) ** 2) / 10;
-                }
-            }
-            if (prevMelody.length > 0) {
-                tensionResult.tension += melodyTension(randomNotes[0], prevMelody, params);
-            }
-            tensionResult.tension += voiceLeading.tension;
-            tension = tensionResult.tension;
-            newScale = tensionResult.newScale;
-
-            let wantedTension = baseTension;
-            // if (tensionBeats.includes(currentBeat)) {
-            //     wantedTension = highTension;
-            // }
-            if (maxBeats - currentBeat < 4) {
-                // Final bar
-                wantedTension = -0.5
-            }
-            if (beatsUntilLastChordInCadence < 3) {
-                wantedTension = -0.7;
-            } else {
-                wantedTension += (0.1 * criteriaLevel);
-            }
-
-            if (tensionOverride != null) {
-                wantedTension = tensionOverride;
-                wantedTension += (0.1 * criteriaLevel);
-            }
-
-            let minTension = -999;
-            if (wantedTension > 0.5) {
-                minTension = wantedTension - 0.3 - (0.2 * criteriaLevel);
-            }
-            if (beatsUntilLastChordInCadence < 5) {
-                minTension = -999;
-            }
-            if (!prevChord) {
-                minTension = -999;
-            }
-
-            console.log(prevChord ? prevChord.toString() : "", " -> ", newChord.toString(), "tension: ", tension);
-            if (tension < wantedTension && tension > minTension) {
-                chordIsGood = true;
-            } else {
-                if (Math.abs(tension - wantedTension) < Math.abs(closestTension - wantedTension)) {
-                    closestTension = tension;
-                }
-                if (progressCallback) {
-                    const giveUP = progressCallback(null, null);
-                    if (giveUP) {
-                        console.groupEnd();
-                        // Reduce cadence count to fix errors later
-                        params.cadenceCount = Math.floor((currentBeat / (barsPerCadenceEnd * beatsPerBar)));
-                        return result;
+            const voiceLeadingResults = partialVoiceLeading(newChord, prevNotes, currentBeat, params)
+            for (const voiceLeading of voiceLeadingResults) {
+                randomNotes.splice(0, randomNotes.length);  // Empty this and replace contents
+                randomNotes.push(...voiceLeading.notes);
+                const tensionResult = getTension(prevNotes, randomNotes, currentScale, beatsUntilLastChordInCadence, params);
+                for (let i=0; i<params.chords.length; i++) {
+                    const chord = params.chords[i];
+                    const chordWeight = parseFloat(`${params.chordSettings[i].weight}` || '0');
+                    if (newChord.chordType == chord) {
+                        tensionResult.tension += ((chordWeight * 10) ** 2) / 10;
                     }
                 }
-            }
-        }
+                if (prevMelody.length > 0) {
+                    tensionResult.tension += melodyTension(randomNotes[0], prevMelody, params);
+                    tensionResult.tension += voiceLeading.tension;
+                }
+                tension = tensionResult.tension;
+                newScale = tensionResult.newScale;
+
+                let wantedTension = baseTension;
+                // if (tensionBeats.includes(currentBeat)) {
+                //     wantedTension = highTension;
+                // }
+                if (maxBeats - currentBeat < 4) {
+                    // Final bar
+                    wantedTension = -0.5
+                }
+                if (beatsUntilLastChordInCadence < 3) {
+                    wantedTension = -0.7;
+                } else {
+                    wantedTension += (0.1 * criteriaLevel);
+                }
+
+                if (tensionOverride != null) {
+                    wantedTension = tensionOverride;
+                    wantedTension += (0.1 * criteriaLevel);
+                }
+
+                let minTension = -999;
+                if (wantedTension > 0.5) {
+                    minTension = wantedTension - 0.3 - (0.2 * criteriaLevel);
+                }
+                if (beatsUntilLastChordInCadence < 5) {
+                    minTension = -999;
+                }
+                if (!prevChord) {
+                    minTension = -999;
+                }
+
+                console.log(prevChord ? prevChord.toString() : "", " -> ", newChord.toString(), "tension: ", tension);
+                if (tension < wantedTension && tension > minTension) {
+                    chordIsGood = true;
+                } else {
+                    if (Math.abs(tension - wantedTension) < Math.abs(closestTension - wantedTension)) {
+                        closestTension = tension;
+                    }
+                    if (tension > 10) {
+                        continue;  // Skip checking other voice leading inversions
+                    }
+                    if (progressCallback) {
+                        const giveUP = progressCallback(null, null);
+                        if (giveUP) {
+                            console.groupEnd();
+                            // Reduce cadence count to fix errors later
+                            params.cadenceCount = Math.floor((currentBeat / (barsPerCadenceEnd * beatsPerBar)));
+                            return result;
+                        }
+                    }
+                }
+            }  // For voiceleading results end
+        }  // While end
         if (newChord == null) {
             console.groupEnd();
             return {};
