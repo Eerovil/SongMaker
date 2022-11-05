@@ -1,6 +1,7 @@
-import { makeMusic, buildTables, DivisionedRichnotes, MusicParams, MusicResult, testFunc, ScaleTemplates } from "./src/chords"
+import { makeMusic, buildTables, testFunc, ScaleTemplates } from "./src/chords"
 import { loadPlayer } from "./src/player"
 import { toXml } from "./src/musicxmlgen"
+import { DivisionedRichnotes, MusicParams } from "./src/utils";
 
 
 buildTables()
@@ -17,21 +18,21 @@ console.groupCollapsed("makeMusic")
 let params = new MusicParams();
 if (browser) {
     params = new MusicParams((window as any).params);
-    window.scaleTemplateChoices = Object.keys(ScaleTemplates);
+    (window as any).scaleTemplateChoices = Object.keys(ScaleTemplates);
     (window as any).params = params;
 }
-let promise: Promise;
+let promise: Promise<any>;
 if (params.testMode) {
     promise = testFunc(params)
 } else {
-    const progressCallback = (currentBeat, richNotes) => {
+    const progressCallback = (currentBeat: any, richNotes: any) => {
         if (currentBeat != null) {
             const el = document.querySelector(".beatsetting:nth-child(" + (currentBeat + 1) + ")");
             if (el && richNotes[0] && richNotes[0].chord) {
                 el.innerHTML += " " + richNotes[0].chord.toString();
             }
         } 
-        if (window.giveUP) {
+        if ((window as any).giveUP) {
             return "giveUP";
         }
     }
