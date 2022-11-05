@@ -39,10 +39,12 @@ class Chord {
     public chordType: string;
     public toString() {
         // Find correct Semitone key
-        let semitoneKey = Object.keys(Semitone).find(key => Semitone[key] === this.notes[0].semitone);
-        if (semitoneKey == undefined) {
+        const semitoneKeys = Object.keys(Semitone).filter(key => Semitone[key] === this.notes[0].semitone);
+        if (semitoneKeys.length == 0) {
             return this.notes.map(note => note.toString()).join(", ");
         }
+        let semitoneKey = semitoneKeys.filter(key => key.indexOf('b') == -1 && key.indexOf('s') == -1)[0] || semitoneKeys[0];
+        semitoneKey = semitoneKey.replace('s', '#');
         return semitoneKey + this.chordType;
     }
     constructor(semitoneOrName: number | string, chordType: string | undefined = undefined) {
@@ -114,6 +116,15 @@ export class MusicParams {
         weight: number
     }> = [];
     scaleTemplate: string = "major";
+    melodySettings: {
+        "up": number,
+        "down": number,
+        "same": number,
+    } = {
+        "up": 0,
+        "down": 0,
+        "same": 0,
+    }
 
     constructor(params: Partial<MusicParams> | undefined = undefined) {
         if (params) {
@@ -138,6 +149,7 @@ export type RichNote = {
     partIndex?: number,
     scale?: Scale,
     beam?: string,
+    tie?: string,
     tension?: number,
 }
 
@@ -244,13 +256,13 @@ const getTension = (passedFromNotes: Array<Note>, toNotes: Array<Note>, currentS
     *   @return: tension value between -1 and 1
     */
     let wantedFunction = null;
-    if (beatsUntilLastChordInCadence < 6) {
+    if (beatsUntilLastChordInCadence < 5) {
         wantedFunction = "sub-dominant";
     }
-    if (beatsUntilLastChordInCadence < 4) {
+    if (beatsUntilLastChordInCadence < 3) {
         wantedFunction = "dominant";
     }
-    if (beatsUntilLastChordInCadence < 2) {
+    if (beatsUntilLastChordInCadence < 1) {
         wantedFunction = "tonic";
     }
 
@@ -533,6 +545,9 @@ const getTension = (passedFromNotes: Array<Note>, toNotes: Array<Note>, currentS
                 tension += 2;
                 console.log("Tension from wanted function: ", scaleIndex, " : ", wantedFunction);
                 continue;
+            } else {
+                tension -= 1;
+                console.log("Reduced tension from wanted function: ", scaleIndex, " : ", wantedFunction);
             }
         }
 
@@ -570,9 +585,9 @@ const getTension = (passedFromNotes: Array<Note>, toNotes: Array<Note>, currentS
 
     // For each part, check the interval
     const intervalWeights = [
-        0.1,
-        0.5,
-        0.5,
+        0,
+        0.2,
+        0.2,
         0,
     ]
     for (let i=0; i<fromNotes.length; i++) {
@@ -680,7 +695,7 @@ const semitoneDistance = (tone1: number, tone2: number) => {
     return Math.abs((tone1 + 6) % 12 - (tone2 + 6) % 12);
 }
 
-const partialVoiceLeading = (chord: Chord, prevNotes: Array<Note>, beat: number, params: MusicParams): Array<Note> => {
+const partialVoiceLeading = (chord: Chord, prevNotes: Array<Note>, beat: number, params: MusicParams): {tension: number, notes: Array<Note>} => {
     // Return Notes in the Chord that are closest to the previous notes
     // For each part
     console.groupCollapsed("newVoiceLeadingNotes: ", chord.toString(), " beat: ", beat);
@@ -715,6 +730,8 @@ const partialVoiceLeading = (chord: Chord, prevNotes: Array<Note>, beat: number,
     if (!chord) {
         return [];
     }
+
+    let tension = 0;
 
     if (chord) {
         let beatsUntilLastChordInCadence = (beatsPerCadence - beat) % beatsPerCadence
@@ -930,39 +947,11 @@ const partialVoiceLeading = (chord: Chord, prevNotes: Array<Note>, beat: number,
                         if (gTone + 12 <= semitoneLimits[partIndex][1]) {
                             let distance = Math.abs(gTone - lastBeatGlobalSemitones[partIndex])
                             let octaveUpDistance = Math.abs(gTone + 12 - lastBeatGlobalSemitones[partIndex])
-
-                            let distanceToStartingTone = Math.abs(gTone - startingGlobalSemitones[partIndex])
-                            let octaveUpDistanceToStartingTone = Math.abs(gTone + 12 - startingGlobalSemitones[partIndex])
-
-                            // Is it worth it to go up one more octave?
-                            let upDiff = distance - octaveUpDistance;
-                            let startingDiff = Math.max(distanceToStartingTone - octaveUpDistanceToStartingTone - 4, 0);
-
-                            console.log(partIndex, "upDiff: ", upDiff, "startingDiff: ", startingDiff, "octaveUpDistanceToStartingTone", octaveUpDistanceToStartingTone, "distanceToStartingTone", distanceToStartingTone);
-
-                            if (upDiff > 0 && startingDiff < 4) {
+                            if (octaveUpDistance < distance) {
                                 note.octave += 1;
-                                gTone = globalSemitone(note);
-
-                                // Is it worth it to go up still one more octave? 
-                                distance = Math.abs(gTone - lastBeatGlobalSemitones[partIndex])
-                                octaveUpDistance = Math.abs(gTone + 12 - lastBeatGlobalSemitones[partIndex])
-    
-                                distanceToStartingTone = Math.abs(gTone - startingGlobalSemitones[partIndex])
-                                octaveUpDistanceToStartingTone = Math.abs(gTone + 12 - startingGlobalSemitones[partIndex])
-    
-                                // Is it worth it to go up one more octave?
-                                upDiff = distance - octaveUpDistance;
-                                startingDiff = Math.max(distanceToStartingTone - octaveUpDistanceToStartingTone - 4, 0);
-
-                                console.log(partIndex, "2 upDiff: ", upDiff, "startingDiff: ", startingDiff);
-    
-                                if (upDiff > 0 && upDiff > startingDiff) {
-                                    note.octave += 1;
-                                    gTone = globalSemitone(note);
-                                }
                             }
-                            
+                        } else {
+                            console.log("Can't go up one more: ", gTone, semitoneLimits[partIndex][1]);
                         }
                         minSemitone = gTone;
                     }
@@ -1041,18 +1030,15 @@ const partialVoiceLeading = (chord: Chord, prevNotes: Array<Note>, beat: number,
             console.log(directions);
         }
 
-        // Select the best result
-        const bestInversion = inversionResults.reduce((best, current) => {
-            if (current.rating > best.rating) {
-                return current;
-            }
-            return best;
-        }, inversionResults[0]);
+        // Sort the results by rating
+        inversionResults.sort((a, b) => b.rating - a.rating);
 
-        // Select randomly an inversion with the same rating as the best one
-        const bestInversions = inversionResults.filter((inversion) => inversion.rating == bestInversion.rating);
+        // Select a random inversion from the best 3 randomly
+        const bestInversions = inversionResults.slice(0, 3);
         const randomInversion = bestInversions[Math.floor(Math.random() * bestInversions.length)];
-        console.log("best inversion: ", randomInversion.inversionName);
+        tension = randomInversion.rating * -1;
+
+        console.log("best inversion: ", randomInversion.inversionName, " - tension: ", tension);
 
         ret[0] = randomInversion.notes[0];
         ret[1] = randomInversion.notes[1];
@@ -1069,7 +1055,7 @@ const partialVoiceLeading = (chord: Chord, prevNotes: Array<Note>, beat: number,
     }
     console.groupEnd();
 
-    return ret;
+    return {notes: ret, tension: tension};
 }
 
 const NOTES_PER_MELODY_PART = 8
@@ -1346,15 +1332,37 @@ const buildTopMelody = (divisionedNotes: DivisionedRichnotes, params: MusicParam
         if (!beatRichNote || !beatRichNote.note) {
             continue;
         }
-        const scale = beatRichNote.scale;
-        const semitoneChoices = divisionedNotes[i].map(note => note.note.semitone).filter(semitone => semitoneDistance(semitone, beatRichNote.note.semitone) <= 4);
-        const randomSemitone = semitoneChoices[Math.floor(Math.random() * semitoneChoices.length)];
+        const scaleTones = beatRichNote.scale.notes.map(n => n.semitone);
+
+        const nextBeatRichNote = divisionedNotes[i + BEAT_LENGTH].filter(note => note.duration == BEAT_LENGTH && note.partIndex == 0)[0];
+        if (!nextBeatRichNote || !nextBeatRichNote.note) {
+            continue;
+        }
+
+        const currentGTone = globalSemitone(beatRichNote.note)
+        const nextGTone = globalSemitone(nextBeatRichNote.note);
         const randomNote = beatRichNote.note.copy();
-        randomNote.semitone = randomSemitone;
-        randomNote.octave = getClosestOctave(randomNote, beatRichNote.note);
-        // if (globalSemitone(randomNote) >= part1MaxNote) {
-        //     randomNote.octave--;
-        // }
+
+        if (currentGTone != nextGTone) {
+            const availableGTones = []
+            for (let gTone=currentGTone; gTone != nextGTone; gTone += (currentGTone < nextGTone ? 1 : -1)) {
+                if (gTone == currentGTone) {
+                    continue;
+                }
+                const semitone = gTone % 12;
+                if (!scaleTones.includes(semitone)) {
+                    continue;
+                }
+                availableGTones.push(gTone);
+            }
+            if (availableGTones.length == 0) {
+                availableGTones.push(currentGTone);
+            }
+            console.log(currentGTone, " -> ", nextGTone, ", availableGTones: ", availableGTones);
+            const randomGTone = availableGTones[Math.floor(Math.random() * availableGTones.length)];
+            randomNote.semitone = randomGTone % 12;
+            randomNote.octave = Math.floor(randomGTone / 12);
+        }
 
         beatRichNote.duration = BEAT_LENGTH / 2;
         divisionedNotes[i + BEAT_LENGTH / 2] = divisionedNotes[i + BEAT_LENGTH / 2] || [];
@@ -1367,52 +1375,52 @@ const buildTopMelody = (divisionedNotes: DivisionedRichnotes, params: MusicParam
         }
         divisionedNotes[i + BEAT_LENGTH / 2].push(newRandomRichNote);
 
-        if (!lastBeatInCadence && (Math.random() < sixteenthChance)) {
-            // Convert the 8th notes to 16th notes
-            const scaleSemitones = scale.notes.map(note => note.semitone);
-            for (let j=0; j<2; j++) {
-                let note;
-                if (j == 0) {
-                    note = beatRichNote.note;
-                } else if (j == 1) {
-                    note = randomNote;
-                }
-                const minGSemitone = globalSemitone(note) - 2;
-                const maxGSemitone = globalSemitone(note) + 2;
-                const choices = [];
-                for (let semitone=minGSemitone; semitone<=maxGSemitone; semitone++) {
-                    if (scaleSemitones.includes(semitone % 12)) {
-                        choices.push(semitone);
-                    }
-                }
-                const randomSemitone = choices[Math.floor(Math.random() * choices.length)];
-                const newNote = note.copy()
-                newNote.semitone = randomSemitone % 12;
-                newNote.octave = getClosestOctave(newNote, note);
+        // if (!lastBeatInCadence && (Math.random() < sixteenthChance)) {
+        //     // Convert the 8th notes to 16th notes
+        //     const scaleSemitones = scale.notes.map(note => note.semitone);
+        //     for (let j=0; j<2; j++) {
+        //         let note;
+        //         if (j == 0) {
+        //             note = beatRichNote.note;
+        //         } else if (j == 1) {
+        //             note = randomNote;
+        //         }
+        //         const minGSemitone = globalSemitone(note) - 2;
+        //         const maxGSemitone = globalSemitone(note) + 2;
+        //         const choices = [];
+        //         for (let semitone=minGSemitone; semitone<=maxGSemitone; semitone++) {
+        //             if (scaleSemitones.includes(semitone % 12)) {
+        //                 choices.push(semitone);
+        //             }
+        //         }
+        //         const randomSemitone = choices[Math.floor(Math.random() * choices.length)];
+        //         const newNote = note.copy()
+        //         newNote.semitone = randomSemitone % 12;
+        //         newNote.octave = getClosestOctave(newNote, note);
 
-                if (j == 0) {
-                    beatRichNote.duration = BEAT_LENGTH / 4;
-                    divisionedNotes[i + BEAT_LENGTH / 4] = divisionedNotes[i + BEAT_LENGTH / 4] || [];
-                    divisionedNotes[i + BEAT_LENGTH / 4].push({
-                        note: newNote,
-                        duration: BEAT_LENGTH / 4,
-                        chord: beatRichNote.chord,
-                        scale: beatRichNote.scale,
-                        partIndex: 0,
-                    });
-                } else if (j == 1) {
-                    newRandomRichNote.duration = BEAT_LENGTH / 4;
-                    divisionedNotes[i + BEAT_LENGTH / 2 + BEAT_LENGTH / 4] = divisionedNotes[i + BEAT_LENGTH / 2 + BEAT_LENGTH / 4] || [];
-                    divisionedNotes[i + BEAT_LENGTH / 2 + BEAT_LENGTH / 4].push({
-                        note: newNote,
-                        duration: BEAT_LENGTH / 4,
-                        chord: beatRichNote.chord,
-                        scale: beatRichNote.scale,
-                        partIndex: 0,
-                    });
-                }
-            }
-        }
+        //         if (j == 0) {
+        //             beatRichNote.duration = BEAT_LENGTH / 4;
+        //             divisionedNotes[i + BEAT_LENGTH / 4] = divisionedNotes[i + BEAT_LENGTH / 4] || [];
+        //             divisionedNotes[i + BEAT_LENGTH / 4].push({
+        //                 note: newNote,
+        //                 duration: BEAT_LENGTH / 4,
+        //                 chord: beatRichNote.chord,
+        //                 scale: beatRichNote.scale,
+        //                 partIndex: 0,
+        //             });
+        //         } else if (j == 1) {
+        //             newRandomRichNote.duration = BEAT_LENGTH / 4;
+        //             divisionedNotes[i + BEAT_LENGTH / 2 + BEAT_LENGTH / 4] = divisionedNotes[i + BEAT_LENGTH / 2 + BEAT_LENGTH / 4] || [];
+        //             divisionedNotes[i + BEAT_LENGTH / 2 + BEAT_LENGTH / 4].push({
+        //                 note: newNote,
+        //                 duration: BEAT_LENGTH / 4,
+        //                 chord: beatRichNote.chord,
+        //                 scale: beatRichNote.scale,
+        //                 partIndex: 0,
+        //             });
+        //         }
+        //     }
+        // }
 
     }
 }
@@ -1430,7 +1438,11 @@ const addEighthNotes = (divisionedNotes: DivisionedRichnotes, params: MusicParam
             const note = (divisionedNotes[division] || []).filter(n => n.partIndex == partIndex)[0];
             const nextNote = (divisionedNotes[division + BEAT_LENGTH] || []).filter(n => n.partIndex == partIndex)[0];
             if (!note || !nextNote || note.duration != BEAT_LENGTH || nextNote.duration != BEAT_LENGTH) {
-                console.log("Not adding 8th notes between ", note, " and ", nextNote);
+                try {
+                    console.log("Not adding 8th notes between ", note.note.toString(), " and ", nextNote.note.toString());
+                } catch (e) {
+                    console.log("Not adding 8th notes between ", note, " and ", nextNote);
+                }
                 console.groupEnd();
                 continue;
             }
@@ -1497,27 +1509,28 @@ const addHalfNotes = (divisionedNotes: DivisionedRichnotes, params: MusicParams)
         let beatsUntilLastChordInCadence = Math.floor(division) % beatsPerCadence
         let cadenceEnding = beatsUntilLastChordInCadence >= beatsPerCadence - 1 || beatsUntilLastChordInCadence == 0
         if (params.halfNotes && !cadenceEnding) {
-            // If this is beat 2, 3 or 4, convert the previous note to double length
+            // Add a tie start to the previous note to double length, and tie stop to this
             // if it's continuing with the same
-            if (((division / BEAT_LENGTH) % (beatsPerBar)) > 0) {
-                const previousNotes = divisionedNotes[division - 12]
-                const currentNotes = divisionedNotes[division]
-                for (let i=0; i<4; i++) {
-                    const previousNote = previousNotes.filter((n) => n.partIndex == i)[0];
-                    const currentNote = currentNotes.filter((n) => n.partIndex == i)[0];
-                    if (previousNote && currentNote && previousNote.note.equals(currentNote.note)) {
-                        if (previousNote.duration != BEAT_LENGTH) {
-                            continue;
-                        }
-                        if (currentNote.duration != BEAT_LENGTH) {
-                            continue;
-                        }
-                        previousNote.duration = BEAT_LENGTH * 2;
-                        divisionedNotes[division] = divisionedNotes[division].filter(note => note.partIndex != i)
+            const previousNotes = divisionedNotes[division - 12]
+            const currentNotes = divisionedNotes[division]
+            for (let i=0; i<4; i++) {
+                const previousNote = previousNotes.filter((n) => n.partIndex == i)[0];
+                const currentNote = currentNotes.filter((n) => n.partIndex == i)[0];
+                if (previousNote && currentNote && previousNote.note.equals(currentNote.note)) {
+                    if (previousNote.duration != BEAT_LENGTH) {
+                        continue;
                     }
+                    if (currentNote.duration != BEAT_LENGTH) {
+                        continue;
+                    }
+                    if (previousNote.tie != null) {
+                        continue;
+                    }
+                    previousNote.tie = "start";
+                    currentNote.tie = "stop";
                 }
-                console.log("previousNotes: ", previousNotes);
             }
+            console.log("previousNotes: ", previousNotes);
         }
     }
 }
@@ -1526,7 +1539,107 @@ const sleepMS = async (ms: number): Promise<null> => {
     return new Promise(resolve => setTimeout(resolve, ms));
 }
 
-const makeChords = async (params: MusicParams): Promise<DivisionedRichnotes> => {
+
+const melodyTension = (newNote: Note, prevNotes: Note[], params: MusicParams): number => {
+
+    const p1Note = params.parts[0].note || "F4";
+    const startingGlobalSemitone = globalSemitone(new Note(p1Note))
+    const semitoneLimit = [startingGlobalSemitone + -12, startingGlobalSemitone + 12]
+    const directionTensions: {[key: string]: number} = {
+        "up": 0,
+        "down": 0,
+        "same": 0,
+    }
+
+    if (params.melodySettings) {
+        if (params.melodySettings.up) {
+            directionTensions.up -= params.melodySettings.up;
+        }
+        if (params.melodySettings.down) {
+            directionTensions.down -= params.melodySettings.down;
+        }
+        if (params.melodySettings.same) {
+            directionTensions.same -= params.melodySettings.same;
+        }
+    }
+
+    const newGlobalSemitone = globalSemitone(newNote);
+    let newDirection = "same";
+    if (prevNotes.length > 0) {
+        const prevNote = prevNotes[prevNotes.length - 1];
+        const prevGlobalSemitone = globalSemitone(prevNote);
+        if (newGlobalSemitone > prevGlobalSemitone) {
+            newDirection = "up";
+        } else if (newGlobalSemitone < prevGlobalSemitone) {
+            newDirection = "down";
+        }
+    }
+
+    //List the 8 last direction
+    const directions = []
+    const directionCounts: {[key: string]: number} = {};
+    for (let i=prevNotes.length - 1; i>prevNotes.length - 9; i--) {
+        if (!prevNotes[i-1] || !prevNotes[i]) {
+            continue;
+        }
+        const note = prevNotes[i];
+        const prevNote = prevNotes[i-1];
+        const direction = globalSemitone(note) - globalSemitone(prevNote);
+        if (direction > 0) {
+            directions.push("up");
+            directionCounts["up"] = (directionCounts["up"] || 0) + 1;
+        } else if (direction < 0) {
+            directions.push("down");
+            directionCounts["down"] = (directionCounts["down"] || 0) + 1;
+        } else {
+            directions.push("same");
+            directionCounts["same"] = (directionCounts["same"] || 0) + 1;
+        }
+    }
+    if (directionCounts["up"] > 4) {
+        directionTensions["up"] += 1;
+    } else if (directionCounts["down"] > 4) {
+        directionTensions["down"] += 1;
+    } else if (directionCounts["same"] > 4) {
+        directionTensions["same"] += 1;
+    }
+
+    // Keep going in the same direction
+    if (directions.length > 0) {
+        const prevDirection = directions[directions.length - 1]
+        if (prevDirection != "same") {
+            directionTensions[prevDirection] -= 1;
+            const prevPrevDirection = directions[directions.length - 2];
+            if (prevPrevDirection == prevDirection) {
+                directionTensions[prevDirection] -= 1;
+            }
+        }
+    }
+
+    if (newGlobalSemitone < semitoneLimit[0] + 3) {
+        directionTensions["down"] += 1;
+        if (newGlobalSemitone < semitoneLimit[0]) {
+            directionTensions["down"] += 1;
+        }
+    }
+    if (newGlobalSemitone > semitoneLimit[1] - 3) {
+        directionTensions["up"] += 1;
+        if (newGlobalSemitone > semitoneLimit[1]) {
+            directionTensions["up"] += 1;
+        }
+    }
+
+    const ret = directionTensions[newDirection] * 2;
+
+    console.groupCollapsed("melody tension: ", ret);
+    console.log(directionTensions)
+    console.log(directions, directionCounts)
+    console.groupEnd();
+    return ret;
+}
+
+
+const makeChords = async (params: MusicParams, progressCallback: Nullable<Function> = null): Promise<DivisionedRichnotes> => {
     // generate a progression
     const beatsPerBar = params.beatsPerBar || 4;
     const barsPerCadenceEnd = params.barsPerCadence || 4;
@@ -1535,13 +1648,14 @@ const makeChords = async (params: MusicParams): Promise<DivisionedRichnotes> => 
     const baseTension = params.baseTension || 0.4;
 
     const maxBeats = cadences * barsPerCadenceEnd * beatsPerBar;
-    let currentScale = new Scale({ key: Math.floor(Math.random() * 12) , octave: 5, template: ScaleTemplates[params.scaleTemplate]});
-    //let currentScale = new Scale({ key: 0, octave: 5, template: ScaleTemplates.major});
+    //let currentScale = new Scale({ key: Math.floor(Math.random() * 12) , octave: 5, template: ScaleTemplates[params.scaleTemplate]});
+    let currentScale = new Scale({ key: 0, octave: 5, template: ScaleTemplates.major});
 
     let result: DivisionedRichnotes = {};
     let tensions: Array<number> = [];
     let prevChord = null;
     const prevNotes: Array<Note> = [];
+    const prevMelody: Note[] = [];
 
     // for (let i=0; i<maxTensions; i++) {
     //     // tensionBeats.push(Math.floor(Math.random() * (maxBeats - 10)) + 6);
@@ -1572,15 +1686,15 @@ const makeChords = async (params: MusicParams): Promise<DivisionedRichnotes> => 
 
         while (!chordIsGood) {
             iterations++;
-            if (iterations % 1000) {
+            if (iterations % 100) {
                 await sleepMS(100);
             }
-            if (iterations > 5000) {
+            if (iterations > 1000) {
                 console.log("Too many iterations, breaking, closestTension: ", closestTension);
                 console.groupEnd();
                 return {};
             }
-            const criteriaLevel = Math.floor(iterations / (50));
+            let criteriaLevel = Math.floor(iterations / (50));
             if (iterations % 100 == 0) {
                 // Try previous chords again with different criteriaLevel...
                 randomGenerator.cleanUp();
@@ -1593,7 +1707,8 @@ const makeChords = async (params: MusicParams): Promise<DivisionedRichnotes> => 
                 continue;
             }
             randomNotes.splice(0, randomNotes.length);
-            randomNotes.push(...partialVoiceLeading(newChord, prevNotes, currentBeat, params));
+            const voiceLeading = partialVoiceLeading(newChord, prevNotes, currentBeat, params)
+            randomNotes.push(...voiceLeading.notes);
             const tensionResult = getTension(prevNotes, randomNotes, currentScale, beatsUntilLastChordInCadence, params);
             for (let i=0; i<params.chords.length; i++) {
                 const chord = params.chords[i];
@@ -1602,6 +1717,10 @@ const makeChords = async (params: MusicParams): Promise<DivisionedRichnotes> => 
                     tensionResult.tension += ((chordWeight * 10) ** 2) / 10;
                 }
             }
+            if (prevMelody.length > 0) {
+                tensionResult.tension += melodyTension(randomNotes[0], prevMelody, params);
+            }
+            tensionResult.tension += voiceLeading.tension;
             tension = tensionResult.tension;
             newScale = tensionResult.newScale;
 
@@ -1624,17 +1743,32 @@ const makeChords = async (params: MusicParams): Promise<DivisionedRichnotes> => 
                 wantedTension += (0.1 * criteriaLevel);
             }
 
-            let minTension = wantedTension - 0.3 - (0.2 * criteriaLevel);
+            let minTension = -999;
+            if (wantedTension > 0.5) {
+                minTension = wantedTension - 0.3 - (0.2 * criteriaLevel);
+            }
             if (beatsUntilLastChordInCadence < 5) {
                 minTension = -999;
             }
+            if (!prevChord) {
+                minTension = -999;
+            }
 
+            console.log(prevChord ? prevChord.toString() : "", " -> ", newChord.toString(), "tension: ", tension);
             if (tension < wantedTension && tension > minTension) {
                 chordIsGood = true;
             } else {
-                //console.log("Tension too high: ", tension, wantedTension);
                 if (Math.abs(tension - wantedTension) < Math.abs(closestTension - wantedTension)) {
                     closestTension = tension;
+                }
+                if (progressCallback) {
+                    const giveUP = progressCallback(null, null);
+                    if (giveUP) {
+                        console.groupEnd();
+                        // Reduce cadence count to fix errors later
+                        params.cadenceCount = Math.floor((currentBeat / (barsPerCadenceEnd * beatsPerBar)));
+                        return result;
+                    }
                 }
             }
         }
@@ -1651,6 +1785,7 @@ const makeChords = async (params: MusicParams): Promise<DivisionedRichnotes> => 
         if (newScale) {
             oldNewScale = newScale;
         }
+        prevMelody.push(randomNotes[0]);
         console.log(`${beatsUntilLastChordInCadence}: ${tension.toFixed(1)} - ${newChordString} (${currentScale.toString()})`);
         result[currentBeat * BEAT_LENGTH] = randomNotes.map((note, index) => ({
             note: note,
@@ -1659,6 +1794,10 @@ const makeChords = async (params: MusicParams): Promise<DivisionedRichnotes> => 
             chord: newChord,
             scale: currentScale,
         }) as RichNote);
+
+        if (progressCallback) {
+            progressCallback(currentBeat, result[currentBeat * BEAT_LENGTH]);
+        }
 
         prevChord = newChord;
 
@@ -1672,7 +1811,7 @@ const makeChords = async (params: MusicParams): Promise<DivisionedRichnotes> => 
     return result
 }
 
-export async function makeMusic(params: MusicParams) {
+export async function makeMusic(params: MusicParams, progressCallback: Nullable<Function> = null) {
     console.log(params)
     let divisionedNotes: DivisionedRichnotes = {};
     let iterations = 0;
@@ -1685,7 +1824,7 @@ export async function makeMusic(params: MusicParams) {
             }
         }
         console.groupCollapsed("makeChords");
-        divisionedNotes = await makeChords(params);
+        divisionedNotes = await makeChords(params, progressCallback);
         console.groupEnd();
         console.log("divisionedNotes: ", divisionedNotes);
         if (Object.keys(divisionedNotes).length != 0) {
@@ -1703,7 +1842,7 @@ export async function makeMusic(params: MusicParams) {
 
     // const divisionedNotes: DivisionedRichnotes = newVoiceLeadingNotes(chords, params);
     buildTopMelody(divisionedNotes, params);
-    addEighthNotes(divisionedNotes, params)
+    // addEighthNotes(divisionedNotes, params)
     addHalfNotes(divisionedNotes, params)
     
 

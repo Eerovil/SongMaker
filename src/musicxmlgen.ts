@@ -104,6 +104,15 @@ function addRichNoteToMeasure(richNote: RichNote, measure: builder.XMLElement, s
   const duration = richNoteDuration(richNote);
   let beamNumber = 1;
 
+  let notations = undefined;
+  if (richNote.tie) {
+    notations = {
+      tied: {
+        '@type': richNote.tie,
+      }
+    }
+  }
+
   const attrs =  {
     'chord': !firstNoteInChord ? {} : undefined,
     'pitch': noteToPitch(richNote),
@@ -112,7 +121,9 @@ function addRichNoteToMeasure(richNote: RichNote, measure: builder.XMLElement, s
     'type': duration.type,
     'staff': staff,
     'beam': richNote.beam ? { '@number': beamNumber, '#text': richNote.beam } : undefined,
+    'tie': richNote.tie ? { '@type': richNote.tie } : undefined,
     'lyric': richNote.tension && staff == 0 ? { 'text': { '#text': richNote.tension.toFixed(2) } } : undefined,
+    'notations': notations,
   };
   if (writeChord && richNote.chord && staff == 1) {
     let chordType: string = 'major';

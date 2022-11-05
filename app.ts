@@ -24,7 +24,18 @@ let promise: Promise;
 if (params.testMode) {
     promise = testFunc(params)
 } else {
-    promise = makeMusic(params)
+    const progressCallback = (currentBeat, richNotes) => {
+        if (currentBeat != null) {
+            const el = document.querySelector(".beatsetting:nth-child(" + (currentBeat + 1) + ")");
+            if (el && richNotes[0] && richNotes[0].chord) {
+                el.innerHTML += " " + richNotes[0].chord.toString();
+            }
+        } 
+        if (window.giveUP) {
+            return "giveUP";
+        }
+    }
+    promise = makeMusic(params, progressCallback);
 }
 promise.then((result) => {
     console.groupEnd();

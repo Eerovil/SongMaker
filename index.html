@@ -112,6 +112,21 @@
             <input type="range" id="chord-sus4-weight" value="1" min="-0.5" max="0" step="0.1">
         </div>
     </div>
+    <div>
+        <h4>Melodia</h4>
+        <div>
+            <label for="melody-up">Ylös</label>
+            <input type="range" id="melody-up-weight" value="0" min="-2" max="0" step="0.1">
+        </div>
+        <div>
+            <label for="melody-same">Sama</label>
+            <input type="range" id="melody-same-weight" value="0" min="-2" max="0" step="0.1">
+        </div>
+        <div>
+            <label for="melody-down">Alas</label>
+            <input type="range" id="melody-down-weight" value="0" min="-2" max="0" step="0.1">
+        </div>
+    </div>
     </div>
     <div>
         <label for="note-p1">Lähtösävel</label>
@@ -145,6 +160,7 @@
 
     </div>
 </div>
+<button onclick="window.giveUP = true">Luovuta generointi</button>
 <button id="btn-play">PLAY</button>
 <button id="btn-pause">PAUSE</button>
 <button id="btn-stop">STOP</button>
@@ -237,6 +253,18 @@
         if (params.sixteenthNotes) {
             document.querySelector("#sixteenth-notes").value = params.sixteenthNotes;
         }
+        if (params.melodySettings) {
+            const melodySettings = params.melodySettings;
+            if (melodySettings.up) {
+                document.querySelector("#melody-up-weight").value = melodySettings.up;
+            }
+            if (melodySettings.down) {
+                document.querySelector("#melody-down-weight").value = melodySettings.down;
+            }
+            if (melodySettings.same) {
+                document.querySelector("#melody-same-weight").value = melodySettings.same;
+            }
+        }
 
         for (let i=0; i<4; i++) {
             const voiceParam = params.parts[i];
@@ -326,6 +354,12 @@
         params.chordSettings = chordSettings;
 
         params.scaleTemplate = document.querySelector("#scale-template").value;
+
+        params.melodySettings = {
+            up: document.querySelector("#melody-up-weight").value,
+            down: document.querySelector("#melody-down-weight").value,
+            same: document.querySelector("#melody-same-weight").value
+        };
 
         // create url from params and follow the link
         const url = new URL(window.location.href);
