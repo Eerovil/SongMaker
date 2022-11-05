@@ -79,6 +79,7 @@ export class MusicParams {
     tempo?: number = 40;
     halfNotes?: boolean = true;
     sixteenthNotes?: number = 0.5;
+    eighthNotes?: number = 0.5;
     parts: Array<{
         voice: string,
         note: string,
