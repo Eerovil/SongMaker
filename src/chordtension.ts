@@ -1,6 +1,6 @@
 import { Note, Scale, ScaleTemplates } from "musictheoryjs";
 import { Logger } from "./mylogger";
-import { globalSemitone, majScaleDifference, MusicParams, Nullable } from "./utils";
+import { globalSemitone, majScaleDifference, MusicParams, Nullable, semitoneDistance } from "./utils";
 
 export const getTension = (passedFromNotes: Array<Note>, toNotes: Array<Note>, currentScale: Scale, beatsUntilLastChordInCadence: number, params: MusicParams, logger: Logger) => {
     /*
@@ -272,7 +272,13 @@ export const getTension = (passedFromNotes: Array<Note>, toNotes: Array<Note>, c
         availableLeads[scaleIndex] = chordLeads[scaleIndex];
 
         for (const relativeDiff in leadsTo) {
-            const nextGTone = fromGlobalSemitone + parseInt(relativeDiff)
+            const relativeDiffNum = parseInt(relativeDiff);
+            const nextScaleIndex = (scaleIndex + relativeDiffNum + 7) % 7;
+            let semitoneDiff = semitoneDistance(currentScale.notes[nextScaleIndex].semitone, fromSemitone);
+            if (relativeDiffNum < 0) {
+                semitoneDiff = -semitoneDiff;
+            }
+            const nextGTone = fromGlobalSemitone + semitoneDiff
             resolvedLeads[nextGTone] = resolvedLeads[nextGTone] || 0
             resolvedLeads[nextGTone] += leadsTo[relativeDiff];
             // // Add leads to all octaves
@@ -370,8 +376,8 @@ export const getTension = (passedFromNotes: Array<Note>, toNotes: Array<Note>, c
         );
         if (interval >= 6) {
             tension += 0.2
+            logger.log("Tension from interval: ", interval);
         }
-        logger.log("Tension from interval: ", interval, intervalWeights[i]);
     }
     logger.log("tension: ", tension);
 

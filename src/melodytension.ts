@@ -47,10 +47,10 @@ export const melodyTension = (newNote: Note, prevNotes: Note[], params: MusicPar
         const note = prevNotes[i];
         const prevNote = prevNotes[i-1];
         const direction = globalSemitone(note) - globalSemitone(prevNote);
-        if (direction > 0) {
+        if (direction > 2) {
             directions.push("up");
             directionCounts["up"] = (directionCounts["up"] || 0) + 1;
-        } else if (direction < 0) {
+        } else if (direction < -2) {
             directions.push("down");
             directionCounts["down"] = (directionCounts["down"] || 0) + 1;
         } else {

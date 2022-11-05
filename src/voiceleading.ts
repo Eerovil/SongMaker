@@ -378,7 +378,7 @@ export const partialVoiceLeading = (chord: Chord, prevNotes: Array<Note>, beat: 
 
         const bestInversions = inversionResults.slice(0, 7);
         for (let bestInversion of bestInversions) {
-            tension = bestInversion.rating * -1 * 0.5;
+            tension = bestInversion.rating * -1;
             const notes = []
             notes[0] = bestInversion.notes[0];
             notes[1] = bestInversion.notes[1];
