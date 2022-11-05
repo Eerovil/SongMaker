@@ -2,7 +2,7 @@ import { Note, Scale, ScaleTemplates } from "musictheoryjs";
 import { Logger } from "./mylogger";
 import { globalSemitone, majScaleDifference, MusicParams, Nullable, semitoneDistance } from "./utils";
 
-export const getTension = (passedFromNotes: Array<Note>, toNotes: Array<Note>, currentScale: Scale, beatsUntilLastChordInCadence: number, params: MusicParams, logger: Logger) => {
+export const getTension = (passedFromNotes: Array<Note>, toNotes: Array<Note>, currentScale: Scale, beatsUntilLastChordInCadence: number, params: MusicParams, logger: Logger, beatsUntilLastChordInSong: number) => {
     /*
     *   Get the tension between two chords
     *   @param fromChord: Chord
@@ -324,6 +324,9 @@ export const getTension = (passedFromNotes: Array<Note>, toNotes: Array<Note>, c
             if (wantedScaleIndexes.indexOf(parseInt(scaleIndex as any)) === -1) {
                 tension += 2;
                 logger.log("Tension from wanted function: ", scaleIndex, " : ", wantedFunction);
+                if (beatsUntilLastChordInSong < 3) {
+                    tension += 5;
+                }
                 continue;
             } else {
                 tension -= 1;

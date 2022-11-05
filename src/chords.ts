@@ -93,14 +93,14 @@ const makeChords = async (params: MusicParams, progressCallback: Nullable<Functi
                 randomGenerator.cleanUp();
                 continue;
             }
-            const voiceLeadingResults = partialVoiceLeading(newChord, prevNotes, currentBeat, params, new Logger(chordLogger))
+            const voiceLeadingResults = partialVoiceLeading(newChord, prevNotes, currentBeat, params, new Logger(chordLogger), maxBeats - currentBeat)
             for (const voiceLeading of voiceLeadingResults) {
                 const inversionLogger = new Logger(chordLogger);
                 inversionLogger.title = ["Inversion ", `${voiceLeading.inversionName}`, " tension: ", `${voiceLeading.tension}`];
                 randomNotes.splice(0, randomNotes.length);  // Empty this and replace contents
                 randomNotes.push(...voiceLeading.notes);
                 const chordTensionLogger = new Logger(inversionLogger);
-                const tensionResult = getTension(prevNotes, randomNotes, currentScale, beatsUntilLastChordInCadence, params, chordTensionLogger);
+                const tensionResult = getTension(prevNotes, randomNotes, currentScale, beatsUntilLastChordInCadence, params, chordTensionLogger, maxBeats - currentBeat);
                 chordTensionLogger.print(prevChord ? prevChord.toString() : "", " -> ", newChord.toString(), ": ", tensionResult.tension);
                 for (let i=0; i<params.chords.length; i++) {
                     const chord = params.chords[i];

@@ -2,7 +2,7 @@ import { Note } from "musictheoryjs";
 import { Logger } from "./mylogger";
 import { Chord, globalSemitone, MusicParams, semitoneDistance } from "./utils";
 
-export const partialVoiceLeading = (chord: Chord, prevNotes: Array<Note>, beat: number, params: MusicParams, logger: Logger): Array<{tension: number, notes: Array<Note>, inversionName: string}> => {
+export const partialVoiceLeading = (chord: Chord, prevNotes: Array<Note>, beat: number, params: MusicParams, logger: Logger, beatsUntilLastChordInSong: number): Array<{tension: number, notes: Array<Note>, inversionName: string}> => {
     // Return Notes in the Chord that are closest to the previous notes
     // For each part
     const beatsPerCadence = 4 * params.barsPerCadence;
@@ -135,6 +135,15 @@ export const partialVoiceLeading = (chord: Chord, prevNotes: Array<Note>, beat: 
                     return false;
                 }
             }
+
+            // We try each inversion. Which is best?
+            const inversion = inversionNames[inversionIndex];
+            if (beatsUntilLastChordInSong < 2) {
+                if (!inversion.startsWith('root')) {
+                    continue; // Don't do anything but root position on the last chord
+                }
+            }
+
             const inversionResult: InversionResult = {
                 notes: {},
                 rating: 0,
@@ -153,9 +162,6 @@ export const partialVoiceLeading = (chord: Chord, prevNotes: Array<Note>, beat: 
                     octave: 1  // dummy
                 });
             }
-
-            // We try each inversion. Which is best?
-            const inversion = inversionNames[inversionIndex];
 
             logger.log("inversion: ", inversion, "octaveOffset: ", octaveOffset, "skipFifth: ", skipFifth);
             let partToIndex: { [key: number]: number } = {};
