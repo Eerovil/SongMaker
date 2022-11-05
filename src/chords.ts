@@ -13,6 +13,7 @@ import { partialVoiceLeading } from "./voiceleading";
 import { getTension } from "./chordtension";
 import { melodyTension } from "./melodytension";
 import { buildTopMelody } from "./topmelody";
+import { addHalfNotes } from "./halfnotes";
 
 
 const NOTES_PER_MELODY_PART = 8
@@ -46,10 +47,11 @@ const makeChords = async (params: MusicParams, progressCallback: Nullable<Functi
     // }
 
     for (let division=0; division<maxBeats * BEAT_LENGTH; division += BEAT_LENGTH) {
+        console.groupCollapsed("division", division, prevChord ? prevChord.toString() : "null", " scale ", currentScale.toString());
         const currentBeat = Math.floor(division / BEAT_LENGTH);
         const beatsUntilLastChordInCadence = (barsPerCadenceEnd * beatsPerBar) - ((currentBeat - 1) % (barsPerCadenceEnd * beatsPerBar)) - 1;
+        console.log("beatsUntilLastChordInCadence", beatsUntilLastChordInCadence);
 
-        console.groupCollapsed("currentBeat: ", currentBeat, "beatsUntilLastChordInCadence", beatsUntilLastChordInCadence, "currentScale: ", currentScale.toString(), " : ", prevChord ? prevChord.toString(): "");
         const beatSetting = params.beatSettings[currentBeat];
         let tensionOverride = null;
         if (beatSetting) {
@@ -67,6 +69,7 @@ const makeChords = async (params: MusicParams, progressCallback: Nullable<Functi
         let iterations = 0;
 
         let closestTension = -100;
+        let wantedTension = 0;
 
         while (!chordIsGood) {
             iterations++;
@@ -75,7 +78,6 @@ const makeChords = async (params: MusicParams, progressCallback: Nullable<Functi
             }
             if (iterations > 1000) {
                 console.log("Too many iterations, breaking, closestTension: ", closestTension);
-                console.groupEnd();
                 return {};
             }
             let criteriaLevel = Math.floor(iterations / (50));
@@ -84,17 +86,22 @@ const makeChords = async (params: MusicParams, progressCallback: Nullable<Functi
                 randomGenerator.cleanUp();
             }
             newChord = randomGenerator.getChord();
+            const chordLogger = new Logger();
             if (!newChord) {
-                console.log("Failed to get a new chord (all used)");
+                chordLogger.log("Failed to get a new chord (all used)");
                 // Try again
                 randomGenerator.cleanUp();
                 continue;
             }
-            const voiceLeadingResults = partialVoiceLeading(newChord, prevNotes, currentBeat, params)
+            const voiceLeadingResults = partialVoiceLeading(newChord, prevNotes, currentBeat, params, new Logger(chordLogger))
             for (const voiceLeading of voiceLeadingResults) {
+                const inversionLogger = new Logger(chordLogger);
+                inversionLogger.title = ["Inversion ", `${voiceLeading.inversionName}`, " tension: ", `${voiceLeading.tension}`];
                 randomNotes.splice(0, randomNotes.length);  // Empty this and replace contents
                 randomNotes.push(...voiceLeading.notes);
-                const tensionResult = getTension(prevNotes, randomNotes, currentScale, beatsUntilLastChordInCadence, params);
+                const chordTensionLogger = new Logger(inversionLogger);
+                const tensionResult = getTension(prevNotes, randomNotes, currentScale, beatsUntilLastChordInCadence, params, chordTensionLogger);
+                chordTensionLogger.print(prevChord ? prevChord.toString() : "", " -> ", newChord.toString(), ": ", tensionResult.tension);
                 for (let i=0; i<params.chords.length; i++) {
                     const chord = params.chords[i];
                     const chordWeight = parseFloat(`${params.chordSettings[i].weight}` || '0');
@@ -103,13 +110,13 @@ const makeChords = async (params: MusicParams, progressCallback: Nullable<Functi
                     }
                 }
                 if (prevMelody.length > 0) {
-                    tensionResult.tension += melodyTension(randomNotes[0], prevMelody, params);
+                    tensionResult.tension += melodyTension(randomNotes[0], prevMelody, params, new Logger(inversionLogger));
                     tensionResult.tension += voiceLeading.tension;
                 }
                 tension = tensionResult.tension;
                 newScale = tensionResult.newScale;
 
-                let wantedTension = baseTension;
+                wantedTension = baseTension;
                 // if (tensionBeats.includes(currentBeat)) {
                 //     wantedTension = highTension;
                 // }
@@ -139,43 +146,43 @@ const makeChords = async (params: MusicParams, progressCallback: Nullable<Functi
                     minTension = -999;
                 }
 
-                console.log(prevChord ? prevChord.toString() : "", " -> ", newChord.toString(), "tension: ", tension);
                 if (tension < wantedTension && tension > minTension) {
                     chordIsGood = true;
+                    break;  // Skip checking other voice leading inversions
                 } else {
                     if (Math.abs(tension - wantedTension) < Math.abs(closestTension - wantedTension)) {
                         closestTension = tension;
                     }
                     if (tension > 10) {
-                        continue;  // Skip checking other voice leading inversions
+                        break;  // Skip checking other voice leading inversions
                     }
                     if (progressCallback) {
                         const giveUP = progressCallback(null, null);
                         if (giveUP) {
-                            console.groupEnd();
                             // Reduce cadence count to fix errors later
                             params.cadenceCount = Math.floor((currentBeat / (barsPerCadenceEnd * beatsPerBar)));
                             return result;
                         }
                     }
                 }
+                inversionLogger.print();
             }  // For voiceleading results end
+            chordLogger.print(prevChord ? prevChord.toString() : "", " -> ", newChord.toString(), ": ", tension.toFixed(1), " (" + wantedTension + ")");
         }  // While end
         if (newChord == null) {
-            console.groupEnd();
             return {};
         }
         tensions.push(tension);
         const newChordString = newChord.toString();
         if (newScale && oldNewScale == newScale) {
             currentScale = newScale;
-            console.log("new scale: ", currentScale.toString());
+            //console.log("new scale: ", currentScale.toString());
         }
         if (newScale) {
             oldNewScale = newScale;
         }
         prevMelody.push(randomNotes[0]);
-        console.log(`${beatsUntilLastChordInCadence}: ${tension.toFixed(1)} - ${newChordString} (${currentScale.toString()})`);
+        //console.log(`${beatsUntilLastChordInCadence}: ${tension.toFixed(1)} - ${newChordString} (${currentScale.toString()})`);
         result[currentBeat * BEAT_LENGTH] = randomNotes.map((note, index) => ({
             note: note,
             partIndex: index,
@@ -201,7 +208,6 @@ const makeChords = async (params: MusicParams, progressCallback: Nullable<Functi
 }
 
 export async function makeMusic(params: MusicParams, progressCallback: Nullable<Function> = null) {
-    console.log(params)
     let divisionedNotes: DivisionedRichnotes = {};
     let iterations = 0;
     while (true) {
@@ -212,22 +218,12 @@ export async function makeMusic(params: MusicParams, progressCallback: Nullable<
                 divisionedNotes: {},
             }
         }
-        console.groupCollapsed("makeChords");
         divisionedNotes = await makeChords(params, progressCallback);
-        console.groupEnd();
-        console.log("divisionedNotes: ", divisionedNotes);
         if (Object.keys(divisionedNotes).length != 0) {
             break;
         }
         await new Promise((resolve) => setTimeout(resolve, 1000))
     }
-    // console.groupCollapsed("buildMelody")
-    // const melody: { [key: number]: RichNote } = buildMelody(chords, params);
-    // console.groupEnd();
-
-    // console.groupCollapsed("makeVoiceLeadingNotes")
-    // const divisionedNotes: DivisionedRichnotes = makeVoiceLeadingNotes(chords, melody, params)
-    // console.groupEnd();
 
     // const divisionedNotes: DivisionedRichnotes = newVoiceLeadingNotes(chords, params);
     buildTopMelody(divisionedNotes, params);
@@ -241,52 +237,48 @@ export async function makeMusic(params: MusicParams, progressCallback: Nullable<
 
 }
 
-export async function testFunc(params: MusicParams) {
-    console.log(params)
-    let chords: Array<Array<RichNote>> = [];
+// export async function testFunc(params: MusicParams) {
+//     console.log(params)
+//     let chords: Array<Array<RichNote>> = [];
 
-    chords = moonlightsonata
-        .map((noteNames) => (
-            noteNames.map(
-                (noteName) => ({
-                    note: new Note(noteName),
-                    duration: BEAT_LENGTH,
-                }) as RichNote
-            )
-        ));
+//     chords = moonlightsonata
+//         .map((noteNames) => (
+//             noteNames.map(
+//                 (noteName) => ({
+//                     note: new Note(noteName),
+//                     duration: BEAT_LENGTH,
+//                 }) as RichNote
+//             )
+//         ));
 
-    const divisionedNotes: DivisionedRichnotes = {};
+//     const divisionedNotes: DivisionedRichnotes = {};
 
-    // Lower all semitones by 4
-    chords.forEach(richNoteList => richNoteList.forEach(richNote => {
-        const gTone = globalSemitone(richNote.note) - 4;
-        richNote.note.semitone = gTone % 12;
-        richNote.note.octave = Math.floor(gTone / 12);
-    }))
+//     // Lower all semitones by 4
+//     chords.forEach(richNoteList => richNoteList.forEach(richNote => {
+//         const gTone = globalSemitone(richNote.note) - 4;
+//         richNote.note.semitone = gTone % 12;
+//         richNote.note.octave = Math.floor(gTone / 12);
+//     }))
 
 
-    let prevChord = chords[0];
-    for (let i=0; i<chords.length; i++) {
-        const chord = chords[i];
-        const scale = new Scale({key: 0, template: ScaleTemplates.major});
-        console.log(getTension(prevChord.map(richNote => richNote.note), chord.map(richNote => richNote.note), scale, 10, params));
-        prevChord = chord;
-        divisionedNotes[i * BEAT_LENGTH] = chord.map((note, index) => ({
-            note: note.note,
-            partIndex: index,
-            duration: BEAT_LENGTH,
-            scale: scale,
-        }) as RichNote);
-    }
+//     let prevChord = chords[0];
+//     for (let i=0; i<chords.length; i++) {
+//         const chord = chords[i];
+//         const scale = new Scale({key: 0, template: ScaleTemplates.major});
+//         console.log(getTension(prevChord.map(richNote => richNote.note), chord.map(richNote => richNote.note), scale, 10, params));
+//         prevChord = chord;
+//         divisionedNotes[i * BEAT_LENGTH] = chord.map((note, index) => ({
+//             note: note.note,
+//             partIndex: index,
+//             duration: BEAT_LENGTH,
+//             scale: scale,
+//         }) as RichNote);
+//     }
 
-    return {
-        chords: chords,
-        divisionedNotes: divisionedNotes,
-    }
-}
+//     return {
+//         chords: chords,
+//         divisionedNotes: divisionedNotes,
+//     }
+// }
 
 export { buildTables, ScaleTemplates }
-function addHalfNotes(divisionedNotes: DivisionedRichnotes, params: MusicParams) {
-    throw new Error("Function not implemented.");
-}
-

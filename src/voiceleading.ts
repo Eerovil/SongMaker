@@ -1,10 +1,10 @@
 import { Note } from "musictheoryjs";
+import { Logger } from "./mylogger";
 import { Chord, globalSemitone, MusicParams, semitoneDistance } from "./utils";
 
-export const partialVoiceLeading = (chord: Chord, prevNotes: Array<Note>, beat: number, params: MusicParams): Array<{tension: number, notes: Array<Note>}> => {
+export const partialVoiceLeading = (chord: Chord, prevNotes: Array<Note>, beat: number, params: MusicParams, logger: Logger): Array<{tension: number, notes: Array<Note>, inversionName: string}> => {
     // Return Notes in the Chord that are closest to the previous notes
     // For each part
-    console.groupCollapsed("newVoiceLeadingNotes: ", chord.toString(), " beat: ", beat);
     const beatsPerCadence = 4 * params.barsPerCadence;
     const ret = [];
 
@@ -26,7 +26,7 @@ export const partialVoiceLeading = (chord: Chord, prevNotes: Array<Note>, beat: 
         [startingGlobalSemitones[2] + -12, startingGlobalSemitones[2] + 12],
         [startingGlobalSemitones[3] + -12, startingGlobalSemitones[3] + 12],
     ]
-    console.log(semitoneLimits)
+    logger.log(semitoneLimits)
 
     let lastBeatGlobalSemitones = [...startingGlobalSemitones]
     if (prevNotes) {
@@ -42,7 +42,7 @@ export const partialVoiceLeading = (chord: Chord, prevNotes: Array<Note>, beat: 
     if (chord) {
         let beatsUntilLastChordInCadence = (beatsPerCadence - beat) % beatsPerCadence
         let cadenceEnding = beatsUntilLastChordInCadence >= beatsPerCadence - 1 || beatsUntilLastChordInCadence == 0
-        console.log("cadenceEnding: ", cadenceEnding, "beatsUntilLastChordInCadence", beatsUntilLastChordInCadence)
+        logger.log("cadenceEnding: ", cadenceEnding, "beatsUntilLastChordInCadence", beatsUntilLastChordInCadence)
 
         // For each beat, we try to find a good matching semitone for each part.
 
@@ -59,7 +59,7 @@ export const partialVoiceLeading = (chord: Chord, prevNotes: Array<Note>, beat: 
 
         const firstInterval = semitoneDistance(chord.notes[0].semitone, chord.notes[1].semitone)
         const thirdIsGood = firstInterval == 3 || firstInterval == 4;
-        console.log("notes: ", chord.notes.map(n => n.toString()));
+        logger.log("notes: ", chord.notes.map(n => n.toString()));
 
         // Depending on the inversion and chord type, we're doing different things
 
@@ -78,8 +78,10 @@ export const partialVoiceLeading = (chord: Chord, prevNotes: Array<Note>, beat: 
         }
         const inversionResults: Array<InversionResult> = [];
 
+        for (let skipFifthIndex = 0; skipFifthIndex < 2; skipFifthIndex++) {
+        for (let octaveOffset=0; octaveOffset<2; octaveOffset++) {
         for (let inversionIndex=0; inversionIndex<inversionNames.length; inversionIndex++) {
-
+            const skipFifth = skipFifthIndex == 1;
             const directions: { [key: number ]: Direction} = {};
             const directionIsGood = (direction: Direction) => {
                 const downCount = Object.values(directions).filter(d => d == "down").length;
@@ -138,6 +140,12 @@ export const partialVoiceLeading = (chord: Chord, prevNotes: Array<Note>, beat: 
                 rating: 0,
                 inversionName: inversionNames[inversionIndex],
             };
+            if (octaveOffset != 0) {
+                inversionResult.inversionName += "-octave" + octaveOffset;
+            }
+            if (skipFifth) {
+                inversionResult.inversionName += "-skipFifth";
+            }
 
             const addPartNote = (partIndex: number, note: Note) => {
                 inversionResult.notes[partIndex] = new Note({
@@ -149,7 +157,7 @@ export const partialVoiceLeading = (chord: Chord, prevNotes: Array<Note>, beat: 
             // We try each inversion. Which is best?
             const inversion = inversionNames[inversionIndex];
 
-            console.log("inversion: ", inversion);
+            logger.log("inversion: ", inversion, "octaveOffset: ", octaveOffset, "skipFifth: ", skipFifth);
             let partToIndex: { [key: number]: number } = {};
             if (chord.notes.length == 3) {
                 if (inversion == 'root') {
@@ -168,7 +176,7 @@ export const partialVoiceLeading = (chord: Chord, prevNotes: Array<Note>, beat: 
                     partToIndex[2] = 2;
                     partToIndex[3] = 1;
                     if (!thirdIsGood) {
-                        console.log("thirdIsGood is false, skipping ", inversion);
+                        logger.log("thirdIsGood is false, skipping ", inversion);
                         continue;
                     }
                 } else if (inversion == 'first-third') {
@@ -177,7 +185,7 @@ export const partialVoiceLeading = (chord: Chord, prevNotes: Array<Note>, beat: 
                     partToIndex[2] = 1;
                     partToIndex[3] = 1;  // Third is doubled
                     if (!thirdIsGood) {
-                        console.log("thirdIsGood is false, skipping ", inversion);
+                        logger.log("thirdIsGood is false, skipping ", inversion);
                         continue;
                     }
                 } else if (inversion == 'first-fifth') {
@@ -191,7 +199,7 @@ export const partialVoiceLeading = (chord: Chord, prevNotes: Array<Note>, beat: 
                     partToIndex[2] = 2;
                     partToIndex[3] = 1;
                     if (!thirdIsGood) {
-                        console.log("thirdIsGood is false, skipping ", inversion);
+                        logger.log("thirdIsGood is false, skipping ", inversion);
                         continue;
                     }
                 } else if (inversion == 'second') {
@@ -214,7 +222,7 @@ export const partialVoiceLeading = (chord: Chord, prevNotes: Array<Note>, beat: 
                     partToIndex[2] = 2;
                     partToIndex[3] = 1;
                     if (!thirdIsGood) {
-                        console.log("thirdIsGood is false, skipping ", inversion);
+                        logger.log("thirdIsGood is false, skipping ", inversion);
                         continue;
                     }
                 } else if (inversion == 'second') {
@@ -230,7 +238,26 @@ export const partialVoiceLeading = (chord: Chord, prevNotes: Array<Note>, beat: 
                 }
             }
 
+            const indexCounts: {[key: number]: number} = {
+                0: 0,
+                1: 0,
+                2: 0,
+                3: 0,
+            };
             for (let partIndex=0; partIndex<4; partIndex++) {
+                indexCounts[partToIndex[partIndex]]++;
+            }
+            let convertFifthTo;
+            if (indexCounts[0] == 1) {
+                convertFifthTo = 0;
+            } else if (indexCounts[1] == 1) {
+                convertFifthTo = 1;
+            }
+
+            for (let partIndex=0; partIndex<4; partIndex++) {
+                if (skipFifth && partToIndex[partIndex] == 2 && convertFifthTo) {
+                    partToIndex[partIndex] = convertFifthTo;
+                } 
                 if (inversionResult.notes[partIndex]) {
                     // This part is already set
                     continue;
@@ -261,8 +288,12 @@ export const partialVoiceLeading = (chord: Chord, prevNotes: Array<Note>, beat: 
                                 note.octave += 1;
                             }
                         } else {
-                            console.log("Can't go up one more: ", gTone, semitoneLimits[partIndex][1]);
+                            logger.log("Can't go up one more: ", gTone, semitoneLimits[partIndex][1]);
+                            if (partIndex == 3 && octaveOffset > 0) {
+                                note.octave += octaveOffset;
+                            }
                         }
+                        gTone = globalSemitone(note);
                         minSemitone = gTone;
                     }
                 }
@@ -276,27 +307,27 @@ export const partialVoiceLeading = (chord: Chord, prevNotes: Array<Note>, beat: 
                 if (distance > 0) {
                     direction = "up";
                     if (!directionIsGood("up")) {
-                        console.log("note ", note.toString(), "is not good because direction is up from ", new Note({semitone: lastBeatGlobalSemitones[partIndex] % 12}).toString())
+                        logger.log("note ", note.toString(), "is not good because direction is up from ", new Note({semitone: lastBeatGlobalSemitones[partIndex] % 12}).toString())
                         inversionResult.rating -= 1;
                     }
                 } else if (distance < 0) {
                     direction = "down";
                     if (!directionIsGood("down")) {
-                        console.log("note ", note.toString(), "is not good because direction is down from", new Note({semitone: lastBeatGlobalSemitones[partIndex] % 12}).toString())
+                        logger.log("note ", note.toString(), "is not good because direction is down from", new Note({semitone: lastBeatGlobalSemitones[partIndex] % 12}).toString())
                         inversionResult.rating -= 1;
                     }
                 } else {
                     direction = "same";
                     if (!directionIsGood("same")) {
-                        console.log("note ", note.toString(), "is not good because direction is same from", new Note({semitone: lastBeatGlobalSemitones[partIndex] % 12}).toString())
+                        logger.log("note ", note.toString(), "is not good because direction is same from", new Note({semitone: lastBeatGlobalSemitones[partIndex] % 12}).toString())
                         inversionResult.rating -= 1;
                     }
                 }
                 directions[partIndex] = direction
 
                 minSemitone = gTone;
-                inversionResults.push(inversionResult);
             }
+            inversionResults.push(inversionResult);
 
             // Check for parallel motion (if this note had a 1st, 5th or 8th with another note
             // and it still has it, then it's parallel motion)
@@ -330,22 +361,24 @@ export const partialVoiceLeading = (chord: Chord, prevNotes: Array<Note>, beat: 
                     }
                     if (interval != undefined) {
                         if (Math.abs(currentNote - currentNote2) == interval) {
-                            console.log("parallel motion from ", new Note({semitone: prevNote % 12}).toString(), " to ", new Note({semitone: currentNote % 12}).toString(), " and from ", new Note({semitone: prevNote2 % 12}).toString(), " to ", new Note({semitone: currentNote2 % 12}).toString())
+                            logger.log("parallel motion from ", new Note({semitone: prevNote % 12}).toString(), " to ", new Note({semitone: currentNote % 12}).toString(), " and from ", new Note({semitone: prevNote2 % 12}).toString(), " to ", new Note({semitone: currentNote2 % 12}).toString())
                             inversionResult.rating -= 1;
                         }
                     }
                 }
             }
 
-            console.log(directions);
+            logger.log(directions);
+        }
+        }
         }
 
         // Sort the results by rating
         inversionResults.sort((a, b) => b.rating - a.rating);
 
-        const bestInversions = inversionResults.slice(0, 3);
+        const bestInversions = inversionResults.slice(0, 7);
         for (let bestInversion of bestInversions) {
-            tension = bestInversion.rating * -1;
+            tension = bestInversion.rating * -1 * 0.5;
             const notes = []
             notes[0] = bestInversion.notes[0];
             notes[1] = bestInversion.notes[1];
@@ -354,11 +387,12 @@ export const partialVoiceLeading = (chord: Chord, prevNotes: Array<Note>, beat: 
             ret.push({
                 tension: tension,
                 notes: notes,
+                inversionName: bestInversion.inversionName,
             })
         }
 
     }
-    console.groupEnd();
+    logger.print("newVoiceLeadingNotes: ", chord.toString(), " beat: ", beat);
 
     return ret;
 }

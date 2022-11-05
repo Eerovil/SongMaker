@@ -1,7 +1,8 @@
 import { Note, Scale, ScaleTemplates } from "musictheoryjs";
+import { Logger } from "./mylogger";
 import { globalSemitone, majScaleDifference, MusicParams, Nullable } from "./utils";
 
-export const getTension = (passedFromNotes: Array<Note>, toNotes: Array<Note>, currentScale: Scale, beatsUntilLastChordInCadence: number, params: MusicParams) => {
+export const getTension = (passedFromNotes: Array<Note>, toNotes: Array<Note>, currentScale: Scale, beatsUntilLastChordInCadence: number, params: MusicParams, logger: Logger) => {
     /*
     *   Get the tension between two chords
     *   @param fromChord: Chord
@@ -9,13 +10,13 @@ export const getTension = (passedFromNotes: Array<Note>, toNotes: Array<Note>, c
     *   @return: tension value between -1 and 1
     */
     let wantedFunction = null;
-    if (beatsUntilLastChordInCadence < 5) {
+    if (beatsUntilLastChordInCadence == 3) {
         wantedFunction = "sub-dominant";
     }
-    if (beatsUntilLastChordInCadence < 3) {
+    if (beatsUntilLastChordInCadence == 2) {
         wantedFunction = "dominant";
     }
-    if (beatsUntilLastChordInCadence < 1) {
+    if (beatsUntilLastChordInCadence == 1) {
         wantedFunction = "tonic";
     }
 
@@ -28,7 +29,6 @@ export const getTension = (passedFromNotes: Array<Note>, toNotes: Array<Note>, c
     const toChordString = toNotes.map(n => n.toString()).join(', ');
     const fromChordString = fromNotes.map(n => n.toString()).join(', ');
 
-    console.groupCollapsed("getTension: ", fromChordString, "to: ", toChordString, currentScale.toString())
     const noteCount = Math.max(fromNotes.length, toNotes.length);
     // Compare the notes. Each differing note increases the tension a bit
     let tension = 0;
@@ -54,7 +54,8 @@ export const getTension = (passedFromNotes: Array<Note>, toNotes: Array<Note>, c
 
     tension += differingNotes.length * (1 / noteCount) * 0.5;
     // tension += sameNotes.length * (1 / noteCount) * -0.5;
-    console.log("Differing notes: ", tension);
+    logger.log("Differing notes: ", tension);
+    logger.log("tension: ", tension);
 
     // If the notes are not in the current scale, increase the tension
     let notesNotInScale: Array<number> = []
@@ -104,8 +105,8 @@ export const getTension = (passedFromNotes: Array<Note>, toNotes: Array<Note>, c
 
             // TODO TEMP
             // multiplier = 2000;
-            console.log("Scale: ", closestScale, "d: ", closestScaleDistance, "c: ", toChordString);
-            console.log("differingNotesNotInScale: ", notesNotInScale)
+            logger.log("Scale: ", closestScale, "d: ", closestScaleDistance, "c: ", toChordString);
+            logger.log("differingNotesNotInScale: ", notesNotInScale)
             tension += notesNotInScale.length * multiplier;
 
             // Scale change
@@ -117,11 +118,11 @@ export const getTension = (passedFromNotes: Array<Note>, toNotes: Array<Note>, c
 
             if (tension > 100) {
                 // Quick return, this chord sucks
-                console.groupEnd()
                 return { tension, newScale };
             }
         }
     }
+    logger.log("tension: ", tension);
 
     // Figure out where the fromChord resolves to. If it resolves to the toChord, decrease the tension
     // const fromIntervals = fromSemitones.map((semitone, index) => {
@@ -154,18 +155,19 @@ export const getTension = (passedFromNotes: Array<Note>, toNotes: Array<Note>, c
             const interval = Math.abs(toGlobalSemitones[i] - toGlobalSemitones[j]);
             if (interval === 1) {
                 tension += 2;
-                console.log("interval 1 causing tension")
+                logger.log("interval 1 causing tension")
             }
             if (interval === 2) {
                 tension += 0.5;
-                console.log("interval 2 causing tension")
+                logger.log("interval 2 causing tension")
             }
             if (interval === 6) {
                 tension += 1.5;
-                console.log("interval 6 causing tension")
+                logger.log("interval 6 causing tension")
             }
         }
     }
+    logger.log("tension: ", tension);
 
     // // If chord has not 5th with base, increase tension
     // if (toIntervals.length > 1 && toIntervals[0] + toIntervals[1] !== 7) {
@@ -207,19 +209,19 @@ export const getTension = (passedFromNotes: Array<Note>, toNotes: Array<Note>, c
     // viio notes:
     // 6, 1, 3
 
-    // -> Tonic notes =       0,    2,    4,(5) (fake tonic)
+    // -> Tonic notes =       0,    2,    4
     // -> SubDominant notes = 0, 1,    3,    5
     // -> Dominant notes =       1,    3, 4,   6
 
     // Use relative diffs here for easy comparison
     let chordLeads: { [key: number]: { [key: number]: number } } = {
         0: {
+            0: 1,
             1: 1,  // As subdominant leading ahead 1
         },
         1: {
             // D: Leading to closest T notes (also is SD that leads to itself...)
             [-1]: 1,
-            0: 1,
             1: 1,
         },
         2: {
@@ -230,7 +232,6 @@ export const getTension = (passedFromNotes: Array<Note>, toNotes: Array<Note>, c
         3: {
             // SD: Leading to closest D notes
             [-1]: 0.5,
-            0: 1,
             1: 1,
         },
         4: {
@@ -261,7 +262,13 @@ export const getTension = (passedFromNotes: Array<Note>, toNotes: Array<Note>, c
         // Each note may be "leading" somewhere.
         const fromSemitone = (fromGlobalSemitone + 12) % 12;
         const scaleIndex: number = semitoneScaleIndex[fromSemitone];
-        const leadsTo: { [key: number]: number } = chordLeads[scaleIndex];
+        if (scaleIndex == undefined) {
+            // Out of scale. This note leads to 1 semitone up or down
+            resolvedLeads[fromGlobalSemitone + 1] = 1;
+            resolvedLeads[fromGlobalSemitone - 1] = 1;
+            continue;
+        }
+        const leadsTo: { [key: number]: number } =  chordLeads[scaleIndex];
         availableLeads[scaleIndex] = chordLeads[scaleIndex];
 
         for (const relativeDiff in leadsTo) {
@@ -276,10 +283,11 @@ export const getTension = (passedFromNotes: Array<Note>, toNotes: Array<Note>, c
         }
     }
 
-    console.log(
+    logger.log(
         "availableLeads: ", availableLeads,
         "chords: ", fromSemitones.map(s => semitoneScaleIndex[s]), " - ",
-        toSemitones.map(s => semitoneScaleIndex[s])
+        toSemitones.map(s => semitoneScaleIndex[s]),
+        " - resolvedLeads: ", resolvedLeads,
     )
 
     const handledSemitones: number[] = []
@@ -309,11 +317,11 @@ export const getTension = (passedFromNotes: Array<Note>, toNotes: Array<Note>, c
             
             if (wantedScaleIndexes.indexOf(parseInt(scaleIndex as any)) === -1) {
                 tension += 2;
-                console.log("Tension from wanted function: ", scaleIndex, " : ", wantedFunction);
+                logger.log("Tension from wanted function: ", scaleIndex, " : ", wantedFunction);
                 continue;
             } else {
                 tension -= 1;
-                console.log("Reduced tension from wanted function: ", scaleIndex, " : ", wantedFunction);
+                logger.log("Reduced tension from wanted function: ", scaleIndex, " : ", wantedFunction);
             }
         }
 
@@ -321,33 +329,31 @@ export const getTension = (passedFromNotes: Array<Note>, toNotes: Array<Note>, c
         if (leadsTo && leadsTo[0]) {
             // This note is leading to itself, with some tension.
             tension -= leadsTo[0];
-            console.log("Tension from lead to itself: ", scaleIndex, -leadsTo[0], " : ", wantedFunction);
+            logger.log("Tension from lead to itself: ", scaleIndex, -leadsTo[0], " : ", wantedFunction);
             continue;
         }
 
         if (resolvedLeads[toGlobalSemitone] !== undefined) {
             tension -= resolvedLeads[toGlobalSemitone] * 1.5;
-            console.log("Tension from lead: ", toGlobalSemitone, -resolvedLeads[toGlobalSemitone], " : ", wantedFunction);
+            logger.log("Tension from lead: ", toGlobalSemitone, -resolvedLeads[toGlobalSemitone], " : ", wantedFunction);
             continue;
         }
 
     }
+    logger.log("tension: ", tension);
 
     // if (toNotes[0].semitone == currentScale.notes[0].semitone) {
-    //     console.log("Lead tension from ", fromChordString, " to ", toChordString, "(", currentScale.toString(), ")", " is ", (tensionBeforelead + tension).toFixed(2));
+    //     logger.log("Lead tension from ", fromChordString, " to ", toChordString, "(", currentScale.toString(), ")", " is ", (tensionBeforelead + tension).toFixed(2));
     // }
 
     // if (fromChord.chordType == "sus4") {
-    //     console.log("Lead tension from ", fromChordString, " to ", toChordString, "(", currentScale.toString(), ")", " is ", (tensionBeforelead + tension).toFixed(2));
+    //     logger.log("Lead tension from ", fromChordString, " to ", toChordString, "(", currentScale.toString(), ")", " is ", (tensionBeforelead + tension).toFixed(2));
     // }
 
     const prevWideness = Math.max(...fromGlobalSemitones) - Math.min(...fromGlobalSemitones);
     const nextWideness = Math.max(...toGlobalSemitones) - Math.min(...toGlobalSemitones);
 
-    // If chord is getting wider, increase tension
-    if (nextWideness > prevWideness) {
-        tension += (nextWideness - prevWideness) * 0.1;
-    }
+    logger.log("tension: ", tension);
 
     // For each part, check the interval
     const intervalWeights = [
@@ -361,13 +367,13 @@ export const getTension = (passedFromNotes: Array<Note>, toNotes: Array<Note>, c
         const toNote = toNotes[i];
         const interval = Math.abs(
             globalSemitone(fromNote) - globalSemitone(toNote)
-        ) - 1;
-        tension += interval * intervalWeights[i];
-        console.log("Tension from interval: ", interval, intervalWeights[i]);
+        );
+        if (interval >= 6) {
+            tension += 0.2
+        }
+        logger.log("Tension from interval: ", interval, intervalWeights[i]);
     }
+    logger.log("tension: ", tension);
 
-    console.log("Tension from ", fromChordString, " to ", toChordString, "(", currentScale.toString(), ")", " is ", tension.toFixed(2), " before lead ", tensionBeforelead.toFixed(2));
-
-    console.groupEnd()
     return { tension, newScale };
 }

@@ -1,4 +1,4 @@
-import { makeMusic, buildTables, testFunc, ScaleTemplates } from "./src/chords"
+import { makeMusic, buildTables, ScaleTemplates } from "./src/chords"
 import { loadPlayer } from "./src/player"
 import { toXml } from "./src/musicxmlgen"
 import { DivisionedRichnotes, MusicParams } from "./src/utils";
@@ -14,7 +14,6 @@ try {
     browser = false;
 }
 // testFunc();
-console.groupCollapsed("makeMusic")
 let params = new MusicParams();
 if (browser) {
     params = new MusicParams((window as any).params);
@@ -23,7 +22,7 @@ if (browser) {
 }
 let promise: Promise<any>;
 if (params.testMode) {
-    promise = testFunc(params)
+    // promise = testFunc(params)
 } else {
     const progressCallback = (currentBeat: any, richNotes: any) => {
         if (currentBeat != null) {
@@ -39,7 +38,6 @@ if (params.testMode) {
     promise = makeMusic(params, progressCallback);
 }
 promise.then((result) => {
-    console.groupEnd();
 
     const divisionedNotes: DivisionedRichnotes = result.divisionedNotes;
     if (Object.keys(divisionedNotes).length === 0) {
@@ -60,4 +58,9 @@ promise.then((result) => {
         }, 2000)
     }
     
-})
+}).catch((err) => {
+    console.error(err);
+    if (browser) {
+        window.alert("Virhe!");
+    }
+});

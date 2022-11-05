@@ -85,7 +85,7 @@ export class MusicParams {
     }> = [
         {
             voice: "1",
-            note: "A4",
+            note: "C5",
         },
         {
             voice: "1",
@@ -93,7 +93,7 @@ export class MusicParams {
         },
         {
             voice: "1",
-            note: "A4",
+            note: "C4",
         },
         {
             voice: "1",

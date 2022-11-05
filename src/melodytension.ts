@@ -1,7 +1,8 @@
 import { Note } from "musictheoryjs";
+import { Logger } from "./mylogger";
 import { globalSemitone, MusicParams } from "./utils";
 
-export const melodyTension = (newNote: Note, prevNotes: Note[], params: MusicParams): number => {
+export const melodyTension = (newNote: Note, prevNotes: Note[], params: MusicParams, logger: Logger): number => {
 
     const p1Note = params.parts[0].note || "F4";
     const startingGlobalSemitone = globalSemitone(new Note(p1Note))
@@ -97,10 +98,8 @@ export const melodyTension = (newNote: Note, prevNotes: Note[], params: MusicPar
     }
 
     const ret = Math.max(-0.5, directionTensions[newDirection] * 2);
-
-    console.groupCollapsed("melody tension: ", ret);
-    console.log(directionTensions)
-    console.log(directions, directionCounts)
-    console.groupEnd();
+    logger.log(directionTensions)
+    logger.log(directions, directionCounts)
+    logger.print("melody tension: ", ret);
     return ret;
 }
