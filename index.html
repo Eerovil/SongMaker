@@ -254,7 +254,7 @@
         </div>
     </div>
 </div>
-<button onclick="window.giveUP = true">Luovuta generointi</button>
+<button onclick="window.giveUp()">Luovuta generointi</button>
 <button id="btn-play">PLAY</button>
 <button id="btn-pause">PAUSE</button>
 <button id="btn-stop">STOP</button>
@@ -329,8 +329,7 @@
     }
 
     const newMelody = () => {
-        const params = updateParamsFromSettings(true);
-        window.getNewMelody(params);
+        window.getNewMelody(window.params);
     }
 
     //console.log(window.scoreXML)
@@ -401,7 +400,6 @@ createApp({
     updateCadenceBars(cadenceParams) {
         const barCount = cadenceParams.barsPerCadence;
         const beatCount = this.params.beatsPerBar * barCount;
-        console.log("updateCadenceBars", barCount, beatCount, `${this.params.beatsPerBar}`);
         if (cadenceParams.beatSettings.length < beatCount) {
             const diff = beatCount - cadenceParams.beatSettings.length;
             for (let i=0; i<diff; i++) {
@@ -417,7 +415,6 @@ createApp({
                 };
             }
             cadenceParams.beatSettings[beatSettingIndex].tension = parseFloat(cadenceParams.beatSettings[beatSettingIndex].tension)
-            console.log("beatSettingIndex", beatSettingIndex, cadenceParams.beatSettings[beatSettingIndex]);
         }
     }
   },

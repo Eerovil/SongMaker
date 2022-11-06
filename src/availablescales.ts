@@ -29,7 +29,7 @@ const scalesForNotes = (notes: Note[], params: MusicParams): Scale[] => {
     for (let note of notes) {
         const semitone = note.semitone
         for (const scale of scales) {
-            if (!scale.semitones.contains(semitone)) {
+            if (!scale.semitones.includes(semitone)) {
                 scales.delete(scale)
             }
         }
