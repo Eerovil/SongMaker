@@ -102,6 +102,15 @@ const makeChords = async (params: MusicParams, progressCallback: Nullable<Functi
                 logger: availableScaleLogger,
             })
             const voiceLeadingResults = partialVoiceLeading(newChord, prevNotes, currentBeat, params, new Logger(chordLogger), maxBeats - currentBeat)
+                
+            if (beatsUntilLastChordInCadence == 1) {
+                // Force same chord twice
+                chordIsGood = true;
+                randomNotes.splice(0, randomNotes.length);
+                randomNotes.push(...prevNotes);
+                newChord = prevChord;
+            }
+
             for (const voiceLeading of voiceLeadingResults) {
                 if (chordIsGood) {
                     break;

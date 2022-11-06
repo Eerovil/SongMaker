@@ -10,13 +10,13 @@ export const getTension = (passedFromNotes: Array<Note>, toNotes: Array<Note>, c
     *   @return: tension value between -1 and 1
     */
     let wantedFunction = null;
-    if (beatsUntilLastChordInCadence == 3) {
+    if (beatsUntilLastChordInCadence == 4) {
         wantedFunction = "sub-dominant";
     }
-    if (beatsUntilLastChordInCadence == 2) {
+    if (beatsUntilLastChordInCadence == 3) {
         wantedFunction = "dominant";
     }
-    if (beatsUntilLastChordInCadence == 1) {
+    if (beatsUntilLastChordInCadence < 3) {
         wantedFunction = "tonic";
     }
 

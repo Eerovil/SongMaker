@@ -9,11 +9,12 @@ const addNoteBetween = (division: number, nextDivision: number, partIndex: numbe
         return;
     }
 
+    const prevScaleTones = beatRichNote.scale.notes.map(n => n.semitone);
     const nextBeatRichNote = divisionedNotes[nextDivision].filter(note => note.partIndex == partIndex)[0];
     if (!nextBeatRichNote || !nextBeatRichNote.note) {
         return;
     }
-    const scaleTones = nextBeatRichNote.scale.notes.map(n => n.semitone);
+    const scaleTones = nextBeatRichNote.scale.notes.map(n => n.semitone).filter(n => prevScaleTones.indexOf(n) !== -1);
     const currentGTone = globalSemitone(beatRichNote.note)
     const nextGTone = globalSemitone(nextBeatRichNote.note);
     const randomNote = beatRichNote.note.copy();
