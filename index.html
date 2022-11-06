@@ -381,7 +381,7 @@ createApp({
     },
     initCadenceParams() {
         let prevCadence = this.params.cadences[this.params.cadences.length - 1];
-        const newCadenceSettings = JSON.parse(JSON.stringify(prevCadence));
+        const newCadenceSettings = JSON.parse(JSON.stringify(prevCadence || "{}"));
         return new window.MusicParams(newCadenceSettings);
     },
     updateBaseTension(cadenceParams, event) {
