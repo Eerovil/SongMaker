@@ -221,33 +221,35 @@ export const getTension = (passedFromNotes: Array<Note>, toNotes: Array<Note>, c
         1: {
             // D: Leading to closest T notes (also is SD that leads to itself...)
             [-1]: 1,
-            1: 1,
+            0: -0.5,
+            1: 0.5,
         },
         2: {
-            [-1]: 1,
+            [-1]: 0,
             0: 1,
-            1: 1,
+            1: 0,
         },
         3: {
             // SD: Leading to closest D notes
-            [-1]: 0.5,
+            [-1]: 1,
+            0: -0.5,
             1: 1,
         },
         4: {
             // D: Leading to closest T notes
-            [-1]: 0.5,
+            [-1]: 0,
             0: 1,
-            1: 0.5,
+            1: 0,
         },  // Dominant (5th, 7th) is leading strongly
         5: {
             // SD: Leading to closest D notes
             [-1]: 1,
-            1: 1,
+            0: -0.5,
+            1: 0.5,
         },
         6: {
             // D: Leading to closest T notes
-            [-2]: 1,
-            [-1]: 0.5,
+            [-1]: 0,
             0: -1,  // This D DOES NOT LIKE TO STAY
             1: 2,
         },
@@ -342,7 +344,7 @@ export const getTension = (passedFromNotes: Array<Note>, toNotes: Array<Note>, c
         }
 
         if (resolvedLeads[toGlobalSemitone] !== undefined) {
-            tension -= resolvedLeads[toGlobalSemitone] * 1.5;
+            tension -= resolvedLeads[toGlobalSemitone] * params.leadingWeight;
             logger.log("Tension from lead: ", toGlobalSemitone, -resolvedLeads[toGlobalSemitone], " : ", wantedFunction);
             continue;
         }

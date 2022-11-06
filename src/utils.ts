@@ -81,6 +81,7 @@ export class MusicParams {
     sixteenthNotes?: number = 0.2;
     eighthNotes?: number = 0.4;
     modulationWeight?: number = 0.5;
+    leadingWeight?: number = 2;
     parts: Array<{
         voice: string,
         note: string,

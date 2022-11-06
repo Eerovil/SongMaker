@@ -8,12 +8,12 @@ const addNoteBetween = (division: number, nextDivision: number, partIndex: numbe
     if (!beatRichNote || !beatRichNote.note) {
         return;
     }
-    const scaleTones = beatRichNote.scale.notes.map(n => n.semitone);
 
     const nextBeatRichNote = divisionedNotes[nextDivision].filter(note => note.partIndex == partIndex)[0];
     if (!nextBeatRichNote || !nextBeatRichNote.note) {
         return;
     }
+    const scaleTones = nextBeatRichNote.scale.notes.map(n => n.semitone);
     const currentGTone = globalSemitone(beatRichNote.note)
     const nextGTone = globalSemitone(nextBeatRichNote.note);
     const randomNote = beatRichNote.note.copy();

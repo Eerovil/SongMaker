@@ -74,6 +74,10 @@
             <label for="modulation-weight">modulaatioarvo</label>
             <input type="number" id="modulation-weight" value="1" min="0.01" max="2" step="0.1" style="width: 100px">
         </div>
+        <div>
+            <label for="leading-weight">johtoarvo</label>
+            <input type="number" id="leading-weight" value="2" min="0.01" max="4" step="0.1" style="width: 100px">
+        </div>
     </div>
     <div>
         <h4>Asteikot</h4>
@@ -286,6 +290,10 @@
         if (params.modulationWeight) {
             document.querySelector("#modulation-weight").value = params.modulationWeight;
         }
+        if (params.leadingWeight) {
+            document.querySelector("#leading-weight").value = params.leadingWeight;
+        }
+
 
         if (params.melodySettings) {
             const melodySettings = params.melodySettings;
@@ -349,6 +357,7 @@
         params.sixteenthNotes = document.querySelector("#sixteenth-notes").value;
         params.eighthNotes = document.querySelector("#eighth-notes").value;
         params.modulationWeight = document.querySelector("#modulation-weight").value;
+        params.leadingWeight = document.querySelector("#leading-weight").value;
 
         const voices = [];
         for (const voice of [1, 2, 3, 4]) {
