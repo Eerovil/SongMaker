@@ -1,7 +1,6 @@
 import {
     buildTables,
-    Scale,
-    ScaleTemplates,
+    Scale,    
     Note,
     Semitone,
 } from "musictheoryjs";
@@ -14,6 +13,7 @@ import { getTension } from "./chordtension";
 import { melodyTension } from "./melodytension";
 import { buildTopMelody } from "./topmelody";
 import { addHalfNotes } from "./halfnotes";
+import { getAvailableScales } from "./availablescales";
 
 
 const NOTES_PER_MELODY_PART = 8
@@ -34,7 +34,7 @@ const makeChords = async (params: MusicParams, progressCallback: Nullable<Functi
 
     const maxBeats = cadences * barsPerCadenceEnd * beatsPerBar;
     //let currentScale = new Scale({ key: Math.floor(Math.random() * 12) , octave: 5, template: ScaleTemplates[params.scaleTemplate]});
-    let currentScale = new Scale({ key: 0, octave: 5, template: ScaleTemplates.major});
+    let currentScale = new Scale({ key: 0, octave: 5 });
 
     let result: DivisionedRichnotes = {};
     let tensions: Array<number> = [];
@@ -46,7 +46,7 @@ const makeChords = async (params: MusicParams, progressCallback: Nullable<Functi
     //     // tensionBeats.push(Math.floor(Math.random() * (maxBeats - 10)) + 6);
     // }
 
-    for (let division=0; division<maxBeats * BEAT_LENGTH; division += BEAT_LENGTH) {
+    for (let division = 0; division < maxBeats * BEAT_LENGTH; division += BEAT_LENGTH) {
         console.groupCollapsed("division", division, prevChord ? prevChord.toString() : "null", " scale ", currentScale.toString());
         const currentBeat = Math.floor(division / BEAT_LENGTH);
         const beatsUntilLastChordInCadence = (barsPerCadenceEnd * beatsPerBar) - ((currentBeat - 1) % (barsPerCadenceEnd * beatsPerBar)) - 1;
@@ -93,79 +93,123 @@ const makeChords = async (params: MusicParams, progressCallback: Nullable<Functi
                 randomGenerator.cleanUp();
                 continue;
             }
+            const availableScaleLogger = new Logger(chordLogger)
+            const availableScales = getAvailableScales({
+                latestDivision: division,
+                divisionedRichNotes: result,
+                params: params,
+                randomNotes: newChord.notes,
+                logger: availableScaleLogger,
+            })
             const voiceLeadingResults = partialVoiceLeading(newChord, prevNotes, currentBeat, params, new Logger(chordLogger), maxBeats - currentBeat)
             for (const voiceLeading of voiceLeadingResults) {
+                if (chordIsGood) {
+                    break;
+                }
                 const inversionLogger = new Logger(chordLogger);
                 inversionLogger.title = ["Inversion ", `${voiceLeading.inversionName}`, " tension: ", `${voiceLeading.tension}`];
                 randomNotes.splice(0, randomNotes.length);  // Empty this and replace contents
                 randomNotes.push(...voiceLeading.notes);
-                const chordTensionLogger = new Logger(inversionLogger);
-                const tensionResult = getTension(prevNotes, randomNotes, currentScale, beatsUntilLastChordInCadence, params, chordTensionLogger, maxBeats - currentBeat);
-                chordTensionLogger.print(prevChord ? prevChord.toString() : "", " -> ", newChord.toString(), ": ", tensionResult.tension);
-                for (let i=0; i<params.chords.length; i++) {
-                    const chord = params.chords[i];
-                    const chordWeight = parseFloat(`${params.chordSettings[i].weight}` || '0');
-                    if (newChord.chordType == chord) {
-                        tensionResult.tension += ((chordWeight * 10) ** 2) / 10;
+                for (const availableScale of availableScales) {
+                    const scaleLogger = new Logger(inversionLogger)
+                    const chordTensionLogger = new Logger(scaleLogger);
+                    scaleLogger.title = ["Scale ", `${availableScale.scale.toString()}`];
+                    if (chordIsGood) {
+                        break;
                     }
-                }
-                if (prevMelody.length > 0) {
-                    tensionResult.tension += melodyTension(randomNotes[0], prevMelody, params, new Logger(inversionLogger));
-                    tensionResult.tension += voiceLeading.tension;
-                }
-                tension = tensionResult.tension;
-                newScale = tensionResult.newScale;
-
-                wantedTension = baseTension;
-                // if (tensionBeats.includes(currentBeat)) {
-                //     wantedTension = highTension;
-                // }
-                if (maxBeats - currentBeat < 4) {
-                    // Final bar
-                    wantedTension = -0.5
-                }
-                if (beatsUntilLastChordInCadence < 3) {
-                    wantedTension = -0.7;
-                } else {
-                    wantedTension += (0.1 * criteriaLevel);
-                }
-
-                if (tensionOverride != null) {
-                    wantedTension = tensionOverride;
-                    wantedTension += (0.1 * criteriaLevel);
-                }
-
-                let minTension = -999;
-                if (wantedTension > 0.5) {
-                    minTension = wantedTension - 0.3 - (0.2 * criteriaLevel);
-                }
-                if (beatsUntilLastChordInCadence < 5) {
-                    minTension = -999;
-                }
-                if (!prevChord) {
-                    minTension = -999;
-                }
-
-                if (tension < wantedTension && tension > minTension) {
-                    chordIsGood = true;
-                    break;  // Skip checking other voice leading inversions
-                } else {
-                    if (Math.abs(tension - wantedTension) < Math.abs(closestTension - wantedTension)) {
-                        closestTension = tension;
-                    }
-                    if (tension > 10) {
-                        break;  // Skip checking other voice leading inversions
-                    }
-                    if (progressCallback) {
-                        const giveUP = progressCallback(null, null);
-                        if (giveUP) {
-                            // Reduce cadence count to fix errors later
-                            params.cadenceCount = Math.floor((currentBeat / (barsPerCadenceEnd * beatsPerBar)));
-                            return result;
+                    const tensionResult = getTension(
+                        prevNotes,
+                        randomNotes,
+                        availableScale.scale,
+                        beatsUntilLastChordInCadence,
+                        params,
+                        chordTensionLogger,
+                        maxBeats - currentBeat
+                    );
+                    chordTensionLogger.title = [
+                        prevChord ? prevChord.toString() : "", " -> ", newChord.toString(), ": ", tensionResult.tension
+                    ]
+                    for (let i = 0; i < params.chords.length; i++) {
+                        const chord = params.chords[i];
+                        const chordWeight = parseFloat(`${params.chordSettings[i].weight}` || '0');
+                        if (newChord.chordType == chord) {
+                            tensionResult.tension += ((chordWeight * 10) ** 2) / 10;
+                            chordTensionLogger.log("Chord ", chord, " weight: ", chordWeight, " tension: ", tensionResult.tension);
                         }
                     }
-                }
-                inversionLogger.print();
+                    if (prevMelody.length > 0) {
+                        tensionResult.tension += melodyTension(randomNotes[0], prevMelody, params, new Logger(scaleLogger));
+                        chordTensionLogger.log("Melody tension: ", tensionResult.tension);
+                        tensionResult.tension += voiceLeading.tension;
+                        chordTensionLogger.log("VoiceLeading tension: ", tensionResult.tension);
+                        tensionResult.tension += availableScale.tension / params.modulationWeight;
+                        chordTensionLogger.log("Scale tension: ", tensionResult.tension);
+                        if (!availableScale.scale.equals(currentScale)) {
+                            tensionResult.tension += 1 / params.modulationWeight;
+                            chordTensionLogger.log("Scale change tension: ", tensionResult.tension);
+                            if (maxBeats - currentBeat < 3) {
+                                // Last 2 bars, don't change scale
+                                tensionResult.tension += 100;
+                            }
+                            if (beatsUntilLastChordInCadence < 3) {
+                                // Don't change scale in last 2 beats of cadence
+                                tensionResult.tension += 100;
+                            }
+                        }
+                    }
+                    tension = tensionResult.tension;
+
+                    wantedTension = baseTension;
+                    // if (tensionBeats.includes(currentBeat)) {
+                    //     wantedTension = highTension;
+                    // }
+                    if (maxBeats - currentBeat < 4) {
+                        // Final bar
+                        wantedTension = -0.5
+                    }
+                    if (beatsUntilLastChordInCadence < 3) {
+                        wantedTension = -0.7;
+                    } else {
+                        wantedTension += (0.1 * criteriaLevel);
+                    }
+
+                    if (tensionOverride != null) {
+                        wantedTension = tensionOverride;
+                        wantedTension += (0.1 * criteriaLevel);
+                    }
+
+                    let minTension = -999;
+                    if (wantedTension > 0.5) {
+                        minTension = wantedTension - 0.3 - (0.2 * criteriaLevel);
+                    }
+                    if (beatsUntilLastChordInCadence < 5) {
+                        minTension = -999;
+                    }
+                    if (!prevChord) {
+                        minTension = -999;
+                    }
+
+                    if (tension < wantedTension && tension > minTension) {
+                        chordIsGood = true;
+                        newScale = availableScale.scale.copy();
+                        chordTensionLogger.log("Chord is good: ", tension, " wanted: ", wantedTension, " min: ", minTension);
+                        break;  // Skip checking other voice leading inversions
+                    } else {
+                        chordTensionLogger.log("Chord is bad: ", tension, " wanted: ", wantedTension, " min: ", minTension);
+                        if (Math.abs(tension - wantedTension) < Math.abs(closestTension - wantedTension)) {
+                            closestTension = tension;
+                        }
+                        if (progressCallback) {
+                            const giveUP = progressCallback(null, null);
+                            if (giveUP) {
+                                // Reduce cadence count to fix errors later
+                                params.cadenceCount = Math.floor((currentBeat / (barsPerCadenceEnd * beatsPerBar)));
+                                return result;
+                            }
+                        }
+                    }
+                    inversionLogger.print();
+                }  // For available scales end
             }  // For voiceleading results end
             chordLogger.print(prevChord ? prevChord.toString() : "", " -> ", newChord.toString(), ": ", tension.toFixed(1), " (" + wantedTension + ")");
         }  // While end
@@ -174,7 +218,7 @@ const makeChords = async (params: MusicParams, progressCallback: Nullable<Functi
         }
         tensions.push(tension);
         const newChordString = newChord.toString();
-        if (newScale && oldNewScale == newScale) {
+        if (newScale) {
             currentScale = newScale;
             //console.log("new scale: ", currentScale.toString());
         }
@@ -229,7 +273,7 @@ export async function makeMusic(params: MusicParams, progressCallback: Nullable<
     buildTopMelody(divisionedNotes, params);
     // addEighthNotes(divisionedNotes, params)
     addHalfNotes(divisionedNotes, params)
-    
+
 
     return {
         divisionedNotes: divisionedNotes,
@@ -281,4 +325,4 @@ export async function makeMusic(params: MusicParams, progressCallback: Nullable<
 //     }
 // }
 
-export { buildTables, ScaleTemplates }
+export { buildTables }

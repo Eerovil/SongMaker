@@ -1,4 +1,4 @@
-import { makeMusic, buildTables, ScaleTemplates } from "./src/chords"
+import { makeMusic, buildTables } from "./src/chords"
 import { loadPlayer } from "./src/player"
 import { toXml } from "./src/musicxmlgen"
 import { DivisionedRichnotes, MusicParams } from "./src/utils";
@@ -17,7 +17,6 @@ try {
 let params = new MusicParams();
 if (browser) {
     params = new MusicParams((window as any).params);
-    (window as any).scaleTemplateChoices = Object.keys(ScaleTemplates);
     (window as any).params = params;
 }
 let promise: Promise<any>;

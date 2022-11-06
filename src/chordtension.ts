@@ -1,4 +1,4 @@
-import { Note, Scale, ScaleTemplates } from "musictheoryjs";
+import { Note, Scale } from "musictheoryjs";
 import { Logger } from "./mylogger";
 import { globalSemitone, majScaleDifference, MusicParams, Nullable, semitoneDistance } from "./utils";
 
@@ -90,7 +90,7 @@ export const getTension = (passedFromNotes: Array<Note>, toNotes: Array<Note>, c
                     }
                 }
             }
-            let multiplier = 1;
+            let multiplier = 4;
             if (closestScaleDistance > 1) {
                 multiplier = 4;
             }
@@ -112,8 +112,7 @@ export const getTension = (passedFromNotes: Array<Note>, toNotes: Array<Note>, c
             // Scale change
             newScale = new Scale({
                 key: closestScale,
-                octave: 5,
-                template: ScaleTemplates[params.scaleTemplate]
+                octave: 5
             });
 
             if (tension > 100) {

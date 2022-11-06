@@ -75,11 +75,12 @@ export class MusicParams {
     baseTension?: number = 0.3;
     cadenceCount?: number = 2
     barsPerCadence?: number = 4
-    chords?: Array<string> = ["maj", "min"];
+    chords: Array<string> = ["maj", "min"];
     tempo?: number = 40;
     halfNotes?: boolean = true;
     sixteenthNotes?: number = 0.5;
     eighthNotes?: number = 0.5;
+    modulationWeight?: number = 0.5;
     parts: Array<{
         voice: string,
         note: string,
@@ -107,8 +108,23 @@ export class MusicParams {
     testMode?: boolean = false;
     chordSettings: Array<{
         weight: number
-    }> = [];
-    scaleTemplate: string = "major";
+    }> = [{weight: 0}, {weight: 0}];
+    scaleSettings: Array<{
+        scaleSlug: string,
+        enabled: boolean,
+        weight: number
+    }> = [
+        {
+            scaleSlug: "major",
+            enabled: true,
+            weight: 1,
+        },
+        {
+            scaleSlug: "minor",
+            enabled: true,
+            weight: 1,
+        },
+    ];
     melodySettings: {
         "up": number,
         "down": number,

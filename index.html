@@ -42,36 +42,51 @@
 <div style="margin-top: 3rem; display: flex; justify-content: space-between; padding: 1rem 5rem; border: 1px solid black; flex-wrap: wrap;">
     <div style="width: 100%; display: flex;">
     <div>
-        <label for="cadence-count">Sointukulkujen määrä</label>
-        <input type="number" id="cadence-count" value="2" min="1" max="300" step="1" style="width: 100px">
+        <div>
+            <label for="cadence-count">Sointukulkujen määrä</label>
+            <input type="number" id="cadence-count" value="2" min="1" max="300" step="1" style="width: 100px">
+        </div>
+        <div>
+            <label for="bars-per-cadence">Sointukulkujen pituus</label>
+            <input type="number" id="bars-per-cadence" value="4" min="1" max="300" step="1" style="width: 100px">
+        </div>
+        <div>
+            <label for="base-tension">Vaikeusaste</label>
+            <input type="number" id="base-tension" value="0.3" min="-10" max="10" step="0.1" style="width: 100px" onchange="changeBaseTension()">
+        </div>
+        <div>
+            <label for="tempo">Tempo</label>
+            <input type="number" id="tempo" value="40" min="1" max="300" step="1" style="width: 100px">
+        </div>
+        <div>
+            <label for="half-notes">Puolinuotit</label>
+            <input type="checkbox" id="half-notes" style="width: 100px">
+        </div>
+        <div>
+            <label for="eighth-notes">8-osien osuus</label>
+            <input type="number" id="eighth-notes" value="0.5" min="0" max="1" step="0.1" style="width: 100px">
+        </div>
+        <div>
+            <label for="sixteenth-notes">16-osien osuus</label>
+            <input type="number" id="sixteenth-notes" value="0.5" min="0" max="1" step="0.1" style="width: 100px">
+        </div>
+        <div>
+            <label for="modulation-weight">modulaatioarvo</label>
+            <input type="number" id="modulation-weight" value="1" min="0.01" max="2" step="0.1" style="width: 100px">
+        </div>
     </div>
     <div>
-        <label for="bars-per-cadence">Sointukulkujen pituus</label>
-        <input type="number" id="bars-per-cadence" value="4" min="1" max="300" step="1" style="width: 100px">
-    </div>
-    <div>
-        <label for="base-tension">Vaikeusaste</label>
-        <input type="number" id="base-tension" value="0.3" min="-10" max="10" step="0.1" style="width: 100px" onchange="changeBaseTension()">
-    </div>
-    <div>
-        <label for="tempo">Tempo</label>
-        <input type="number" id="tempo" value="40" min="1" max="300" step="1" style="width: 100px">
-    </div>
-    <div>
-        <label for="half-notes">Puolinuotit</label>
-        <input type="checkbox" id="half-notes" style="width: 100px">
-    </div>
-    <div>
-        <label for="eighth-notes">8-osien osuus</label>
-        <input type="number" id="eighth-notes" value="0.5" min="0" max="1" step="0.1" style="width: 100px">
-    </div>
-    <div>
-        <label for="sixteenth-notes">16-osien osuus</label>
-        <input type="number" id="sixteenth-notes" value="0.5" min="0" max="1" step="0.1" style="width: 100px">
-    </div>
-    <div>
-        <label for="scale-template">Asteikko</label>
-        <select id="scale-template"></select>
+        <h4>Asteikot</h4>
+        <div>
+            <label for="scale-major">Major</label>
+            <input type="checkbox" class="scalebox" data-scaleslug="major" id="scale-major" value="maj">
+            <input type="range" id="scale-major-weight" value="1" min="-0.5" max="0" step="0.1">
+        </div>
+        <div>
+            <label for="scale-minor">Minor</label>
+            <input type="checkbox" class="scalebox" data-scaleslug="minor" id="scale-minor" value="maj">
+            <input type="range" id="scale-minor-weight" value="1" min="-0.5" max="0" step="0.1">
+        </div>
     </div>
     <div>
         <h4>Soinnut</h4>
@@ -226,6 +241,7 @@
     }
     const updateSettingsFromParams = () => {
         const params = window.params;
+        console.log(params)
         if (params.cadenceCount) {
             document.querySelector("#cadence-count").value = params.cadenceCount;
         }
@@ -251,6 +267,12 @@
                 (document.querySelector(`#chord-${chord}-weight`) || {}).value = (setting || {}).weight || 0;
             }
         }
+        if (params.scaleSettings) {
+            for (const scale of params.scaleSettings) {
+                (document.querySelector(`#scale-${scale.scaleSlug}`) || {}).checked = true;
+                (document.querySelector(`#scale-${scale.scaleSlug}-weight`) || {}).value = scale.weight || 0;
+            }
+        }
         if (params.halfNotes) {
             document.querySelector("#half-notes").checked = params.halfNotes;
         }
@@ -259,6 +281,9 @@
         }
         if (params.eighthNotes) {
             document.querySelector("#eighth-notes").value = params.eighthNotes;
+        }
+        if (params.modulationWeight) {
+            document.querySelector("#modulation-weight").value = params.modulationWeight;
         }
 
         if (params.melodySettings) {
@@ -304,21 +329,11 @@
             beatSettingWrapper.appendChild(el);
         }
 
-        const scaleTemplateSelect = document.querySelector("#scale-template");
-        for (const scaleTemplateChoice of window.scaleTemplateChoices) {
-            const option = document.createElement("option");
-            option.value = scaleTemplateChoice;
-            option.innerHTML = scaleTemplateChoice;
-            scaleTemplateSelect.appendChild(option);
-        }
-        if (params.scaleTemplate) {
-            scaleTemplateSelect.value = params.scaleTemplate;
-        }
-
     }
     updateSettingsFromParams();
 
     const updateParamsFromSettings = () => {
+        window.giveUP = true;
         const params = window.params;
         params.cadenceCount = document.querySelector("#cadence-count").value;
         params.barsPerCadence = document.querySelector("#bars-per-cadence").value;
@@ -332,6 +347,7 @@
         params.halfNotes = document.querySelector("#half-notes").checked;
         params.sixteenthNotes = document.querySelector("#sixteenth-notes").value;
         params.eighthNotes = document.querySelector("#eighth-notes").value;
+        params.modulationWeight = document.querySelector("#modulation-weight").value;
 
         const voices = [];
         for (const voice of [1, 2, 3, 4]) {
@@ -362,7 +378,16 @@
         }
         params.chordSettings = chordSettings;
 
-        params.scaleTemplate = document.querySelector("#scale-template").value;
+        const scales = [];
+        for (const scale of document.querySelectorAll("input.scalebox[type=checkbox]:checked")) {
+            scaleSlug = scale.dataset.scaleslug
+            scales.push({
+                enabled: true,
+                scaleSlug: scaleSlug,
+                weight: document.querySelector(`#scale-${scaleSlug}-weight`).value
+            });
+        }
+        params.scaleSettings = scales;
 
         params.melodySettings = {
             up: document.querySelector("#melody-up-weight").value,
