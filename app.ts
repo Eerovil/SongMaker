@@ -1,4 +1,4 @@
-import { makeMusic, buildTables } from "./src/chords"
+import { makeMusic, buildTables, makeMelody } from "./src/chords"
 import { loadPlayer } from "./src/player"
 import { toXml } from "./src/musicxmlgen"
 import { DivisionedRichnotes, MusicParams } from "./src/utils";
@@ -36,6 +36,22 @@ if (params.testMode) {
     }
     promise = makeMusic(params, progressCallback);
 }
+(window as any).getNewMelody = (params: MusicParams) => {
+    const divisionedNotes = (window as any).divisionedNotes;
+    makeMelody(divisionedNotes, params);
+    console.groupCollapsed("xml");
+    const scoreXML = toXml(divisionedNotes, params);
+    console.groupEnd();
+
+    if (browser) {
+        // console.log((window as any).result);
+        (window as any).loadPlayer = loadPlayer;
+        setTimeout(() => {
+            loadPlayer(scoreXML);
+        }, 2000)
+    }
+    
+}
 promise.then((result) => {
 
     const divisionedNotes: DivisionedRichnotes = result.divisionedNotes;
@@ -45,6 +61,7 @@ promise.then((result) => {
         }
         return;
     }
+    (window as any).divisionedNotes = divisionedNotes;
     console.groupCollapsed("xml");
     const scoreXML = toXml(divisionedNotes, params);
     console.groupEnd();

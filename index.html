@@ -173,6 +173,7 @@
     </div>
     <div>
         <button onclick="updateParamsFromSettings()">OK</button>
+        <button onclick="newMelody()">Aja melodia</button>
         <button onclick="window.location.href = '/'">Reset</button>
     </div>
     <div style="width: 100%" id="beatsettings">
@@ -332,7 +333,7 @@
     }
     updateSettingsFromParams();
 
-    const updateParamsFromSettings = () => {
+    const updateParamsFromSettings = (noreload = undefined) => {
         window.giveUP = true;
         const params = window.params;
         params.cadenceCount = document.querySelector("#cadence-count").value;
@@ -401,6 +402,10 @@
 
         searchParams.set("fulldata", JSON.stringify(params));
 
+        if (noreload) {
+            return params;
+        }
+
         url.search = searchParams.toString();
         window.location.href = url;
     }
@@ -417,6 +422,11 @@
             }
         }
         window.params.baseTension = newBaseTension;
+    }
+
+    const newMelody = () => {
+        const params = updateParamsFromSettings(true);
+        window.getNewMelody(params);
     }
 
     //console.log(window.scoreXML)

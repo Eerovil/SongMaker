@@ -155,6 +155,10 @@ const makeChords = async (params: MusicParams, progressCallback: Nullable<Functi
                                 // Don't change scale in last 2 beats of cadence
                                 tensionResult.tension += 100;
                             }
+                            if (currentBeat < 5) {
+                                // Don't change scale in first 5 beats
+                                tensionResult.tension += 100;
+                            }
                         }
                     }
                     tension = tensionResult.tension;
@@ -279,6 +283,33 @@ export async function makeMusic(params: MusicParams, progressCallback: Nullable<
         divisionedNotes: divisionedNotes,
     }
 
+}
+
+export function makeMelody(divisionedNotes: DivisionedRichnotes, params: MusicParams) {
+    // Remove old melody and make a new one
+    const beatsPerBar = params.beatsPerBar || 4;
+    const barsPerCadenceEnd = params.barsPerCadence || 4;
+    const cadences = params.cadenceCount || 2
+
+    const maxBeats = cadences * barsPerCadenceEnd * beatsPerBar;
+
+    for (let division=0; division < maxBeats * BEAT_LENGTH; division++) {
+        const onBeat = division % BEAT_LENGTH == 0;
+        if (!onBeat) {
+            divisionedNotes[division] = []
+        } else if (divisionedNotes[division] && divisionedNotes[division].length > 0) {
+            divisionedNotes[division].forEach(richNote => {
+                richNote.duration = BEAT_LENGTH;
+                richNote.tie = undefined;
+            })
+        }
+
+    }
+
+    // const divisionedNotes: DivisionedRichnotes = newVoiceLeadingNotes(chords, params);
+    buildTopMelody(divisionedNotes, params);
+    // addEighthNotes(divisionedNotes, params)
+    addHalfNotes(divisionedNotes, params)
 }
 
 // export async function testFunc(params: MusicParams) {

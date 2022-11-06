@@ -78,8 +78,8 @@ export class MusicParams {
     chords: Array<string> = ["maj", "min"];
     tempo?: number = 40;
     halfNotes?: boolean = true;
-    sixteenthNotes?: number = 0.5;
-    eighthNotes?: number = 0.5;
+    sixteenthNotes?: number = 0.2;
+    eighthNotes?: number = 0.4;
     modulationWeight?: number = 0.5;
     parts: Array<{
         voice: string,

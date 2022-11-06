@@ -10,6 +10,7 @@ const loadPlayer = async (scoreXml: string) => {
   if (!el) {
     return;
   }
+  el.innerHTML = "";
   const osmd = new OpenSheetMusicDisplay(el);
   const audioPlayer = new AudioPlayer();
   audioPlayer.playbackSettings.masterVolume = 4;
