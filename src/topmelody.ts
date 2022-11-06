@@ -1,5 +1,5 @@
 import { Note } from "musictheoryjs";
-import { BEAT_LENGTH, DivisionedRichnotes, globalSemitone, MusicParams, Nullable } from "./utils";
+import { BEAT_LENGTH, DivisionedRichnotes, globalSemitone, MainMusicParams, MusicParams, Nullable } from "./utils";
 
 
 const addNoteBetween = (division: number, nextDivision: number, partIndex: number, divisionedNotes: DivisionedRichnotes) => {
@@ -54,44 +54,26 @@ const addNoteBetween = (division: number, nextDivision: number, partIndex: numbe
 }
 
 
-export const buildTopMelody = (divisionedNotes: DivisionedRichnotes, params: MusicParams) => {
+export const buildTopMelody = (divisionedNotes: DivisionedRichnotes, mainParams: MainMusicParams) => {
     // Convert 4th notes in part 1 to 8th notes. Add random 8th and 16th notes between them. (and pauses?)
+    const lastDivision = BEAT_LENGTH * mainParams.getMaxBeats();
 
-    const beatsPerCadence = 4 * params.barsPerCadence;
-    const lastDivision = BEAT_LENGTH * beatsPerCadence * params.cadenceCount;
     for (let partIndex = 0; partIndex < 4; partIndex++) {
-        let sixteenthChance;
-        let eighthChance;
-        if (partIndex == 0) {
-            sixteenthChance= params.sixteenthNotes;
-            eighthChance = params.eighthNotes;
-        } else if (partIndex == 3) {
-            sixteenthChance = params.sixteenthNotes / 4;
-            eighthChance = params.eighthNotes / 2;
-        } else {
-            sixteenthChance = 0;
-            eighthChance = params.eighthNotes / 4;
-        }
-        const part1BaseNote = globalSemitone(new Note(params.parts[partIndex].note));
-        const part1MaxNote = part1BaseNote + 12;
-
-        let prevNote: Nullable<Note> = null;
-        let prevPrevNote: Nullable<Note> = null;
-        const directions = [
-            'up',
-            'same',
-            'down',
-            'repeat',
-            'repeat',
-        ]
-
-        let barDirection = 'same'
-        let notesInThisBar: Array<Note> = []
-        let counter = -1;
-
         for (let i = 0; i < lastDivision - BEAT_LENGTH; i += BEAT_LENGTH) {
-            const beatNumber = i / BEAT_LENGTH;
-            const lastBeatInCadence = (beatNumber % beatsPerCadence) == beatsPerCadence - 1;
+            const params = mainParams.currentCadenceParams(i);
+            let sixteenthChance;
+            let eighthChance;
+            if (partIndex == 0) {
+                sixteenthChance= params.sixteenthNotes;
+                eighthChance = params.eighthNotes;
+            } else if (partIndex == 3) {
+                sixteenthChance = params.sixteenthNotes / 4;
+                eighthChance = params.eighthNotes / 2;
+            } else {
+                sixteenthChance = 0;
+                eighthChance = params.eighthNotes / 4;
+            }
+            const lastBeatInCadence = params.beatsUntilCadenceEnd < 2
             if (lastBeatInCadence) {
                 continue;
             }

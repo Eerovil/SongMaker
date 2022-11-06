@@ -64,61 +64,8 @@ export const getTension = (passedFromNotes: Array<Note>, toNotes: Array<Note>, c
         const scaleSemitones = currentScale.notes.map(note => note.semitone);
         notesNotInScale = toSemitones.filter(semitone => !scaleSemitones.includes(semitone));
         if (notesNotInScale.length > 0) {
-            // How bad is the scale difference?
-            const goodSemitones = [];
-            let start = 0;
-            for (const interval of currentScale.template) {
-                goodSemitones.push(start + interval);
-                start += interval;
-            }
-            const candidateScales: Array<number> = []
-            for (let scaleCandidate = 0; scaleCandidate < 12; scaleCandidate++) {
-                const scaleSemitones = goodSemitones.map(semitone => (semitone + scaleCandidate) % 12);
-                if (toSemitones.every(semitone => scaleSemitones.includes(semitone))) {
-                    candidateScales.push(scaleCandidate);
-                }
-            }
-            let closestScale = candidateScales[0];
-            let closestScaleDistance = 100;
-            if (closestScale) {
-                closestScaleDistance = majScaleDifference(closestScale, currentScale.notes[0].semitone);
-                for (const scaleCandidate of candidateScales) {
-                    const scaleDistance = majScaleDifference(scaleCandidate, currentScale.notes[0].semitone);
-                    if (scaleDistance < closestScaleDistance) {
-                        closestScale = scaleCandidate;
-                        closestScaleDistance = scaleDistance;
-                    }
-                }
-            }
-            let multiplier = 4;
-            if (closestScaleDistance > 1) {
-                multiplier = 4;
-            }
-            if (beatsUntilLastChordInCadence < 4) {
-                // No scale change in the last 4 beats
-                multiplier = 2000;
-            }
-            if (passedFromNotes.length == 0) {
-                // No scale change in the first chord
-                multiplier = 2000;
-            }
-
-            // TODO TEMP
-            // multiplier = 2000;
-            logger.log("Scale: ", closestScale, "d: ", closestScaleDistance, "c: ", toChordString);
-            logger.log("differingNotesNotInScale: ", notesNotInScale)
-            tension += notesNotInScale.length * multiplier;
-
-            // Scale change
-            newScale = new Scale({
-                key: closestScale,
-                octave: 5
-            });
-
-            if (tension > 100) {
-                // Quick return, this chord sucks
-                return { tension, newScale };
-            }
+            // Quick return, this chord sucks
+            return { tension, newScale };
         }
     }
     logger.log("tension: ", tension);
@@ -215,8 +162,9 @@ export const getTension = (passedFromNotes: Array<Note>, toNotes: Array<Note>, c
     // Use relative diffs here for easy comparison
     let chordLeads: { [key: number]: { [key: number]: number } } = {
         0: {
+            [-1]: 0,
             0: 1,
-            1: 1,  // As subdominant leading ahead 1
+            1: 0,
         },
         1: {
             // D: Leading to closest T notes (also is SD that leads to itself...)
@@ -245,13 +193,13 @@ export const getTension = (passedFromNotes: Array<Note>, toNotes: Array<Note>, c
             // SD: Leading to closest D notes
             [-1]: 1,
             0: -0.5,
-            1: 0.5,
+            1: 0,
         },
         6: {
             // D: Leading to closest T notes
             [-1]: 0,
             0: -1,  // This D DOES NOT LIKE TO STAY
-            1: 2,
+            1: 1,
         },
     }
 

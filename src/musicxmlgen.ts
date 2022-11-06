@@ -1,10 +1,9 @@
 import { Note, Scale, ScaleTemplates } from 'musictheoryjs';
 
 import builder from 'xmlbuilder';
-import { DivisionedRichnotes, globalSemitone, MusicParams, RichNote } from './utils';
+import { DivisionedRichnotes, globalSemitone, MainMusicParams, MusicParams, RichNote } from './utils';
 
 const BEAT_LENGTH = 12
-const BEATS_PER_MEASURE = 4
 
 
 function semitoneToPitch(semitone: number, scale: Scale, direction: string="sharp"): { noteName: string, alter: number } {
@@ -95,7 +94,7 @@ type KeyChange = {
 }
 
 
-function addRichNoteToMeasure(richNote: RichNote, measure: builder.XMLElement, staff: number, voice: number, firstNoteInChord: boolean, writeChord: boolean, keychange: KeyChange | undefined = undefined) {
+function addRichNoteToMeasure(richNote: RichNote, measure: builder.XMLElement, staff: number, voice: number, firstNoteInChord: boolean, writeChord: boolean, keychange: KeyChange | undefined = undefined, params: MusicParams) {
   if (richNote.duration == 0) {
     return;
   }
@@ -236,7 +235,7 @@ function firstMeasureInit(voicePartIndex: number, measure: builder.XMLElement, p
       'fifths': { '#text': '0' }
     },
     'time': {
-      'beats': { '#text': '4' },
+      'beats': { '#text': params.beatsPerBar },
       'beat-type': { '#text': '4' }
     },
     'staves': 1,
@@ -249,7 +248,7 @@ function firstMeasureInit(voicePartIndex: number, measure: builder.XMLElement, p
     'direction-type': {
       'metronome': {
         'beat-unit': 'quarter',
-        'per-minute': '40'
+        'per-minute': `${params.tempo || 40}`
       }
     },
     'sound': {
@@ -283,7 +282,7 @@ const getScaleSharpCount = (scale: Scale) => {
   }
 }
 
-export function toXml(divisionedNotes: DivisionedRichnotes, params: MusicParams): string {
+export function toXml(divisionedNotes: DivisionedRichnotes, mainParams: MainMusicParams): string {
   const root = builder.create({ 'score-partwise' : { '@version': 3.1 }},
     { version: '1.0', encoding: 'UTF-8', standalone: false},
     {
@@ -292,6 +291,7 @@ export function toXml(divisionedNotes: DivisionedRichnotes, params: MusicParams)
     }
   );
   root.ele({ 'work': { 'work-title': "My song" }});
+  const firstParams = mainParams.currentCadenceParams(0);
   const partList = root.ele({ 'part-list': {}});
   partList.ele({
     'score-part': {
@@ -305,13 +305,13 @@ export function toXml(divisionedNotes: DivisionedRichnotes, params: MusicParams)
       'score-instrument': {
         '@id': 'P1-I1',
         'instrument-name': {
-          '#text': `${params.parts[0].voice}`
+          '#text': `${firstParams.parts[0].voice}`
         },
       },
       'midi-instrument': {
         '@id': 'P1-I1',
         'midi-channel': 1,
-        'midi-program': params.parts[0].voice,
+        'midi-program': firstParams.parts[0].voice,
         'volume': 90,
         'pan': 0
       }
@@ -329,13 +329,13 @@ export function toXml(divisionedNotes: DivisionedRichnotes, params: MusicParams)
       'score-instrument': {
         '@id': 'P2-I1',
         'instrument-name': {
-          '#text': `${params.parts[1].voice}`
+          '#text': `${firstParams.parts[1].voice}`
         },
       },
       'midi-instrument': {
         '@id': 'P2-I1',
         'midi-channel': 1,
-        'midi-program': params.parts[1].voice,
+        'midi-program': firstParams.parts[1].voice,
         'volume': 70,
         'pan': 0
       }
@@ -353,13 +353,13 @@ export function toXml(divisionedNotes: DivisionedRichnotes, params: MusicParams)
       'score-instrument': {
         '@id': 'P3-I1',
         'instrument-name': {
-          '#text': `${params.parts[2].voice}`
+          '#text': `${firstParams.parts[2].voice}`
         },
       },
       'midi-instrument': {
         '@id': 'P3-I1',
         'midi-channel': 1,
-        'midi-program': params.parts[2].voice,
+        'midi-program': firstParams.parts[2].voice,
         'volume': 70,
         'pan': 0
       }
@@ -377,13 +377,13 @@ export function toXml(divisionedNotes: DivisionedRichnotes, params: MusicParams)
       'score-instrument': {
         '@id': 'P4-I1',
         'instrument-name': {
-          '#text': `${params.parts[3].voice}`
+          '#text': `${firstParams.parts[3].voice}`
         },
       },
       'midi-instrument': {
         '@id': 'P4-I1',
         'midi-channel': 1,
-        'midi-program': params.parts[3].voice,
+        'midi-program': firstParams.parts[3].voice,
         'volume': 90,
         'pan': 0
       }
@@ -420,12 +420,13 @@ export function toXml(divisionedNotes: DivisionedRichnotes, params: MusicParams)
       const voicePartIndex = partIndex;
       if (voiceIndex == 0) {
         measures[partIndex].push(part.ele({ 'measure': { '@number': 1 }}));
-        firstMeasureInit(voicePartIndex, measures[partIndex][measures[partIndex].length - 1], params);
+        firstMeasureInit(voicePartIndex, measures[partIndex][measures[partIndex].length - 1], firstParams);
       }
       let currentScale = new Scale({ key: 0 });
       for (const division in divisionedNotes) {
         const divisionNumber = parseInt(division);
-        let measureIndex = Math.floor(divisionNumber / (BEATS_PER_MEASURE * BEAT_LENGTH))
+        const params = mainParams.currentCadenceParams(divisionNumber);
+        let measureIndex = Math.floor(divisionNumber / (params.beatsPerBar * BEAT_LENGTH))
         let currentMeasure = measures[partIndex][measureIndex]
         if (currentMeasure == undefined) {
           measures[partIndex].push(
@@ -440,7 +441,7 @@ export function toXml(divisionedNotes: DivisionedRichnotes, params: MusicParams)
           }
           let staff = partIndex;
           let keyChange: KeyChange | undefined = undefined
-          if (divisionNumber % (BEATS_PER_MEASURE * BEAT_LENGTH) == 0 && richNote.scale.key != currentScale.key) {
+          if (divisionNumber % (params.beatsPerBar * BEAT_LENGTH) == 0 && richNote.scale.key != currentScale.key) {
             const prevSharpCount = getScaleSharpCount(currentScale);
             const newSharpCount = getScaleSharpCount(richNote.scale);
             let fifths = 0;
@@ -484,7 +485,16 @@ export function toXml(divisionedNotes: DivisionedRichnotes, params: MusicParams)
               cancel: cancel,
             } as KeyChange
           }
-          addRichNoteToMeasure(richNote, measures[partIndex][measures[partIndex].length - 1], staff, voice, true, divisionNumber % BEAT_LENGTH == 0, keyChange);
+          addRichNoteToMeasure(
+            richNote,
+            measures[partIndex][measures[partIndex].length - 1],
+            staff,
+            voice,
+            true,
+            divisionNumber % BEAT_LENGTH == 0,
+            keyChange,
+            params,
+          );
         }
       }
     }

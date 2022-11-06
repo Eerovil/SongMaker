@@ -1,7 +1,7 @@
 import { makeMusic, buildTables, makeMelody } from "./src/chords"
 import { loadPlayer } from "./src/player"
 import { toXml } from "./src/musicxmlgen"
-import { DivisionedRichnotes, MusicParams } from "./src/utils";
+import { DivisionedRichnotes, MainMusicParams, MusicParams } from "./src/utils";
 
 
 buildTables()
@@ -14,18 +14,21 @@ try {
     browser = false;
 }
 // testFunc();
-let params = new MusicParams();
+let params = new MainMusicParams();
 if (browser) {
-    params = new MusicParams((window as any).params);
+    params = new MainMusicParams((window as any).params);
     (window as any).params = params;
+    (window as any).MusicParams = MusicParams;
 }
+setTimeout(() => {
+
 let promise: Promise<any>;
 if (params.testMode) {
     // promise = testFunc(params)
 } else {
-    const progressCallback = (currentBeat: any, richNotes: any) => {
+    const progressCallback = (currentBeat: number, richNotes: any) => {
         if (currentBeat != null) {
-            const el = document.querySelector(".beatsetting:nth-child(" + (currentBeat + 1) + ")");
+            const el = document.querySelectorAll(`.beatresult`)[currentBeat];
             if (el && richNotes[0] && richNotes[0].chord) {
                 el.innerHTML += " " + richNotes[0].chord.toString();
             }
@@ -36,7 +39,7 @@ if (params.testMode) {
     }
     promise = makeMusic(params, progressCallback);
 }
-(window as any).getNewMelody = (params: MusicParams) => {
+(window as any).getNewMelody = (params: MainMusicParams) => {
     const divisionedNotes = (window as any).divisionedNotes;
     makeMelody(divisionedNotes, params);
     console.groupCollapsed("xml");
@@ -80,3 +83,5 @@ promise.then((result) => {
         window.alert("Virhe!");
     }
 });
+
+}, 100)

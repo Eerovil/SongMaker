@@ -5,8 +5,7 @@ import {
     Semitone,
 } from "musictheoryjs";
 import { Logger } from "./mylogger";
-import { Chord, MusicParams, Nullable, DivisionedRichnotes, RichNote, globalSemitone, BEAT_LENGTH } from "./utils";
-import { moonlightsonata } from "./moonlightsonata";
+import { Chord, MusicParams, Nullable, DivisionedRichnotes, RichNote, BEAT_LENGTH, MainMusicParams } from "./utils";
 import { RandomChordGenerator } from "./randomchords";
 import { partialVoiceLeading } from "./voiceleading";
 import { getTension } from "./chordtension";
@@ -24,15 +23,12 @@ const sleepMS = async (ms: number): Promise<null> => {
     return new Promise(resolve => setTimeout(resolve, ms));
 }
 
-const makeChords = async (params: MusicParams, progressCallback: Nullable<Function> = null): Promise<DivisionedRichnotes> => {
+const makeChords = async (mainParams: MainMusicParams, progressCallback: Nullable<Function> = null): Promise<DivisionedRichnotes> => {
     // generate a progression
-    const beatsPerBar = params.beatsPerBar || 4;
-    const barsPerCadenceEnd = params.barsPerCadence || 4;
-    const cadences = params.cadenceCount || 2
 
-    const baseTension = params.baseTension || 0.4;
+    const beatsPerBar = mainParams.beatsPerBar || 4;
 
-    const maxBeats = cadences * barsPerCadenceEnd * beatsPerBar;
+    const maxBeats = mainParams.getMaxBeats();
     //let currentScale = new Scale({ key: Math.floor(Math.random() * 12) , octave: 5, template: ScaleTemplates[params.scaleTemplate]});
     let currentScale = new Scale({ key: 0, octave: 5 });
 
@@ -47,15 +43,18 @@ const makeChords = async (params: MusicParams, progressCallback: Nullable<Functi
     // }
 
     for (let division = 0; division < maxBeats * BEAT_LENGTH; division += BEAT_LENGTH) {
+        const params = mainParams.currentCadenceParams(division);
+        const beatsUntilLastChordInCadence = params.beatsUntilCadenceEnd;
         console.groupCollapsed("division", division, prevChord ? prevChord.toString() : "null", " scale ", currentScale.toString());
         const currentBeat = Math.floor(division / BEAT_LENGTH);
-        const beatsUntilLastChordInCadence = (barsPerCadenceEnd * beatsPerBar) - ((currentBeat - 1) % (barsPerCadenceEnd * beatsPerBar)) - 1;
         console.log("beatsUntilLastChordInCadence", beatsUntilLastChordInCadence);
 
         const beatSetting = params.beatSettings[currentBeat];
         let tensionOverride = null;
         if (beatSetting) {
             tensionOverride = parseFloat(beatSetting.tension as unknown as string);
+        } else {
+            tensionOverride = params.baseTension;
         }
         let chordIsGood = false;
         const randomGenerator = new RandomChordGenerator(params, currentScale)
@@ -138,11 +137,11 @@ const makeChords = async (params: MusicParams, progressCallback: Nullable<Functi
                     chordTensionLogger.title = [
                         prevChord ? prevChord.toString() : "", " -> ", newChord.toString(), ": ", tensionResult.tension
                     ]
-                    for (let i = 0; i < params.chords.length; i++) {
-                        const chord = params.chords[i];
-                        const chordWeight = parseFloat(`${params.chordSettings[i].weight}` || '0');
+                    for (const chord in params.chordSettings) {
+                        const chordSetting = params.chordSettings[chord];
+                        const chordWeight = parseFloat(`${chordSetting.weight}` || '0');
                         if (newChord.chordType == chord) {
-                            tensionResult.tension += ((chordWeight * 10) ** 2) / 10;
+                            tensionResult.tension += ((chordWeight * 10) ** 3) / 10;
                             chordTensionLogger.log("Chord ", chord, " weight: ", chordWeight, " tension: ", tensionResult.tension);
                         }
                     }
@@ -151,10 +150,10 @@ const makeChords = async (params: MusicParams, progressCallback: Nullable<Functi
                         chordTensionLogger.log("Melody tension: ", tensionResult.tension);
                         tensionResult.tension += voiceLeading.tension;
                         chordTensionLogger.log("VoiceLeading tension: ", tensionResult.tension);
-                        tensionResult.tension += availableScale.tension / params.modulationWeight;
+                        tensionResult.tension += availableScale.tension / Math.max(0.01, params.modulationWeight);
                         chordTensionLogger.log("Scale tension: ", tensionResult.tension);
                         if (!availableScale.scale.equals(currentScale)) {
-                            tensionResult.tension += 1 / params.modulationWeight;
+                            tensionResult.tension += 1 / Math.max(0.01, params.modulationWeight);
                             chordTensionLogger.log("Scale change tension: ", tensionResult.tension);
                             if (maxBeats - currentBeat < 3) {
                                 // Last 2 bars, don't change scale
@@ -172,7 +171,7 @@ const makeChords = async (params: MusicParams, progressCallback: Nullable<Functi
                     }
                     tension = tensionResult.tension;
 
-                    wantedTension = baseTension;
+                    wantedTension = 0.4;
                     // if (tensionBeats.includes(currentBeat)) {
                     //     wantedTension = highTension;
                     // }
@@ -187,7 +186,7 @@ const makeChords = async (params: MusicParams, progressCallback: Nullable<Functi
                     }
 
                     if (tensionOverride != null) {
-                        wantedTension = tensionOverride;
+                        wantedTension = parseFloat(tensionOverride as any);
                         wantedTension += (0.1 * criteriaLevel);
                     }
 
@@ -216,7 +215,8 @@ const makeChords = async (params: MusicParams, progressCallback: Nullable<Functi
                             const giveUP = progressCallback(null, null);
                             if (giveUP) {
                                 // Reduce cadence count to fix errors later
-                                params.cadenceCount = Math.floor((currentBeat / (barsPerCadenceEnd * beatsPerBar)));
+                                // FIXME
+                                // params.cadenceCount = Math.floor((currentBeat / (barsPerCadenceEnd * beatsPerBar)));
                                 return result;
                             }
                         }
@@ -264,7 +264,7 @@ const makeChords = async (params: MusicParams, progressCallback: Nullable<Functi
     return result
 }
 
-export async function makeMusic(params: MusicParams, progressCallback: Nullable<Function> = null) {
+export async function makeMusic(params: MainMusicParams, progressCallback: Nullable<Function> = null) {
     let divisionedNotes: DivisionedRichnotes = {};
     let iterations = 0;
     while (true) {
@@ -294,13 +294,9 @@ export async function makeMusic(params: MusicParams, progressCallback: Nullable<
 
 }
 
-export function makeMelody(divisionedNotes: DivisionedRichnotes, params: MusicParams) {
+export function makeMelody(divisionedNotes: DivisionedRichnotes, mainParams: MainMusicParams) {
     // Remove old melody and make a new one
-    const beatsPerBar = params.beatsPerBar || 4;
-    const barsPerCadenceEnd = params.barsPerCadence || 4;
-    const cadences = params.cadenceCount || 2
-
-    const maxBeats = cadences * barsPerCadenceEnd * beatsPerBar;
+    const maxBeats = mainParams.getMaxBeats()
 
     for (let division=0; division < maxBeats * BEAT_LENGTH; division++) {
         const onBeat = division % BEAT_LENGTH == 0;
@@ -316,9 +312,9 @@ export function makeMelody(divisionedNotes: DivisionedRichnotes, params: MusicPa
     }
 
     // const divisionedNotes: DivisionedRichnotes = newVoiceLeadingNotes(chords, params);
-    buildTopMelody(divisionedNotes, params);
+    buildTopMelody(divisionedNotes, mainParams);
     // addEighthNotes(divisionedNotes, params)
-    addHalfNotes(divisionedNotes, params)
+    addHalfNotes(divisionedNotes, mainParams)
 }
 
 // export async function testFunc(params: MusicParams) {

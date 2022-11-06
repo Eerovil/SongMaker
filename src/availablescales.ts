@@ -13,13 +13,14 @@ type LightScale = {
 const scalesForNotes = (notes: Note[], params: MusicParams): Scale[] => {
     const scales = new Set<LightScale>()
     // First add all scales
-    for (const template of params.scaleSettings) {
+    for (const scaleSlug in params.scaleSettings) {
+        const template = params.scaleSettings[scaleSlug];
         if (template.enabled) {
             for (let semitone=0; semitone < 12; semitone++) {
-                const scale = new Scale({key: semitone, template: ScaleTemplates[template.scaleSlug]})
+                const scale = new Scale({key: semitone, template: ScaleTemplates[scaleSlug]})
                 scales.add({
                     key: semitone,
-                    templateSlug: template.scaleSlug,
+                    templateSlug: scaleSlug,
                     semitones: scale.notes.map(note => note.semitone),
                 } as LightScale)
             }
@@ -78,7 +79,15 @@ export const getAvailableScales = (values: {
             const index = availableScales.findIndex(item => item.equals(potentialScale.scale))
             if (index == -1) {
                 // Scale wasn't available, increase tension
-                potentialScale.tension += 6 / i  // Base of how long ago it was
+                if (i == 1) {
+                    potentialScale.tension += 20  // Base of how long ago it was
+                } else if (i == 2) {
+                    potentialScale.tension += 5
+                } else if (i == 3) {
+                    potentialScale.tension += 1
+                } else if (i == 4) {
+                    potentialScale.tension += 0.1
+                }
                 logger.log("Scale ", potentialScale.scale.toString()," wasn't available at division ", division, ", increase tension");
             }
         }

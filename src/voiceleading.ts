@@ -5,7 +5,6 @@ import { Chord, globalSemitone, MusicParams, semitoneDistance } from "./utils";
 export const partialVoiceLeading = (chord: Chord, prevNotes: Array<Note>, beat: number, params: MusicParams, logger: Logger, beatsUntilLastChordInSong: number): Array<{tension: number, notes: Array<Note>, inversionName: string}> => {
     // Return Notes in the Chord that are closest to the previous notes
     // For each part
-    const beatsPerCadence = 4 * params.barsPerCadence;
     const ret = [];
 
     const p1Note = params.parts[0].note || "F4";
@@ -40,10 +39,6 @@ export const partialVoiceLeading = (chord: Chord, prevNotes: Array<Note>, beat: 
     let tension = 0;
 
     if (chord) {
-        let beatsUntilLastChordInCadence = (beatsPerCadence - beat) % beatsPerCadence
-        let cadenceEnding = beatsUntilLastChordInCadence >= beatsPerCadence - 1 || beatsUntilLastChordInCadence == 0
-        logger.log("cadenceEnding: ", cadenceEnding, "beatsUntilLastChordInCadence", beatsUntilLastChordInCadence)
-
         // For each beat, we try to find a good matching semitone for each part.
 
         // Rules:
@@ -100,10 +95,10 @@ export const partialVoiceLeading = (chord: Chord, prevNotes: Array<Note>, beat: 
                         // Too many ups, this should have been a down.
                         return false;
                     }
-                    if (upCount == 0 && downCount == 0) {
-                        // Can't have all of them be same
-                        return false;
-                    }
+                    // if (upCount == 0 && downCount == 0) {
+                    //     // Can't have all of them be same
+                    //     return false;
+                    // }
                     // Otherwise, all is probably fine
                     return true;
                 }

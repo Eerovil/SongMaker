@@ -8,7 +8,7 @@ export class RandomChordGenerator {
     private currentScale: Scale;
 
     constructor(params: MusicParams, scale: Scale) {
-        this.chordTypes = params.chords.filter(chordType => Object.keys(chordTemplates).includes(chordType)) || ["maj", "min"]
+        this.chordTypes = Object.keys(params.chordSettings).filter(chordType => Object.keys(chordTemplates).includes(chordType)) || ["maj", "min"]
         this.usedChords = new Set();
         this.currentScale = scale;
         this.buildAvailableChords();

@@ -1,20 +1,20 @@
-import { BEAT_LENGTH, DivisionedRichnotes, MusicParams } from "./utils";
+import { BEAT_LENGTH, DivisionedRichnotes, MainMusicParams } from "./utils";
 
-export const addHalfNotes = (divisionedNotes: DivisionedRichnotes, params: MusicParams) => {
+export const addHalfNotes = (divisionedNotes: DivisionedRichnotes, mainParams: MainMusicParams) => {
 
-    const beatsPerCadence = 4 * params.barsPerCadence;
-    const beatsPerBar = 4;
-    const lastDivision = BEAT_LENGTH * beatsPerCadence * params.cadenceCount;
+    const beatsPerBar = mainParams.beatsPerBar || 4;
+    const lastDivision = mainParams.getMaxBeats() * BEAT_LENGTH;
 
     for (let division = 0; division < lastDivision - BEAT_LENGTH; division += BEAT_LENGTH) {
+        const params = mainParams.currentCadenceParams(division);
         const lastBeat = Math.floor(division / BEAT_LENGTH) * BEAT_LENGTH;
-        let beatsUntilLastChordInCadence = Math.floor(division) % beatsPerCadence
-        let cadenceEnding = beatsUntilLastChordInCadence >= beatsPerCadence - 1 || beatsUntilLastChordInCadence == 0
+        let beatsUntilLastChordInCadence = params.beatsUntilCadenceEnd;
+        let cadenceEnding = beatsUntilLastChordInCadence < 2
         if (params.halfNotes && !cadenceEnding) {
             // Add a tie start to the previous note to double length, and tie stop to this
             // if it's continuing with the same
-            const previousNotes = divisionedNotes[division - 12]
-            const currentNotes = divisionedNotes[division]
+            const previousNotes = divisionedNotes[division - 12] || [];
+            const currentNotes = divisionedNotes[division] || [];
             for (let i=0; i<4; i++) {
                 const previousNote = previousNotes.filter((n) => n.partIndex == i)[0];
                 const currentNote = currentNotes.filter((n) => n.partIndex == i)[0];

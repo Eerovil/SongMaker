@@ -70,12 +70,47 @@ export class Chord {
 
 export type Nullable<T> = T | null
 
-export class MusicParams {
+export class MainMusicParams {
     beatsPerBar?: number = 4;
-    baseTension?: number = 0.3;
     cadenceCount?: number = 2
+    cadences: Array<MusicParams> = [];
+    testMode?: boolean = false;
+
+    constructor(params: Partial<MainMusicParams> | undefined = undefined) {
+        if (params) {
+            for (let key in params) {
+                (this as any)[key] = (params as any)[key];
+            }
+        }
+    }
+
+    currentCadenceParams(division: number): MusicParams {
+        const beat = Math.floor(division / BEAT_LENGTH);
+        const bar = Math.floor(beat / this.beatsPerBar);
+        let counter = 0;
+        for (const cadenceParams of this.cadences) {
+            counter += cadenceParams.barsPerCadence;
+            if (bar < counter) {
+                cadenceParams.beatsUntilCadenceEnd = counter * this.beatsPerBar - beat;
+                cadenceParams.beatsUntilSongEnd = this.cadences.reduce((a, b) => a + b.barsPerCadence, 0) * this.beatsPerBar - beat;
+                cadenceParams.beatsPerBar = this.beatsPerBar;
+                return cadenceParams;
+            }
+        }
+    }
+
+    getMaxBeats() {
+        return this.cadences.reduce((a, b) => a + b.barsPerCadence, 0) * this.beatsPerBar;
+    }
+}
+
+export class MusicParams {
+    beatsUntilCadenceEnd: number = 0;
+    beatsUntilSongEnd: number = 0;
+    beatsPerBar: number = 4;
+
+    baseTension?: number = 0.3;
     barsPerCadence?: number = 4
-    chords: Array<string> = ["maj", "min"];
     tempo?: number = 40;
     halfNotes?: boolean = true;
     sixteenthNotes?: number = 0.2;
@@ -106,26 +141,70 @@ export class MusicParams {
     beatSettings: Array<{
         tension: number,
     }> = [];
-    testMode?: boolean = false;
-    chordSettings: Array<{
-        weight: number
-    }> = [{weight: 0}, {weight: 0}];
-    scaleSettings: Array<{
-        scaleSlug: string,
+    chordSettings: {[key: string]: {
         enabled: boolean,
-        weight: number
-    }> = [
-        {
-            scaleSlug: "major",
+        weight: number,
+    }} = {
+        maj: {
             enabled: true,
-            weight: 1,
+            weight: 0,
         },
-        {
-            scaleSlug: "minor",
+        min: {
             enabled: true,
-            weight: 1,
+            weight: 0,
         },
-    ];
+        dim: {
+            enabled: false,
+            weight: -1,
+        },
+        aug: {
+            enabled: false,
+            weight: -1,
+        },
+        maj7: {
+            enabled: false,
+            weight: -1,
+        },
+        dom7: {
+            enabled: false,
+            weight: -1,
+        },
+        sus2: {
+            enabled: false,
+            weight: -1,
+        },
+        sus4: {
+            enabled: false,
+            weight: -1,
+        },
+    }
+    scaleSettings: {
+        [key: string]: {
+            enabled: boolean,
+            weight: number
+        }
+    } = {
+        major: {
+            enabled: true,
+            weight: 0,
+        },
+        minor: {
+            enabled: true,
+            weight: 0,
+        },
+        harmonicMinor: {
+            enabled: false,
+            weight: -0.5,
+        },
+        melodicMinorAscending: {
+            enabled: false,
+            weight: -0.5,
+        },
+        melodicMinorDescending: {
+            enabled: false,
+            weight: -0.5,
+        },
+    };
     melodySettings: {
         "up": number,
         "down": number,
@@ -142,7 +221,22 @@ export class MusicParams {
                 (this as any)[key] = (params as any)[key];
             }
         }
+        this.updateBeatSettings();
     }
+
+    updateBeatSettings() {
+        const beatCount = this.beatsPerBar * this.barsPerCadence;
+        if (this.beatSettings.length < beatCount) {
+            for (let i = this.beatSettings.length; i < beatCount; i++) {
+                this.beatSettings.push({
+                    tension: this.baseTension
+                });
+            }
+        } else if (this.beatSettings.length > beatCount) {
+            this.beatSettings = this.beatSettings.slice(0, beatCount);
+        }
+    }
+
 }
 
 export type MusicResult = {

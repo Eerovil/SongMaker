@@ -1,6 +1,8 @@
 <html>
 
 <head>
+    <script src="https://unpkg.com/vue@3/dist/vue.global.js"></script>
+
     <title>My First Web Page</title>
     <script>
         loadQueryParams = function() {
@@ -20,19 +22,71 @@
     </script>
     <script src="dist/bundle.js"></script>
     <style>
-        #beatsettings input[type="range"] {
+        .beatsettings input[type="range"] {
            appearance: slider-vertical;
            width: 1rem;
         }
-        #beatsettings {
+        .beatsettings {
             display: flex;
+            width: 100%;
         }
         .beatsetting {
             display: flex;
             flex-direction: column;
         }
-        .beatsetting:nth-child(4n) {
+        .beat1 .beatsetting:nth-child(1n) {
             margin-right: 1rem;
+        }
+        .beat2 .beatsetting:nth-child(2n + 1) {
+            margin-right: 1rem;
+        }
+        .beat3 .beatsetting:nth-child(3n + 1) {
+            margin-right: 1rem;
+        }
+        .beat4 .beatsetting:nth-child(4n + 1) {
+            margin-right: 1rem;
+        }
+        .beat5 .beatsetting:nth-child(5n + 1) {
+            margin-right: 1rem;
+        }
+        .beat6 .beatsetting:nth-child(6n + 1) {
+            margin-right: 1rem;
+        }
+        .beat7 .beatsetting:nth-child(7n + 1) {
+            margin-right: 1rem;
+        }
+        .beat8 .beatsetting:nth-child(8n + 1) {
+            margin-right: 1rem;
+        }
+        .beat9 .beatsetting:nth-child(9n + 1) {
+            margin-right: 1rem;
+        }
+        .main-settings-wrapper {
+            display: flex;
+            flex-direction: row;
+            width: 100%;
+            flex-wrap: wrap;
+            border: 1px solid black;
+            padding: 0.5rem;
+            margin: 0.5rem;
+        }
+        .secondary-settings-wrapper {
+            display: flex;
+            flex-direction: column;
+            width: 20%;
+            margin-left: 2rem;
+        }
+        .settings-row {
+            display: flex;
+            flex-direction: row;
+            width: 100%;
+            justify-content: space-between;
+            margin-bottom: 0.5rem;
+        }
+        #vue-template {
+            display: flex;
+            flex-direction: column;
+            width: 100%;
         }
     </style>
 </head>
@@ -40,148 +94,164 @@
 <body>
 <p id="currentChord"></p>
 <div style="margin-top: 3rem; display: flex; justify-content: space-between; padding: 1rem 5rem; border: 1px solid black; flex-wrap: wrap;">
-    <div style="width: 100%; display: flex;">
-    <div>
-        <div>
-            <label for="cadence-count">Sointukulkujen määrä</label>
-            <input type="number" id="cadence-count" value="2" min="1" max="300" step="1" style="width: 100px">
-        </div>
-        <div>
-            <label for="bars-per-cadence">Sointukulkujen pituus</label>
-            <input type="number" id="bars-per-cadence" value="4" min="1" max="300" step="1" style="width: 100px">
-        </div>
-        <div>
-            <label for="base-tension">Vaikeusaste</label>
-            <input type="number" id="base-tension" value="0.3" min="-10" max="10" step="0.1" style="width: 100px" onchange="changeBaseTension()">
-        </div>
-        <div>
-            <label for="tempo">Tempo</label>
-            <input type="number" id="tempo" value="40" min="1" max="300" step="1" style="width: 100px">
-        </div>
-        <div>
-            <label for="half-notes">Puolinuotit</label>
-            <input type="checkbox" id="half-notes" style="width: 100px">
-        </div>
-        <div>
-            <label for="eighth-notes">8-osien osuus</label>
-            <input type="number" id="eighth-notes" value="0.5" min="0" max="1" step="0.1" style="width: 100px">
-        </div>
-        <div>
-            <label for="sixteenth-notes">16-osien osuus</label>
-            <input type="number" id="sixteenth-notes" value="0.5" min="0" max="1" step="0.1" style="width: 100px">
-        </div>
-        <div>
-            <label for="modulation-weight">modulaatioarvo</label>
-            <input type="number" id="modulation-weight" value="1" min="0.01" max="2" step="0.1" style="width: 100px">
-        </div>
-        <div>
-            <label for="leading-weight">johtoarvo</label>
-            <input type="number" id="leading-weight" value="2" min="0.01" max="4" step="0.1" style="width: 100px">
-        </div>
-    </div>
-    <div>
-        <h4>Asteikot</h4>
-        <div>
-            <label for="scale-major">Major</label>
-            <input type="checkbox" class="scalebox" data-scaleslug="major" id="scale-major" value="maj">
-            <input type="range" id="scale-major-weight" value="1" min="-0.5" max="0" step="0.1">
-        </div>
-        <div>
-            <label for="scale-minor">Minor</label>
-            <input type="checkbox" class="scalebox" data-scaleslug="minor" id="scale-minor" value="maj">
-            <input type="range" id="scale-minor-weight" value="1" min="-0.5" max="0" step="0.1">
-        </div>
-    </div>
-    <div>
-        <h4>Soinnut</h4>
-        <div>
-            <label for="chord-maj">Maj</label>
-            <input type="checkbox" class="chordbox" id="chord-maj" value="maj">
-            <input type="range" id="chord-maj-weight" value="1" min="-1" max="0" step="0.1">
-        </div>
-        <div>
-            <label for="chord-min">Min</label>
-            <input type="checkbox" class="chordbox" id="chord-min" value="min">
-            <input type="range" id="chord-min-weight" value="1" min="-1" max="0" step="0.1">
-        </div>
-        <div>
-            <label for="chord-aug">Aug</label>
-            <input type="checkbox" class="chordbox" id="chord-aug" value="aug">
-            <input type="range" id="chord-aug-weight" value="1" min="-1" max="0" step="0.1">
-        </div>
-        <div>
-            <label for="chord-dim">Dim</label>
-            <input type="checkbox" class="chordbox" id="chord-dim" value="dim">
-            <input type="range" id="chord-dim-weight" value="1" min="-1" max="0" step="0.1">
-        </div>
-        <div>
-            <label for="chord-maj7">Maj7</label>
-            <input type="checkbox" class="chordbox" id="chord-maj7" value="maj7">
-            <input type="range" id="chord-maj7-weight" value="1" min="-1" max="0" step="0.1">
-        </div>
-        <div>
-            <label for="chord-dom7">Dom7</label>
-            <input type="checkbox" class="chordbox" id="chord-dom7" value="dom7">
-            <input type="range" id="chord-dom7-weight" value="1" min="-1" max="0" step="0.1">
-        </div>
-        <div>
-            <label for="chord-sus2">sus2</label>
-            <input type="checkbox" class="chordbox" id="chord-sus2" value="sus2">
-            <input type="range" id="chord-sus2-weight" value="1" min="-1" max="0" step="0.1">
-        </div>
-        <div>
-            <label for="chord-sus4">sus4</label>
-            <input type="checkbox" class="chordbox" id="chord-sus4" value="sus4">
-            <input type="range" id="chord-sus4-weight" value="1" min="-1" max="0" step="0.1">
-        </div>
-    </div>
-    <div>
-        <h4>Melodia</h4>
-        <div>
-            <label for="melody-up">Ylös</label>
-            <input type="range" id="melody-up-weight" value="0" min="-0.5" max="0.5" step="0.1">
-        </div>
-        <div>
-            <label for="melody-same">Sama</label>
-            <input type="range" id="melody-same-weight" value="0" min="-0.5" max="0.5" step="0.1">
-        </div>
-        <div>
-            <label for="melody-down">Alas</label>
-            <input type="range" id="melody-down-weight" value="0" min="-0.5" max="0.5" step="0.1">
-        </div>
-    </div>
-    </div>
-    <div>
-        <label for="note-p1">Lähtösävel</label>
-        <input id="note-p1" type="text" value="A5" style="width: 100px">
-        <label for="voice-p1">Ääni</label>
-        <input id="voice-p1" type="number" step="1"></input>
-    </div>
-    <div>
-        <label for="note-p2">Lähtösävel</label>
-        <input id="note-p2" type="text" value="A5" style="width: 100px">
-        <label for="voice-p2">Ääni</label>
-        <input id="voice-p2" type="number" step="1"></input>
-    </div>
-    <div>
-        <label for="note-p3">Lähtösävel</label>
-        <input id="note-p3" type="text" value="A5" style="width: 100px">
-        <label for="voice-p3">Ääni</label>
-        <input id="voice-p3" type="number" step="1"></input>
-    </div>
-    <div>
-        <label for="note-p4">Lähtösävel</label>
-        <input id="note-p4" type="text" value="E3" style="width: 100px">
-        <label for="voice-p4">Ääni</label>
-        <input id="voice-p4" type="number" step="1"></input>
-    </div>
-    <div>
-        <button onclick="updateParamsFromSettings()">OK</button>
-        <button onclick="newMelody()">Aja melodia</button>
-        <button onclick="window.location.href = '/'">Reset</button>
-    </div>
-    <div style="width: 100%" id="beatsettings">
 
+    <div id="vue-template">
+        <div>
+            <button @click="saveParams(true)">Aja koko sävellys</button>
+            <button onclick="newMelody()">Aja vain melodia</button>
+            <button onclick="window.location.href = '/'">Reset</button>
+        </div>
+        <div class="main-settings-wrapper">
+            <h2>Pääasetukset</h2>
+            <div class="secondary-settings-wrapper">
+                <div class="settings-row">
+                    <label for="cadence-count">Sointukulkujen määrä</label>
+                    <input v-model="params.cadenceCount" type="number" id="cadence-count" min="1" max="300" step="1" style="width: 100px">
+                </div>
+                <div class="settings-row">
+                    <label for="beats-per-bar">Tahtilaji</label>
+                    <input v-model="params.beatsPerBar" type="number" id="beats-per-bar" min="1" max="9" step="1" style="width: 100px">
+                </div>
+            </div>
+        </div>
+        <div v-for="(cadenceParams, index) in (params.cadences || [])" :key="index" class="main-settings-wrapper">
+            <h2>Sointukulku {{ index + 1 }}</h2>
+            <div class="secondary-settings-wrapper">
+                <div class="settings-row">
+                    <label :for="`${index}-bars-per-cadence`">Sointukulun pituus (tahtia)</label>
+                    <input v-model="cadenceParams.barsPerCadence" @change="updateCadenceBars(cadenceParams)" type="number" :id="`${index}-bars-per-cadence`" min="1" max="300" step="1" style="width: 100px">
+                </div>
+                <div class="settings-row">
+                    <label :for="`${index}-base-tension`">Vaikeusaste</label>
+                    <input :value="cadenceParams.baseTension" @change="updateBaseTension(cadenceParams, $event)" type="range" :id="`${index}-base-tension`" min="-1" max="2" step="0.1" style="width: 100px">
+                </div>
+                <div v-if="index == 0" class="settings-row">
+                    <label :for="`${index}-tempo`">Tempo</label>
+                    <input v-model="cadenceParams.tempo" type="number" :id="`${index}-tempo`" min="1" max="300" step="1" style="width: 100px">
+                </div>
+                <div class="settings-row">
+                    <label :for="`${index}-half-notes`">Puolinuotit</label>
+                    <input v-model="cadenceParams.halfNotes" type="checkbox" :id="`${index}-half-notes`" style="width: 100px">
+                </div>
+                <div class="settings-row">
+                    <label :for="`${index}-eighth-notes`">Kahdeksasosat</label>
+                    <input v-model="cadenceParams.eighthNotes" type="range" :id="`${index}-eighth-notes`" min="0" max="1" step="0.1" style="width: 100px">
+                </div>
+                <div class="settings-row">
+                    <label :for="`${index}-sixteenth-notes`">Kuudestoistaosat</label>
+                    <input v-model="cadenceParams.sixteenthNotes" type="range" :id="`${index}-sixteenth-notes`" min="0" max="1" step="0.1" style="width: 100px">
+                </div>
+                <div class="settings-row">
+                    <label :for="`${index}-modulation-weight`">Modulaatioarvo</label>
+                    <input v-model="cadenceParams.modulationWeight" type="range" :id="`${index}-modulation-weight`" min="0" max="1" step="0.1" style="width: 100px">
+                </div>
+                <div class="settings-row">
+                    <label :for="`${index}-leading-weight`">Sävelen johtaminen</label>
+                    <input v-model="cadenceParams.leadingWeight" type="range" :id="`${index}-leading-weight`" min="0" max="1" step="0.1" style="width: 100px">
+                </div>
+            </div>
+            <div class="secondary-settings-wrapper">
+                <h4>Asteikot</h4>
+                <div class="settings-row">
+                    <label :for="`${index}-scale-major`">Major</label>
+                    <input v-model="cadenceParams.scaleSettings.major.weight" @change="updateCadenceScaleWeight(cadenceParams.scaleSettings.major)" type="range" min="-0.5" max="0" step="0.1">
+                </div>
+                <div class="settings-row">
+                    <label :for="`${index}-scale-minor`">Minor</label>
+                    <input v-model="cadenceParams.scaleSettings.minor.weight" @change="updateCadenceScaleWeight(cadenceParams.scaleSettings.minor)" type="range" min="-0.5" max="0" step="0.1">
+                </div>
+                <div class="settings-row">
+                    <label :for="`${index}-scale-harmonicMinor`">Harmonic minor</label>
+                    <input v-model="cadenceParams.scaleSettings.harmonicMinor.weight" @change="updateCadenceScaleWeight(cadenceParams.scaleSettings.harmonicMinor)" type="range" min="-0.5" max="0" step="0.1">
+                </div>
+                <div class="settings-row">
+                    <label :for="`${index}-scale-melodicMinorAscending`">Melodic minor ascending</label>
+                    <input v-model="cadenceParams.scaleSettings.melodicMinorAscending.weight" @change="updateCadenceScaleWeight(cadenceParams.scaleSettings.melodicMinorAscending)" type="range" min="-0.5" max="0" step="0.1">
+                </div>
+                <div class="settings-row">
+                    <label :for="`${index}-scale-melodicMinorDescending`">Melodic minor descending</label>
+                    <input v-model="cadenceParams.scaleSettings.melodicMinorDescending.weight" @change="updateCadenceScaleWeight(cadenceParams.scaleSettings.melodicMinorDescending)" type="range" min="-0.5" max="0" step="0.1">
+                </div>
+            </div>
+            <div class="secondary-settings-wrapper">
+                <h4>Soinnut</h4>
+                <div class="settings-row">
+                    <label for="`${index}-chord-maj`">Maj</label>
+                    <input v-model="cadenceParams.chordSettings.maj.weight" @change="chordSettingsUpdate(cadenceParams.chordSettings.maj)" type="range" min="-1" max="0" step="0.1">
+                </div>
+                <div class="settings-row">
+                    <label for="`${index}-chord-min`">Min</label>
+                    <input v-model="cadenceParams.chordSettings.min.weight" @change="chordSettingsUpdate(cadenceParams.chordSettings.min)" type="range" min="-1" max="0" step="0.1">
+                </div>
+                <div class="settings-row">
+                    <label for="`${index}-chord-dim`">Dim</label>
+                    <input v-model="cadenceParams.chordSettings.dim.weight" @change="chordSettingsUpdate(cadenceParams.chordSettings.dim)" type="range" min="-1" max="0" step="0.1">
+                </div>
+                <div class="settings-row">
+                    <label for="`${index}-chord-aug`">Aug</label>
+                    <input v-model="cadenceParams.chordSettings.aug.weight" @change="chordSettingsUpdate(cadenceParams.chordSettings.aug)" type="range" min="-1" max="0" step="0.1">
+                </div>
+                <div class="settings-row">
+                    <label for="`${index}-chord-dom7`">Dom7</label>
+                    <input v-model="cadenceParams.chordSettings.dom7.weight" @change="chordSettingsUpdate(cadenceParams.chordSettings.dom7)" type="range" min="-1" max="0" step="0.1">
+                </div>
+                <div class="settings-row">
+                    <label for="`${index}-chord-maj7`">maj7</label>
+                    <input v-model="cadenceParams.chordSettings.maj7.weight" @change="chordSettingsUpdate(cadenceParams.chordSettings.maj7)" type="range" min="-1" max="0" step="0.1">
+                </div>
+                <div class="settings-row">
+                    <label for="`${index}-chord-sus2`">sus2</label>
+                    <input v-model="cadenceParams.chordSettings.sus2.weight" @change="chordSettingsUpdate(cadenceParams.chordSettings.sus2)" type="range" min="-1" max="0" step="0.1">
+                </div>
+                <div class="settings-row">
+                    <label for="`${index}-chord-sus4`">sus4</label>
+                    <input v-model="cadenceParams.chordSettings.sus4.weight" @change="chordSettingsUpdate(cadenceParams.chordSettings.sus4)" type="range" min="-1" max="0" step="0.1">
+                </div>
+            </div>
+            <div class="secondary-settings-wrapper">
+                <h4>Äänet</h4>
+                <div>
+                    <span>Ääni 1</span>
+                    <div class="settings-row">
+                        <input v-model="cadenceParams.parts[0].note" :id="`${index}-note-p1`" type="text" style="width: 100px">
+                        <label for="`${index}-voice-p1`">MIDI</label>
+                        <input v-model="cadenceParams.parts[0].voice" id="`${index}-voice-p1`" type="number" step="1"></input>
+                    </div>
+                </div>
+                <div>
+                    <span>Ääni 2</span>
+                    <div class="settings-row">
+                        <input v-model="cadenceParams.parts[1].note" :id="`${index}-note-p2`" type="text" style="width: 100px">
+                        <label for="`${index}-voice-p2`">MIDI</label>
+                        <input v-model="cadenceParams.parts[1].voice" id="`${index}-voice-p2`" type="number" step="1"></input>
+                    </div>
+                </div>
+                <div>
+                    <span>Ääni 3</span>
+                    <div class="settings-row">
+                        <input v-model="cadenceParams.parts[2].note" :id="`${index}-note-p3`" type="text" style="width: 100px">
+                        <label for="`${index}-voice-p3`">MIDI</label>
+                        <input v-model="cadenceParams.parts[2].voice" id="`${index}-voice-p3`" type="number" step="1"></input>
+                    </div>
+                </div>
+                <div>
+                    <span>Ääni 4</span>
+                    <div class="settings-row">
+                        <input v-model="cadenceParams.parts[3].note" :id="`${index}-note-p4`" type="text" style="width: 100px">
+                        <label for="`${index}-voice-p4`">MIDI</label>
+                        <input v-model="cadenceParams.parts[3].voice" id="`${index}-voice-p4`" type="number" step="1"></input>
+                    </div>
+                </div>
+            </div>
+            <div class="beatsettings">
+                <h4>Iskuasetukset</h4>
+                <div v-for="(beat, beatIndex) in cadenceParams.beatSettings" class="beatsetting">
+                    <label for="`beat-${index}-${beatIndex}`">{{ beatIndex }}</label>
+                    <input v-model="beat.tension" id="`beat-${index}-${beatIndex}`" type="range" step="0.1" min="-1" max="2">
+                    <span class="beatresult"></span>
+                </div>
+            </div>
+        </div>
     </div>
 </div>
 <button onclick="window.giveUP = true">Luovuta generointi</button>
@@ -193,7 +263,6 @@
 
 </body>
 <script>
-
     const beatMS = 3000;
     const beep = (freq = 320, duration = 100, vol = 5) => {
         const oscillator = context.createOscillator();
@@ -244,180 +313,6 @@
             }, beatMS / 12 * tick)
         }
     }
-    const updateSettingsFromParams = () => {
-        const params = window.params;
-        console.log(params)
-        if (params.cadenceCount) {
-            document.querySelector("#cadence-count").value = params.cadenceCount;
-        }
-        if (params.barsPerCadence) {
-            document.querySelector("#bars-per-cadence").value = params.barsPerCadence;
-        }
-        if (params.baseTension) {
-            document.querySelector("#base-tension").value = params.baseTension;
-        }
-        if (params.tempo) {
-            document.querySelector("#tempo").value = params.tempo;
-        }
-        if (params.chords) {
-            let chords = params.chords;
-            if (typeof chords === "string") {
-                chords = chords.split(",");
-            }
-            let i=-1;
-            for (const chord of chords) {
-                i++;
-                (document.querySelector(`#chord-${chord}`) || {}).checked = true;
-                const setting = params.chordSettings[i];
-                (document.querySelector(`#chord-${chord}-weight`) || {}).value = (setting || {}).weight || 0;
-            }
-        }
-        if (params.scaleSettings) {
-            for (const scale of params.scaleSettings) {
-                (document.querySelector(`#scale-${scale.scaleSlug}`) || {}).checked = true;
-                (document.querySelector(`#scale-${scale.scaleSlug}-weight`) || {}).value = scale.weight || 0;
-            }
-        }
-        if (params.halfNotes) {
-            document.querySelector("#half-notes").checked = params.halfNotes;
-        }
-        if (params.sixteenthNotes) {
-            document.querySelector("#sixteenth-notes").value = params.sixteenthNotes;
-        }
-        if (params.eighthNotes) {
-            document.querySelector("#eighth-notes").value = params.eighthNotes;
-        }
-        if (params.modulationWeight) {
-            document.querySelector("#modulation-weight").value = params.modulationWeight;
-        }
-        if (params.leadingWeight) {
-            document.querySelector("#leading-weight").value = params.leadingWeight;
-        }
-
-
-        if (params.melodySettings) {
-            const melodySettings = params.melodySettings;
-            if (melodySettings.up) {
-                document.querySelector("#melody-up-weight").value = melodySettings.up;
-            }
-            if (melodySettings.down) {
-                document.querySelector("#melody-down-weight").value = melodySettings.down;
-            }
-            if (melodySettings.same) {
-                document.querySelector("#melody-same-weight").value = melodySettings.same;
-            }
-        }
-
-        for (let i=0; i<4; i++) {
-            const voiceParam = params.parts[i];
-            const voice = voiceParam.voice;
-            const note = voiceParam.note;
-            const voiceInput = document.querySelector(`#voice-p${i+1}`);
-            const noteInput = document.querySelector(`#note-p${i+1}`);
-            if (voiceInput) {
-                voiceInput.value = voice;
-            }
-            if (noteInput) {
-                noteInput.value = note;
-            }
-        }
-        const beatCount = params.barsPerCadence * params.cadenceCount * 4;
-        const beatSettingWrapper = document.querySelector("#beatsettings");
-        for (let i=0; i<beatCount; i++) {
-            const el = document.createElement("div");
-            el.classList.add("beatsetting");
-            const beatSetting = params.beatSettings[i];
-            let tension = params.baseTension;
-            if (beatSetting) {
-                tension = beatSetting.tension;
-            }
-            el.innerHTML = `
-                <label for="beat-${i}">${i}</label>
-                <input id="beat-${i}" type="range" step="0.1" min="-1" max="2" value="${tension}">
-            `;
-            beatSettingWrapper.appendChild(el);
-        }
-
-    }
-    updateSettingsFromParams();
-
-    const updateParamsFromSettings = (noreload = undefined) => {
-        window.giveUP = true;
-        const params = window.params;
-        params.cadenceCount = document.querySelector("#cadence-count").value;
-        params.barsPerCadence = document.querySelector("#bars-per-cadence").value;
-        params.baseTension = document.querySelector("#base-tension").value;
-        params.tempo = document.querySelector("#tempo").value;
-        const chords = [];
-        for (const chord of document.querySelectorAll("input.chordbox[type=checkbox]:checked")) {
-            chords.push(chord.value);
-        }
-        params.chords = chords;
-        params.halfNotes = document.querySelector("#half-notes").checked;
-        params.sixteenthNotes = document.querySelector("#sixteenth-notes").value;
-        params.eighthNotes = document.querySelector("#eighth-notes").value;
-        params.modulationWeight = document.querySelector("#modulation-weight").value;
-        params.leadingWeight = document.querySelector("#leading-weight").value;
-
-        const voices = [];
-        for (const voice of [1, 2, 3, 4]) {
-            const voiceInput = document.querySelector(`#voice-p${voice}`) || "1";
-            const noteInput = document.querySelector(`#note-p${voice}`);
-            voices.push({
-                voice: voiceInput.value,
-                note: noteInput.value
-            });
-        }
-        params.parts = voices;
-
-        const beatSettings = [];
-        for (const beatSetting of document.querySelectorAll(".beatsetting")) {
-            const tension = beatSetting.querySelector("input").value;
-            beatSettings.push({
-                tension
-            });
-        }
-        params.beatSettings = beatSettings;
-
-        const chordSettings = [];
-        for (const chord of params.chords) {
-            const weight = document.querySelector(`#chord-${chord}-weight`).value;
-            chordSettings.push({
-                weight
-            });
-        }
-        params.chordSettings = chordSettings;
-
-        const scales = [];
-        for (const scale of document.querySelectorAll("input.scalebox[type=checkbox]:checked")) {
-            scaleSlug = scale.dataset.scaleslug
-            scales.push({
-                enabled: true,
-                scaleSlug: scaleSlug,
-                weight: document.querySelector(`#scale-${scaleSlug}-weight`).value
-            });
-        }
-        params.scaleSettings = scales;
-
-        params.melodySettings = {
-            up: document.querySelector("#melody-up-weight").value,
-            down: document.querySelector("#melody-down-weight").value,
-            same: document.querySelector("#melody-same-weight").value
-        };
-
-        // create url from params and follow the link
-        const url = new URL(window.location.href);
-        const searchParams = new URLSearchParams();
-
-        searchParams.set("fulldata", JSON.stringify(params));
-
-        if (noreload) {
-            return params;
-        }
-
-        url.search = searchParams.toString();
-        window.location.href = url;
-    }
 
     const changeBaseTension = () => {
         const oldBaseTension = window.params.baseTension;
@@ -441,5 +336,127 @@
     //console.log(window.scoreXML)
 
 </script>
+<script>
+const { createApp } = Vue
 
+createApp({
+  data() {
+    return {
+      params: {}
+    }
+  },
+  mounted() {
+    const params = window.params;
+    params.cadences = params.cadences.map(cadenceParams => new window.MusicParams(cadenceParams));
+    this.params = params;
+    this.checkCadenceCount();
+    setTimeout(() => {
+        this.checkCadenceCount();
+    });
+  },
+  methods: {
+    saveParams(reload = undefined) {
+        const searchParams = new URLSearchParams();
+        searchParams.set("fulldata", JSON.stringify(this.params));
+        const url = new URL(window.location.href);
+        url.search = searchParams.toString();
+        window.history.pushState({}, "", url.toString());
+        if (reload) {
+            window.location.reload();
+        }
+    },
+    checkCadenceCount() {
+        const newVal = this.params.cadenceCount || 0;
+        this.params.cadences = this.params.cadences || [];
+        if (this.params.cadences.length < newVal) {
+            const diff = newVal - this.params.cadences.length;
+            for (let i=0; i<diff; i++) {
+                this.params.cadences.push(this.initCadenceParams());
+            }
+        } else if (this.params.cadences.length > newVal) {
+            this.params.cadences = this.params.cadences.slice(0, newVal);
+        }
+        for (const cadence of this.params.cadences) {
+            this.updateCadenceBars(cadence);
+        }
+    },
+    initCadenceParams() {
+        let prevCadence = this.params.cadences[this.params.cadences.length - 1];
+        const newCadenceSettings = JSON.parse(JSON.stringify(prevCadence));
+        return new window.MusicParams(newCadenceSettings);
+    },
+    updateBaseTension(cadenceParams, event) {
+        const oldValue = cadenceParams.baseTension;
+        cadenceParams.baseTension = event.target.value;
+        for (const beatSetting of cadenceParams.beatSettings) {
+            beatSetting.tension = cadenceParams.baseTension;
+        }
+    },
+    updateCadenceScaleWeight(scaleSettings) {
+        scaleSettings.enabled = scaleSettings.weight != -0.5;
+    },
+    chordSettingsUpdate(chordSettings) {
+        chordSettings.enabled = chordSettings.weight != -1;
+    },
+    updateCadenceBars(cadenceParams) {
+        const barCount = cadenceParams.barsPerCadence;
+        const beatCount = this.params.beatsPerBar * barCount;
+        console.log("updateCadenceBars", barCount, beatCount, `${this.params.beatsPerBar}`);
+        if (cadenceParams.beatSettings.length < beatCount) {
+            const diff = beatCount - cadenceParams.beatSettings.length;
+            for (let i=0; i<diff; i++) {
+                cadenceParams.beatSettings.push({ tension: cadenceParams.baseTension });
+            }
+        } else if (cadenceParams.beatSettings.length > beatCount) {
+            cadenceParams.beatSettings = cadenceParams.beatSettings.slice(0, beatCount);
+        }
+        for (const beatSettingIndex in cadenceParams.beatSettings) {
+            if (!cadenceParams.beatSettings[beatSettingIndex] || cadenceParams.beatSettings[beatSettingIndex].tension === undefined) {
+                cadenceParams.beatSettings[beatSettingIndex] = {
+                    tension: cadenceParams.baseTension
+                };
+            }
+            cadenceParams.beatSettings[beatSettingIndex].tension = parseFloat(cadenceParams.beatSettings[beatSettingIndex].tension)
+            console.log("beatSettingIndex", beatSettingIndex, cadenceParams.beatSettings[beatSettingIndex]);
+        }
+    }
+  },
+  watch: {
+    "params.cadenceCount": {
+      handler: function (newVal, oldVal) {
+        // Make sure we have enough in the params.cadences array
+        this.checkCadenceCount();
+      },
+      deep: true
+    },
+    "params.beatsPerBar": {
+      handler: function (newVal, oldVal) {
+        // Make sure we have enough in the params.cadences array
+        this.checkCadenceCount();
+        const r = document.querySelector(':root');
+        if (r) {
+            r.classList.remove("beat1");
+            r.classList.remove("beat2");
+            r.classList.remove("beat3");
+            r.classList.remove("beat4");
+            r.classList.remove("beat5");
+            r.classList.remove("beat6");
+            r.classList.remove("beat7");
+            r.classList.remove("beat8");
+            r.classList.remove("beat9");
+            r.classList.add(`beat${newVal}`);
+        }
+      },
+      deep: true
+    },
+    "params": {
+      handler: function (newVal, oldVal) {
+        this.saveParams();
+      },
+      deep: true
+    }
+  }
+
+}).mount('#vue-template')
+</script>
 </html>
