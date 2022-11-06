@@ -141,7 +141,7 @@ const makeChords = async (mainParams: MainMusicParams, progressCallback: Nullabl
                         const chordSetting = params.chordSettings[chord];
                         const chordWeight = parseFloat(`${chordSetting.weight}` || '0');
                         if (newChord.chordType == chord) {
-                            tensionResult.tension += ((chordWeight * 10) ** 3) / 10;
+                            tensionResult.tension -= ((chordWeight * 10) ** 3) / 10;
                             chordTensionLogger.log("Chord ", chord, " weight: ", chordWeight, " tension: ", tensionResult.tension);
                         }
                     }
