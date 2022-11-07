@@ -6,7 +6,7 @@ import { DivisionedRichnotes, MainMusicParams, MusicParams } from "./src/utils";
 buildTables()
 
 self.onmessage = (event: { data: { params: string, newMelody: undefined | boolean, giveUp: undefined | boolean } }) => {
-    const params = new MainMusicParams(JSON.parse(event.data.params));
+    const params = new MainMusicParams(JSON.parse(event.data.params || "{}"));
 
     if (event.data.newMelody) {
         makeMelody((self as any).divisionedNotes, params);
@@ -19,7 +19,7 @@ self.onmessage = (event: { data: { params: string, newMelody: undefined | boolea
     }
 
     if (event.data.giveUp) {
-        (self as any).giveUp = true;
+        (self as any).giveUP = true;
         return;
     }
 

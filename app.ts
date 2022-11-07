@@ -40,7 +40,7 @@ setTimeout(() => {
             const {currentBeat, chord} = data.progress;
             const el = document.querySelectorAll(`.beatresult`)[currentBeat];
             if (el && chord) {
-                el.innerHTML += " " + chord;
+                el.innerHTML = chord;
             }
         }
     };

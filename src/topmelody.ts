@@ -2,22 +2,27 @@ import { Note } from "musictheoryjs";
 import { BEAT_LENGTH, DivisionedRichnotes, globalSemitone, MainMusicParams, MusicParams, Nullable } from "./utils";
 
 
-const addNoteBetween = (division: number, nextDivision: number, partIndex: number, divisionedNotes: DivisionedRichnotes) => {
+const addNoteBetween = (division: number, nextDivision: number, partIndex: number, divisionedNotes: DivisionedRichnotes): boolean => {
     const divisionDiff = nextDivision - division;
-    const beatRichNote = divisionedNotes[division].filter(note => note.partIndex == partIndex)[0];
+    const beatRichNote = (divisionedNotes[division] || []).filter(note => note.partIndex == partIndex)[0];
     if (!beatRichNote || !beatRichNote.note) {
         return;
     }
 
     const prevScaleTones = beatRichNote.scale.notes.map(n => n.semitone);
-    const nextBeatRichNote = divisionedNotes[nextDivision].filter(note => note.partIndex == partIndex)[0];
+    const nextBeatRichNote = (divisionedNotes[nextDivision] || []).filter(note => note.partIndex == partIndex)[0];
     if (!nextBeatRichNote || !nextBeatRichNote.note) {
         return;
     }
-    const scaleTones = nextBeatRichNote.scale.notes.map(n => n.semitone).filter(n => prevScaleTones.indexOf(n) !== -1);
+    const scaleTones = nextBeatRichNote.scale.notes.map(n => n.semitone).filter(n => prevScaleTones.includes(n));
     const currentGTone = globalSemitone(beatRichNote.note)
     const nextGTone = globalSemitone(nextBeatRichNote.note);
     const randomNote = beatRichNote.note.copy();
+
+    const diff = Math.abs(currentGTone - nextGTone);
+    if (diff < 2) {
+        return false;
+    }
 
     if (currentGTone != nextGTone) {
         const availableGTones = []
@@ -34,7 +39,7 @@ const addNoteBetween = (division: number, nextDivision: number, partIndex: numbe
         if (availableGTones.length == 0) {
             availableGTones.push(currentGTone);
         }
-        console.log(currentGTone, " -> ", nextGTone, ", availableGTones: ", availableGTones);
+        console.log(currentGTone, " -> ", nextGTone, ", availableGTones: ", availableGTones, ", scaleTones: ", scaleTones);
         const randomGTone = availableGTones[Math.floor(Math.random() * availableGTones.length)];
         randomNote.semitone = randomGTone % 12;
         randomNote.octave = Math.floor(randomGTone / 12);
@@ -50,7 +55,7 @@ const addNoteBetween = (division: number, nextDivision: number, partIndex: numbe
         partIndex: partIndex,
     }
     divisionedNotes[division + divisionDiff / 2].push(newRandomRichNote);
-
+    return true;
 }
 
 
@@ -58,37 +63,33 @@ export const buildTopMelody = (divisionedNotes: DivisionedRichnotes, mainParams:
     // Convert 4th notes in part 1 to 8th notes. Add random 8th and 16th notes between them. (and pauses?)
     const lastDivision = BEAT_LENGTH * mainParams.getMaxBeats();
 
-    for (let partIndex = 0; partIndex < 4; partIndex++) {
-        for (let i = 0; i < lastDivision - BEAT_LENGTH; i += BEAT_LENGTH) {
-            const params = mainParams.currentCadenceParams(i);
-            let sixteenthChance;
-            let eighthChance;
-            if (partIndex == 0) {
-                sixteenthChance= params.sixteenthNotes;
-                eighthChance = params.eighthNotes;
-            } else if (partIndex == 3) {
-                sixteenthChance = params.sixteenthNotes / 4;
-                eighthChance = params.eighthNotes / 2;
-            } else {
-                sixteenthChance = 0;
-                eighthChance = params.eighthNotes / 4;
-            }
-            const lastBeatInCadence = params.beatsUntilCadenceEnd < 2
-            if (lastBeatInCadence) {
+    for (let i = 0; i < lastDivision - BEAT_LENGTH; i += BEAT_LENGTH) {
+        const params = mainParams.currentCadenceParams(i);
+        const eightsThisBeat = Math.random() < params.eighthNotes;
+        const sixteenthsThisBeat = Math.random() < params.sixteenthNotes;
+
+        if (!eightsThisBeat) {
+            continue;
+        }
+
+        const lastBeatInCadence = params.beatsUntilCadenceEnd < 2
+        if (lastBeatInCadence) {
+            continue;
+        }
+
+        for (let partIndex = 0; partIndex < 4; partIndex++) {
+            // Is this a good part to add eighths?
+            const result = addNoteBetween(i, i + BEAT_LENGTH, partIndex, divisionedNotes);
+            if (!result) {
                 continue;
             }
-
-
-            if (Math.random() < eighthChance) {
-                addNoteBetween(i, i + BEAT_LENGTH, partIndex, divisionedNotes);
-                if (Math.random() < sixteenthChance) {
-                    addNoteBetween(i, i + BEAT_LENGTH / 2, partIndex, divisionedNotes);
-                }
-                if (Math.random() < sixteenthChance) {
-                    addNoteBetween(i + BEAT_LENGTH / 2, i + BEAT_LENGTH, partIndex, divisionedNotes);
-                }
+            if (Math.random() < params.sixteenthNotes) {
+                addNoteBetween(i, i + BEAT_LENGTH / 2, partIndex, divisionedNotes);
             }
-
+            if (Math.random() < params.sixteenthNotes) {
+                addNoteBetween(i + BEAT_LENGTH / 2, i + BEAT_LENGTH, partIndex, divisionedNotes);
+            }
+            break;
         }
     }
 }

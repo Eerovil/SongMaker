@@ -2,21 +2,15 @@ import {
     buildTables,
     Scale,    
     Note,
-    Semitone,
 } from "musictheoryjs";
 import { Logger } from "./mylogger";
-import { Chord, MusicParams, Nullable, DivisionedRichnotes, RichNote, BEAT_LENGTH, MainMusicParams } from "./utils";
+import { Chord, Nullable, DivisionedRichnotes, RichNote, BEAT_LENGTH, MainMusicParams } from "./utils";
 import { RandomChordGenerator } from "./randomchords";
-import { partialVoiceLeading } from "./voiceleading";
-import { getTension } from "./chordtension";
-import { melodyTension } from "./melodytension";
+import { getInversions } from "./inversions";
+import { getTension } from "./tension";
 import { buildTopMelody } from "./topmelody";
 import { addHalfNotes } from "./halfnotes";
 import { getAvailableScales } from "./availablescales";
-
-
-const NOTES_PER_MELODY_PART = 8
-
 
 
 const sleepMS = async (ms: number): Promise<null> => {
@@ -100,7 +94,7 @@ const makeChords = async (mainParams: MainMusicParams, progressCallback: Nullabl
                 randomNotes: newChord.notes,
                 logger: availableScaleLogger,
             })
-            const voiceLeadingResults = partialVoiceLeading(newChord, prevNotes, currentBeat, params, new Logger(chordLogger), maxBeats - currentBeat)
+            const allInversions = getInversions(newChord, prevNotes, currentBeat, params, new Logger(chordLogger), maxBeats - currentBeat)
                 
             if (beatsUntilLastChordInCadence == 1) {
                 // Force same chord twice
@@ -110,14 +104,15 @@ const makeChords = async (mainParams: MainMusicParams, progressCallback: Nullabl
                 newChord = prevChord;
             }
 
-            for (const voiceLeading of voiceLeadingResults) {
+            for (const inversionResult of allInversions) {
                 if (chordIsGood) {
                     break;
                 }
                 const inversionLogger = new Logger(chordLogger);
-                inversionLogger.title = ["Inversion ", `${voiceLeading.inversionName}`, " tension: ", `${voiceLeading.tension}`];
+                inversionLogger.title = ["Inversion ", `${inversionResult.inversionName}`];
                 randomNotes.splice(0, randomNotes.length);  // Empty this and replace contents
-                randomNotes.push(...voiceLeading.notes);
+                randomNotes.push(...inversionResult.notes);
+                let bestTension = 999;
                 for (const availableScale of availableScales) {
                     const scaleLogger = new Logger(inversionLogger)
                     const chordTensionLogger = new Logger(scaleLogger);
@@ -126,13 +121,14 @@ const makeChords = async (mainParams: MainMusicParams, progressCallback: Nullabl
                         break;
                     }
                     const tensionResult = getTension(
-                        prevNotes,
+                        result,
                         randomNotes,
                         availableScale.scale,
                         beatsUntilLastChordInCadence,
                         params,
                         chordTensionLogger,
-                        maxBeats - currentBeat
+                        maxBeats - currentBeat,
+                        inversionResult.inversionName,
                     );
                     chordTensionLogger.title = [
                         prevChord ? prevChord.toString() : "", " -> ", newChord.toString(), ": ", tensionResult.tension
@@ -145,13 +141,9 @@ const makeChords = async (mainParams: MainMusicParams, progressCallback: Nullabl
                             chordTensionLogger.log("Chord ", chord, " weight: ", chordWeight, " tension: ", tensionResult.tension);
                         }
                     }
+                    tensionResult.tension += availableScale.tension / Math.max(0.01, params.modulationWeight);
+                    chordTensionLogger.log("Scale tension: ", tensionResult.tension);
                     if (prevMelody.length > 0) {
-                        tensionResult.tension += melodyTension(randomNotes[0], prevMelody, params, new Logger(scaleLogger));
-                        chordTensionLogger.log("Melody tension: ", tensionResult.tension);
-                        tensionResult.tension += voiceLeading.tension;
-                        chordTensionLogger.log("VoiceLeading tension: ", tensionResult.tension);
-                        tensionResult.tension += availableScale.tension / Math.max(0.01, params.modulationWeight);
-                        chordTensionLogger.log("Scale tension: ", tensionResult.tension);
                         if (!availableScale.scale.equals(currentScale)) {
                             tensionResult.tension += 1 / Math.max(0.01, params.modulationWeight);
                             chordTensionLogger.log("Scale change tension: ", tensionResult.tension);
@@ -190,24 +182,17 @@ const makeChords = async (mainParams: MainMusicParams, progressCallback: Nullabl
                         wantedTension += (0.1 * criteriaLevel);
                     }
 
-                    let minTension = -999;
-                    if (wantedTension > 0.5) {
-                        minTension = wantedTension - 0.3 - (0.2 * criteriaLevel);
-                    }
-                    if (beatsUntilLastChordInCadence < 5) {
-                        minTension = -999;
-                    }
-                    if (!prevChord) {
-                        minTension = -999;
+                    if (tension < bestTension) {
+                        bestTension = tension;
                     }
 
-                    if (tension < wantedTension && tension > minTension) {
+                    if (tension < wantedTension) {
                         chordIsGood = true;
                         newScale = availableScale.scale.copy();
-                        chordTensionLogger.log("Chord is good: ", tension, " wanted: ", wantedTension, " min: ", minTension);
+                        chordTensionLogger.log("Chord is good: ", tension, " wanted: ", wantedTension);
                         break;  // Skip checking other voice leading inversions
                     } else {
-                        chordTensionLogger.log("Chord is bad: ", tension, " wanted: ", wantedTension, " min: ", minTension);
+                        chordTensionLogger.log("Chord is bad: ", tension, " wanted: ", wantedTension);
                         if (Math.abs(tension - wantedTension) < Math.abs(closestTension - wantedTension)) {
                             closestTension = tension;
                         }
@@ -221,9 +206,16 @@ const makeChords = async (mainParams: MainMusicParams, progressCallback: Nullabl
                             }
                         }
                     }
-                    inversionLogger.print();
+                    scaleLogger.title.push("tension: ");
+                    scaleLogger.title.push(`${tension}`);
                 }  // For available scales end
+                inversionLogger.title.push("tension: ");
+                inversionLogger.title.push(`${bestTension}`);
+                inversionLogger.print();
             }  // For voiceleading results end
+            if (tension > 1000) {
+                chordLogger.clear();
+            }
             chordLogger.print(prevChord ? prevChord.toString() : "", " -> ", newChord.toString(), ": ", tension.toFixed(1), " (" + wantedTension + ")");
         }  // While end
         if (newChord == null) {

@@ -14,6 +14,7 @@ export class Logger {
     messages: Array<any[]> = [];
     parent: Logger | undefined = undefined;
     children: Logger[] = [];
+    cleared: boolean = false;
 
     constructor(parent: Logger | undefined = undefined) {
         this.parent = parent;
@@ -27,6 +28,9 @@ export class Logger {
     }
 
     print(...args: any[]) {
+        if (this.cleared) {
+            return;
+        }
         if (this.parent) {
             // Let parent handle me
             if (args.length > 0) {
@@ -42,4 +46,14 @@ export class Logger {
         }
         console.groupEnd();
     }
+
+    clear() {
+        this.messages = [];
+        this.children = [];
+        if (this.parent) {
+            this.parent.children = this.parent.children.filter(child => child !== this);
+        }
+        this.cleared = true;
+    }
+
 }
