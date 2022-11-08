@@ -60,6 +60,17 @@ const makeChords = async (mainParams: MainMusicParams, progressCallback: Nullabl
         const randomNotes: Array<Note> = [];
 
         let iterations = 0;
+        let bestResult: {
+            notes: Array<Note>,
+            tension: number,
+            scale: Scale,
+            chord: Nullable<Chord>,
+        } = {
+            notes: [],
+            tension: 999,
+            scale: currentScale,
+            chord: null,
+        };
 
         let closestTension = -100;
         let wantedTension = 0;
@@ -82,30 +93,60 @@ const makeChords = async (mainParams: MainMusicParams, progressCallback: Nullabl
             }
             newChord = randomGenerator.getChord();
             const chordLogger = new Logger();
-            if (!newChord) {
-                chordLogger.log("Failed to get a new chord (all used)");
-                // Try again
-                randomGenerator.cleanUp();
-                continue;
-            }
-            const availableScaleLogger = new Logger(chordLogger)
-            const availableScales = getAvailableScales({
-                latestDivision: division,
-                divisionedRichNotes: result,
-                params: params,
-                randomNotes: newChord.notes,
-                logger: availableScaleLogger,
-            })
-            const allInversions = getInversions(newChord, prevNotes, currentBeat, params, new Logger(chordLogger), maxBeats - currentBeat)
-                
+            let allInversions;
+            let availableScales;
+
             if (beatsUntilLastChordInCadence == 1) {
                 // Force same chord twice
                 chordIsGood = true;
                 randomNotes.splice(0, randomNotes.length);
                 randomNotes.push(...prevNotes);
                 newChord = prevChord;
+                tension = 0;
+            }
+            else if (!newChord) {
+                chordLogger.log("Failed to get a new chord (all used) Using the best result");
+                if (bestResult.tension < 10 || division == 0) {
+                    console.groupEnd();
+                    console.groupCollapsed("Best result is good enough, using it");
+                    chordIsGood = true;
+                    randomNotes.splice(0, randomNotes.length);
+                    randomNotes.push(...bestResult.notes);
+                    newChord = bestResult.chord;
+                    if (!prevChord) {
+                        prevChord = newChord;
+                    }
+                    tension = bestResult.tension;
+                } else {
+                    console.groupEnd();
+                    console.log("Best result is not good enough, going back");
+                    // Go back to previous chord, and make it again
+                    chordIsGood = false;
+                    goBack = true;
+                    break;
+                }
+            } else {
+                const availableScaleLogger = new Logger(chordLogger)
+                availableScales = getAvailableScales({
+                    latestDivision: division,
+                    divisionedRichNotes: result,
+                    params: params,
+                    randomNotes: newChord.notes,
+                    logger: availableScaleLogger,
+                })
+                if (prevMelody.length > 0) {
+                    if (maxBeats - currentBeat < 3 || beatsUntilLastChordInCadence < 3 || currentBeat < 5) {
+                        // Don't allow other scales than the current one
+                        availableScales = availableScales.filter(s => s.scale.equals(currentScale));
+                    }
+                }
+                if (availableScales.length == 0) {
+                    continue;
+                }
+                allInversions = getInversions(newChord, prevNotes, currentBeat, params, new Logger(chordLogger), maxBeats - currentBeat)
             }
 
+            if (!chordIsGood) {
             for (const inversionResult of allInversions) {
                 if (chordIsGood) {
                     break;
@@ -194,6 +235,12 @@ const makeChords = async (mainParams: MainMusicParams, progressCallback: Nullabl
                         chordTensionLogger.log("Chord is good: ", tension, " wanted: ", wantedTension);
                         break;  // Skip checking other voice leading inversions
                     } else {
+                        if (tension < bestResult.tension) {
+                            bestResult.tension = tension;
+                            bestResult.notes.splice(0, bestResult.notes.length);
+                            bestResult.notes.push(...randomNotes);
+                            bestResult.chord = newChord;
+                        }
                         chordTensionLogger.log("Chord is bad: ", tension, " wanted: ", wantedTension);
                         if (Math.abs(tension - wantedTension) < Math.abs(closestTension - wantedTension)) {
                             closestTension = tension;
@@ -215,14 +262,14 @@ const makeChords = async (mainParams: MainMusicParams, progressCallback: Nullabl
                 inversionLogger.title.push(`${bestTension}`);
                 inversionLogger.print();
             }  // For voiceleading results end
-            if (tension > 100) {
-                chordLogger.clear();
             }
             chordLogger.print(prevChord ? prevChord.toString() : "", " -> ", newChord.toString(), ": ", tension.toFixed(1), " (" + wantedTension + ")");
         }  // While end
         if (goBack) {
             // Go back to previous chord, and make it again
-            division -= BEAT_LENGTH * 2;
+            if (division >= 0) {
+                division -= BEAT_LENGTH * 2;
+            }
             continue;
         }
         if (newChord == null) {

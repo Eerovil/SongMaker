@@ -331,6 +331,9 @@ export const getTension = (divisionedNotes: DivisionedRichnotes, toNotes: Array<
     }
     logger.log("tension: ", tension);
 
+    if (tension > 10) {
+        return {tension, currentScale}
+    }
 
     const directionTensionWeight = wantedFunction == null ? 1: 0.1;
     // Check directions
@@ -396,50 +399,72 @@ export const getTension = (divisionedNotes: DivisionedRichnotes, toNotes: Array<
             logger.log("tension: ", tension);
         }
     }
-
-    // Check parallel motion
-    const badIntervals = {
-        0: 1,
-        5: 1,
-        4: 0.3,  // Not as bad
-        [0 + 12]: 1,
-        [5 + 12]: 1,
-        [4 + 12]: 0.3,  // Not as bad
+    if (tension > 10) {
+        return {tension, currentScale}
     }
-    const badPairs: {
-        parts: [number, number],
-        interval: number,
-    }[] = [];
-    for (let i=0; i<fromGlobalSemitones.length; i++) {
-        for (let j=i+1; j<fromGlobalSemitones.length; j++) {
-            const interval = Math.abs(fromGlobalSemitones[i] - fromGlobalSemitones[j]);
-            if (badIntervals[interval]) {
-                badPairs.push({
-                    parts: [i, j],
-                    interval: interval,
-                });
+
+
+    // Parallel motion and hidden fifths
+    for (let i=0; i<toGlobalSemitones.length; i++) {
+        for (let j=i+1; j<toGlobalSemitones.length; j++) {
+            const interval = Math.abs(toGlobalSemitones[i] - toGlobalSemitones[j]);
+            const intervalFrom = Math.abs(fromGlobalSemitones[i] - fromGlobalSemitones[j]);
+            if (interval % 12 == 0) {
+                // Possibly a parallel octave or unison
+                if (interval == intervalFrom) {
+                    tension += 10;
+                    logger.log("Tension from parallel motion: ", interval);
+                    logger.log("tension: ", tension);
+                    continue;
+                }
+            }
+            if (interval % 12 == 7) {
+                // Possibly a parallel or hidden fifth
+                if (interval == intervalFrom) {
+                    tension += 10;
+                    logger.log("Tension from parallel motion: ", interval);
+                    logger.log("tension: ", tension);
+                    continue;
+                }
+                // Check if the interval is hidden
+                const partIDirection = fromGlobalSemitones[i] - toGlobalSemitones[i];
+                const partJDirection = fromGlobalSemitones[j] - toGlobalSemitones[j];
+                if (Math.abs(partJDirection) > 2) {
+                    // Upper part is making a jump
+                    if (partIDirection < 0 && partJDirection < 0 || partIDirection > 0 && partJDirection > 0) {
+                        tension += 10;
+                        logger.log("Tension from hidden fifth: ", interval);
+                        logger.log("tension: ", tension);
+                        continue;
+                    }
+                }
             }
         }
     }
-    for (const badPair of badPairs) {
-        // Are the bad pairs same intervals still?
-        if (toGlobalSemitones[badPair.parts[0]] == fromGlobalSemitones[badPair.parts[0]]) {
-            // This one stayed the same, so it's not bad.
-            continue;
-        }
-        const newInterval = Math.abs(toGlobalSemitones[badPair.parts[0]] - toGlobalSemitones[badPair.parts[1]]);
-        if (newInterval == badPair.interval) {
-            tension += 10
-            logger.log("Tension from parallel motion: ", badPair);
-            logger.log("tension: ", tension);
-        }
+    if (tension > 10) {
+        return {tension, currentScale}
     }
+
+
+    // Spacing errors
+    const part0ToPart1 = Math.abs(toGlobalSemitones[0] - toGlobalSemitones[1]);
+    const part1ToPart2 = Math.abs(toGlobalSemitones[1] - toGlobalSemitones[2]);
+    if (part1ToPart2 > 12 || part0ToPart1 > 12) {
+        tension += 10;
+        logger.log("Tension from spacing error: ", part1ToPart2, part0ToPart1);
+        logger.log("tension: ", tension);
+    }
+    if (tension > 10) {
+        return {tension, currentScale}
+    }
+
+
 
     // Melody tension
     // Avoid jumps that are aug or 7th or higher
     for (let i=0; i<fromGlobalSemitones.length; i++) {
         const interval = Math.abs(fromGlobalSemitones[i] - toGlobalSemitones[i]);
-        if (interval > 10) {  // 7th == 10
+        if (interval >= 10) {  // 7th == 10
             tension += 10;
             logger.log("Tension from melody interval: ", interval);
             logger.log("tension: ", tension);
@@ -465,6 +490,10 @@ export const getTension = (divisionedNotes: DivisionedRichnotes, toNotes: Array<
             continue;
         }
     }
+    if (tension > 10) {
+        return {tension, currentScale}
+    }
+
 
     // 0 priimi
     // 1 pieni sekunti
@@ -483,6 +512,7 @@ export const getTension = (divisionedNotes: DivisionedRichnotes, toNotes: Array<
     // Was there a jump before?
     if (prevPassedFromNotes && prevPassedFromNotes.length == 4) {
         const prevFromGlobalSemitones = prevPassedFromNotes.map((n) => globalSemitone(n));
+        logger.log("prevFromGlobalSemitones:", prevFromGlobalSemitones.map((s) => gToneString(s)));
         for (let i=0; i<fromGlobalSemitones.length; i++) {
             const interval = Math.abs(prevFromGlobalSemitones[i] - fromGlobalSemitones[i]);
             if (interval >= 3) {
@@ -529,8 +559,8 @@ export const getTension = (divisionedNotes: DivisionedRichnotes, toNotes: Array<
                 }
 
                 // Higher than that, no triad is possible.
-                if (toSemitone >= fromSemitone) {
-                    // Not goinf back down...
+                if ((fromSemitone >= prevFromSemitone && toSemitone >= fromSemitone) || (fromSemitone <= prevFromSemitone && toSemitone <= fromSemitone)) {
+                    // Not goinf back down/up...
                     if (interval <= 5) {
                         tension += 1;  // Not as bad
                     } else {
@@ -542,6 +572,10 @@ export const getTension = (divisionedNotes: DivisionedRichnotes, toNotes: Array<
             }
         }
     }
+    if (tension > 10) {
+        return {tension, currentScale}
+    }
+
 
     for (let i=0; i<toGlobalSemitones.length; i++) {
         const fromGlobalSemitone = fromGlobalSemitones[i];
