@@ -2,6 +2,15 @@ import { Note, Scale, Semitone } from "musictheoryjs";
 
 export const BEAT_LENGTH = 12;
 
+
+export const gToneString = (gTone: number): string => {
+    return new Note({
+        semitone: gTone % 12,
+        octave: Math.floor(gTone / 12),
+    }).toString()
+}
+
+
 export const arrayOrderBy = function (array: Array<any>, selector: CallableFunction, desc = false) {
     return [...array].sort((a, b) => {
         a = selector(a);

@@ -77,7 +77,6 @@ export const getInversions = (chord: Chord, prevNotes: Array<Note>, beat: number
         }
 
         for (let skipFifthIndex = 0; skipFifthIndex < 2; skipFifthIndex++) {
-        for (let octaveOffset=0; octaveOffset<2; octaveOffset++) {
         for (let inversionIndex=0; inversionIndex<inversionNames.length; inversionIndex++) {
             const skipFifth = skipFifthIndex == 1;
 
@@ -95,9 +94,6 @@ export const getInversions = (chord: Chord, prevNotes: Array<Note>, beat: number
                 rating: 0,
                 inversionName: inversionNames[inversionIndex],
             };
-            if (octaveOffset != 0) {
-                inversionResult.inversionName += "-octave" + octaveOffset;
-            }
             if (skipFifth) {
                 inversionResult.inversionName += "-skipFifth";
             }
@@ -109,7 +105,7 @@ export const getInversions = (chord: Chord, prevNotes: Array<Note>, beat: number
                 });
             }
 
-            logger.log("inversion: ", inversion, "octaveOffset: ", octaveOffset, "skipFifth: ", skipFifth);
+            logger.log("inversion: ", inversion, "skipFifth: ", skipFifth);
             let partToIndex: { [key: number]: number } = {};
             if (chord.notes.length == 3) {
                 if (inversion == 'root') {
@@ -216,7 +212,7 @@ export const getInversions = (chord: Chord, prevNotes: Array<Note>, beat: number
                 }
                 addPartNote(partIndex, chord.notes[partToIndex[partIndex]]);
             }
-            // Lastly, we select the octaves
+            // Lastly, we select the lowest possible octave for each part
             let minSemitone = 0;
             for (let partIndex=3; partIndex>=0; partIndex--) {
                 const note = inversionResult.notes[partIndex];
@@ -229,50 +225,74 @@ export const getInversions = (chord: Chord, prevNotes: Array<Note>, beat: number
                         debugger;
                         throw "Too many iterations"
                     }
-                    note.octave += 1;
-                    gTone = globalSemitone(note);
-                    if (gTone >= semitoneLimits[partIndex][0] && gTone >= minSemitone) {
-                        // We're about to break. Check if we should go up one more
-                        if (gTone + 12 <= semitoneLimits[partIndex][1]) {
-                            let distance = Math.abs(gTone - lastBeatGlobalSemitones[partIndex])
-                            let octaveUpDistance = Math.abs(gTone + 12 - lastBeatGlobalSemitones[partIndex])
-                            if (octaveUpDistance < distance) {
-                                note.octave += 1;
-                            }
-                        } else {
-                            logger.log("Can't go up one more: ", gTone, semitoneLimits[partIndex][1]);
-                            if (partIndex == 3 && octaveOffset > 0) {
-                                note.octave += octaveOffset;
-                            }
+                    gTone += 12;
+                }
+                inversionResult.notes[partIndex] = new Note({
+                    semitone: gTone % 12,
+                    octave: Math.floor(gTone / 12),
+                });
+            }
+
+            // Make a copy inversionresult for each possible octave combination
+            const initialPart0Note = globalSemitone(inversionResult.notes[0]);
+            const initialPart1Note = globalSemitone(inversionResult.notes[1]);
+            const initialPart2Note = globalSemitone(inversionResult.notes[2]);
+            const initialPart3Note = globalSemitone(inversionResult.notes[3]);
+            for (let part0Octave=0; part0Octave<3; part0Octave++) {
+                const part0Note = initialPart0Note + part0Octave * 12;
+                if (part0Note > semitoneLimits[0][1]) {
+                    continue;
+                }
+                for (let part1Octave=0; part1Octave<3; part1Octave++) {
+                    const part1Note = initialPart1Note + part1Octave * 12;
+                    if (part1Note > part0Note) {
+                        continue;
+                    }
+                    if (part1Note > semitoneLimits[1][1]) {
+                        continue;
+                    }
+                    for (let part2Octave=0; part2Octave<3; part2Octave++) {
+                        const part2Note = initialPart2Note + part2Octave * 12;
+                        if (part2Note > part1Note) {
+                            continue;
                         }
-                        gTone = globalSemitone(note);
-                        minSemitone = gTone;
+                        if (part2Note > semitoneLimits[2][1]) {
+                            continue;
+                        }
+                        for (let part3Octave=0; part3Octave<3; part3Octave++) {
+                            const part3Note = initialPart3Note + part3Octave * 12;
+                            if (part3Note > part2Note) {
+                                continue;
+                            }
+                            if (part3Note > semitoneLimits[3][1]) {
+                                continue;
+                            }
+                            ret.push({
+                                notes: [
+                                    new Note({
+                                        semitone: part0Note % 12,
+                                        octave: Math.floor(part0Note / 12),
+                                    }),
+                                    new Note({
+                                        semitone: part1Note % 12,
+                                        octave: Math.floor(part1Note / 12),
+                                    }),
+                                    new Note({
+                                        semitone: part2Note % 12,
+                                        octave: Math.floor(part2Note / 12),
+                                    }),
+                                    new Note({
+                                        semitone: part3Note % 12,
+                                        octave: Math.floor(part3Note / 12),
+                                    }),
+                                ],
+                                inversionName: inversionResult.inversionName,
+                                rating: 0,
+                            });
+                        }
                     }
                 }
-
-                // Store values for next step
-                inversionResult.gToneDiffs[partIndex] = [lastBeatGlobalSemitones[partIndex], gTone];
-                minSemitone = gTone;
             }
-            const notes = [];
-            if (inversionResult.notes[0]) {
-                notes.push(inversionResult.notes[0]);
-            }
-            if (inversionResult.notes[1]) {
-                notes.push(inversionResult.notes[1]);
-            }
-            if (inversionResult.notes[2]) {
-                notes.push(inversionResult.notes[2]);
-            }
-            if (inversionResult.notes[3]) {
-                notes.push(inversionResult.notes[3]);
-            }
-            ret.push({
-                notes: notes,
-                inversionName: inversion,
-                rating: 0,
-            });
-        }
         }
         }
     }

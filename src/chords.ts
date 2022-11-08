@@ -63,6 +63,7 @@ const makeChords = async (mainParams: MainMusicParams, progressCallback: Nullabl
 
         let closestTension = -100;
         let wantedTension = 0;
+        let goBack = false;
 
         while (!chordIsGood) {
             iterations++;
@@ -71,7 +72,8 @@ const makeChords = async (mainParams: MainMusicParams, progressCallback: Nullabl
             }
             if (iterations > 1000) {
                 console.log("Too many iterations, breaking, closestTension: ", closestTension);
-                return {};
+                goBack = true;
+                break;
             }
             let criteriaLevel = Math.floor(iterations / (50));
             if (iterations % 100 == 0) {
@@ -213,11 +215,16 @@ const makeChords = async (mainParams: MainMusicParams, progressCallback: Nullabl
                 inversionLogger.title.push(`${bestTension}`);
                 inversionLogger.print();
             }  // For voiceleading results end
-            if (tension > 1000) {
+            if (tension > 100) {
                 chordLogger.clear();
             }
             chordLogger.print(prevChord ? prevChord.toString() : "", " -> ", newChord.toString(), ": ", tension.toFixed(1), " (" + wantedTension + ")");
         }  // While end
+        if (goBack) {
+            // Go back to previous chord, and make it again
+            division -= BEAT_LENGTH * 2;
+            continue;
+        }
         if (newChord == null) {
             return {};
         }
