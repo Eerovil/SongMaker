@@ -32,10 +32,10 @@ export const getInversions = (chord: Chord, prevNotes: Array<Note>, beat: number
     ]
 
     const semitoneLimits = [
-        [startingGlobalSemitones[0] + -12, startingGlobalSemitones[0] + 12],
-        [startingGlobalSemitones[1] + -12, startingGlobalSemitones[1] + 12],
-        [startingGlobalSemitones[2] + -12, startingGlobalSemitones[2] + 12],
-        [startingGlobalSemitones[3] + -12, startingGlobalSemitones[3] + 12],
+        [startingGlobalSemitones[0] + -12, startingGlobalSemitones[0] + 12 - 5],
+        [startingGlobalSemitones[1] + -12, startingGlobalSemitones[1] + 12 - 5],
+        [startingGlobalSemitones[2] + -12, startingGlobalSemitones[2] + 12 - 5],
+        [startingGlobalSemitones[3] + -12, startingGlobalSemitones[3] + 12 - 5],
     ]
     logger.log(semitoneLimits)
 
@@ -297,6 +297,14 @@ export const getInversions = (chord: Chord, prevNotes: Array<Note>, beat: number
         }
     }
     logger.print("newVoiceLeadingNotes: ", chord.toString(), " beat: ", beat);
+
+    // Randomize order of ret
+    for (let i=0; i<ret.length; i++) {
+        const j = Math.floor(Math.random() * ret.length);
+        const tmp = ret[i];
+        ret[i] = ret[j];
+        ret[j] = tmp;
+    }
 
     return ret;
 }

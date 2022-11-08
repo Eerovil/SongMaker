@@ -223,7 +223,6 @@ export const getTension = (divisionedNotes: DivisionedRichnotes, toNotes: Array<
     let tensionBeforelead = tension;
     const resolvedLeads: { [key: number]: number } = {};
     let availableLeads: { [key: number]: { [key: number]: number } } = {};
-    let leadingTone = null;
 
     for (const fromGlobalSemitone of fromGlobalSemitones) {
         // Each note may be "leading" somewhere.
@@ -249,10 +248,6 @@ export const getTension = (divisionedNotes: DivisionedRichnotes, toNotes: Array<
             resolvedLeads[nextGTone] = resolvedLeads[nextGTone] || 0
             resolvedLeads[nextGTone] += leadsTo[relativeDiff];
 
-            if (scaleIndex == 6) {
-                // Leading tone
-                leadingTone = leadsTo[relativeDiff];
-            }
             // // Add leads to all octaves
             // for (let i=-12*5; i<12*5; i+=12) {
             //     resolvedLeads[nextGTone+i] = resolvedLeads[nextGTone+i] || 0
@@ -270,9 +265,6 @@ export const getTension = (divisionedNotes: DivisionedRichnotes, toNotes: Array<
 
     const handledSemitones: number[] = []
     for (const toGlobalSemitone of toGlobalSemitones) {
-        if (toGlobalSemitone == leadingTone) {
-            leadingTone == null;
-        }
         const toSemitone = (toGlobalSemitone + 12) % 12;
         if (handledSemitones.includes(toSemitone)) {
             continue;
@@ -325,11 +317,33 @@ export const getTension = (divisionedNotes: DivisionedRichnotes, toNotes: Array<
 
     }
     logger.log("tension: ", tension);
-    if (leadingTone) {
-        logger.log("Leading tone not handled, increasing tension: ", leadingTone);
-        tension += 10;
+    const leadingToneSemitone = currentScale.notes[0].semitone + 11;
+    for (let i=0; i<fromGlobalSemitones.length; i++) {
+        const fromGlobalSemitone = fromGlobalSemitones[i];
+        if (fromGlobalSemitone % 12 == leadingToneSemitone) {
+            if (toGlobalSemitones[i] != fromGlobalSemitone + 1) {
+                tension += 10;
+                if (i == 1 || i == 2) {
+                    // not as bad
+                    tension -= 7;
+                }
+                logger.log("Leading tone not handled, increasing tension: part ", i);
+            }
+        }
     }
     logger.log("tension: ", tension);
+
+    let leadingToneCount = 0;
+    for (const toGlobalSemitone of toGlobalSemitones) {
+        const scaleIndex: number = semitoneScaleIndex[(toGlobalSemitone + 12) % 12];
+        if (scaleIndex == 6) {
+            leadingToneCount++;
+        }
+    }
+    if (leadingToneCount > 1) {
+        logger.log("Multiple leading tones, increasing tension: ", leadingToneCount);
+        tension += 10;
+    }
 
     if (tension > 10) {
         return {tension, currentScale}
@@ -368,37 +382,17 @@ export const getTension = (divisionedNotes: DivisionedRichnotes, toNotes: Array<
         directionCounts.up -= 1;
     }
     logger.log("rootBassDirection: ", rootBassDirection, " - directionCounts: ", directionCounts);
-    if (directionCounts.up > 2 && directionCounts.down < 2) {
+    if (directionCounts.up > 2 && directionCounts.down < 1) {
         tension += 10 * directionTensionWeight;
         logger.log("Tension from direction up: ", directionCounts);
         logger.log("tension: ", tension);
     }
-    if (directionCounts.up > 1 && directionCounts.down < 1) {
-        tension += 10 * directionTensionWeight;
-        logger.log("Tension from direction up: ", directionCounts);
-        logger.log("tension: ", tension);
-    }
-    if (directionCounts.down > 2 && directionCounts.up < 2) {
-        tension += 10 * directionTensionWeight;
-        logger.log("Tension from direction down: ", directionCounts);
-        logger.log("tension: ", tension);
-    }
-    if (directionCounts.down > 1 && directionCounts.up < 1) {
+    if (directionCounts.down > 2 && directionCounts.up < 1) {
         tension += 10 * directionTensionWeight;
         logger.log("Tension from direction down: ", directionCounts);
         logger.log("tension: ", tension);
     }
 
-    // part 0 and part 3 should move to different directions
-    if (fromGlobalSemitones[0] != toGlobalSemitones[0]) {
-        const part0Direction = fromGlobalSemitones[0] < toGlobalSemitones[0] ? 'up' : 'down';
-        const part3Direction = fromGlobalSemitones[3] < toGlobalSemitones[3] ? 'up' : 'down';
-        if (part0Direction == part3Direction) {
-            tension += 10 * directionTensionWeight;
-            logger.log("Tension from part 0 and part 3 moving in same direction: ", part0Direction);
-            logger.log("tension: ", tension);
-        }
-    }
     if (tension > 10) {
         return {tension, currentScale}
     }
@@ -407,22 +401,16 @@ export const getTension = (divisionedNotes: DivisionedRichnotes, toNotes: Array<
     // Parallel motion and hidden fifths
     for (let i=0; i<toGlobalSemitones.length; i++) {
         for (let j=i+1; j<toGlobalSemitones.length; j++) {
+            if (fromGlobalSemitones[i] == toGlobalSemitones[i] && fromGlobalSemitones[j] == toGlobalSemitones[j]) {
+                continue;
+            }
             const interval = Math.abs(toGlobalSemitones[i] - toGlobalSemitones[j]);
             const intervalFrom = Math.abs(fromGlobalSemitones[i] - fromGlobalSemitones[j]);
-            if (interval % 12 == 0) {
-                // Possibly a parallel octave or unison
+            if (interval < 20 && interval % 12 == 7 || interval % 12 == 0) {
+                // Possibly a parallel, contrary or hidden fifth/octave
                 if (interval == intervalFrom) {
                     tension += 10;
-                    logger.log("Tension from parallel motion: ", interval);
-                    logger.log("tension: ", tension);
-                    continue;
-                }
-            }
-            if (interval % 12 == 7) {
-                // Possibly a parallel or hidden fifth
-                if (interval == intervalFrom) {
-                    tension += 10;
-                    logger.log("Tension from parallel motion: ", interval);
+                    logger.log("Tension from parallel motion: ", interval, " part ", i, " and ", j);
                     logger.log("tension: ", tension);
                     continue;
                 }
@@ -433,7 +421,7 @@ export const getTension = (divisionedNotes: DivisionedRichnotes, toNotes: Array<
                     // Upper part is making a jump
                     if (partIDirection < 0 && partJDirection < 0 || partIDirection > 0 && partJDirection > 0) {
                         tension += 10;
-                        logger.log("Tension from hidden fifth: ", interval);
+                        logger.log("Tension from hidden fifth: ", interval, " part ", i, " and ", j);
                         logger.log("tension: ", tension);
                         continue;
                     }
@@ -449,15 +437,34 @@ export const getTension = (divisionedNotes: DivisionedRichnotes, toNotes: Array<
     // Spacing errors
     const part0ToPart1 = Math.abs(toGlobalSemitones[0] - toGlobalSemitones[1]);
     const part1ToPart2 = Math.abs(toGlobalSemitones[1] - toGlobalSemitones[2]);
-    if (part1ToPart2 > 12 || part0ToPart1 > 12) {
+    const part2ToPart3 = Math.abs(toGlobalSemitones[2] - toGlobalSemitones[3]);
+    if (part1ToPart2 > 12 || part0ToPart1 > 12 || part2ToPart3 > (12 + 7)) {
         tension += 10;
-        logger.log("Tension from spacing error: ", part1ToPart2, part0ToPart1);
+        logger.log("Tension from spacing error: ", part0ToPart1, part1ToPart2, part2ToPart3);
         logger.log("tension: ", tension);
     }
     if (tension > 10) {
         return {tension, currentScale}
     }
 
+    // Overlapping error
+    for (let i=0; i<fromGlobalSemitones.length; i++) {
+        const fromGlobalSemitone = fromGlobalSemitones[i];
+        const upperPartToGlobalSemitone = toGlobalSemitones[i-1];
+        const lowerPartToGlobalSemitone = toGlobalSemitones[i+1];
+        if (upperPartToGlobalSemitone != undefined && fromGlobalSemitone > upperPartToGlobalSemitone) {
+            // Upper part is moving lower than where lower part used to be
+            tension += 10;
+            logger.log("Tension from overlapping error: ", gToneString(fromGlobalSemitone), gToneString(upperPartToGlobalSemitone));
+            logger.log("tension: ", tension);
+        }
+        if (lowerPartToGlobalSemitone != undefined && fromGlobalSemitone < lowerPartToGlobalSemitone) {
+            // Lower part is moving higher than where upper part used to be
+            tension += 10;
+            logger.log("Tension from overlapping error: ", gToneString(fromGlobalSemitone), gToneString(lowerPartToGlobalSemitone));
+            logger.log("tension: ", tension);
+        }
+    }
 
 
     // Melody tension
@@ -568,6 +575,19 @@ export const getTension = (divisionedNotes: DivisionedRichnotes, toNotes: Array<
                     }
                     logger.log("Tension from jump and no back: ", interval, " part ", i);
                     logger.log("tension: ", tension);
+                } else {
+                    // Going back down/up...
+                    const backInterval = Math.abs(toSemitone - fromSemitone);
+                    if (backInterval >= interval) {
+                        // Going back too far...
+                        if (interval <= 5) {
+                            tension += 1;  // Not as bad
+                        } else {
+                            tension += 10;  // Terrible
+                        }
+                        logger.log("Tension from jump and too far back: ", interval, " part ", i);
+                        logger.log("tension: ", tension);
+                    }
                 }
             }
         }
