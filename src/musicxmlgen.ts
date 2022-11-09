@@ -115,6 +115,7 @@ function addRichNoteToMeasure(richNote: RichNote, measure: builder.XMLElement, s
     'pitch': noteToPitch(richNote),
     'duration': duration.duration,
     'voice': voice,
+    'stem': { '#text': voice == 0 ? 'up' : 'down', '@default-y': voice == 0 ? 5 : -45 },
     'type': duration.type,
     'staff': staff,
     'beam': richNote.beam ? { '@number': beamNumber, '#text': richNote.beam } : undefined,
@@ -205,7 +206,14 @@ function firstMeasureInit(voicePartIndex: number, measure: builder.XMLElement, p
     globalSemitone(new Note(params.parts[3].note || "C3")),
   ]
 
-  const mySemitone = semitones[voicePartIndex];
+  let clefSemitoneIndex;
+  if (voicePartIndex <= 1) {
+    clefSemitoneIndex = 1;
+  }
+  else {
+    clefSemitoneIndex = 3;
+  }
+  const mySemitone = semitones[clefSemitoneIndex];
   if (mySemitone < 45) {
     clef = {
       '@number': 1,
@@ -312,7 +320,7 @@ export function toXml(divisionedNotes: DivisionedRichnotes, mainParams: MainMusi
         '@id': 'P1-I1',
         'midi-channel': 1,
         'midi-program': firstParams.parts[0].voice,
-        'volume': 90,
+        'volume': 100,
         'pan': 0
       }
     }
@@ -329,80 +337,27 @@ export function toXml(divisionedNotes: DivisionedRichnotes, mainParams: MainMusi
       'score-instrument': {
         '@id': 'P2-I1',
         'instrument-name': {
-          '#text': `${firstParams.parts[1].voice}`
+          '#text': `${firstParams.parts[3].voice}`
         },
       },
       'midi-instrument': {
         '@id': 'P2-I1',
         'midi-channel': 1,
-        'midi-program': firstParams.parts[1].voice,
-        'volume': 70,
-        'pan': 0
-      }
-    }
-  });
-  partList.ele({
-    'score-part': {
-      '@id': 'P3',
-      'group': {
-        '#text': 'score'
-      },
-      'part-name': {
-        '#text': 'P3'
-      },
-      'score-instrument': {
-        '@id': 'P3-I1',
-        'instrument-name': {
-          '#text': `${firstParams.parts[2].voice}`
-        },
-      },
-      'midi-instrument': {
-        '@id': 'P3-I1',
-        'midi-channel': 1,
-        'midi-program': firstParams.parts[2].voice,
-        'volume': 70,
-        'pan': 0
-      }
-    }
-  });
-  partList.ele({
-    'score-part': {
-      '@id': 'P4',
-      'group': {
-        '#text': 'score'
-      },
-      'part-name': {
-        '#text': 'P4'
-      },
-      'score-instrument': {
-        '@id': 'P4-I1',
-        'instrument-name': {
-          '#text': `${firstParams.parts[3].voice}`
-        },
-      },
-      'midi-instrument': {
-        '@id': 'P4-I1',
-        'midi-channel': 1,
         'midi-program': firstParams.parts[3].voice,
-        'volume': 90,
+        'volume': 100,
         'pan': 0
       }
     }
   });
-
 
   const parts = [
     root.ele({ 'part': { '@id': 'P1' }}),
     root.ele({ 'part': { '@id': 'P2' }}),
-    root.ele({ 'part': { '@id': 'P3' }}),
-    root.ele({ 'part': { '@id': 'P4' }}),
   ];
 
   const measures: Array<Array<builder.XMLElement>> = [
     [],
     [],
-    [],
-    []
   ]
 
   // (0 + 1) + ((0 + 1) * 2) = 1 + 2 = 3
@@ -411,93 +366,104 @@ export function toXml(divisionedNotes: DivisionedRichnotes, mainParams: MainMusi
   // 1 + 0 = 2
   // 1 + 1 = 3
 
-
-  for (let partIndex=0; partIndex<parts.length; partIndex++) {
-    for (let voiceIndex=0; voiceIndex<1; voiceIndex++) {
-      const part = parts[partIndex];
-      const voice = voiceIndex;
-      // const voicePartIndex = ((partIndex * 2) + voiceIndex) + 1;
+  const maxDivision = Math.max(...Object.keys(divisionedNotes).map((k) => parseInt(k)))
+  let division = 0;
+  let currentScale = new Scale({ key: 0 });
+  while (division <= maxDivision) {
+    const params = mainParams.currentCadenceParams(division);
+    let measureIndex = Math.floor(division / (params.beatsPerBar * BEAT_LENGTH))
+    for (let partIndex=0; partIndex<4; partIndex++) {
+      let staff = partIndex <= 1 ? 0 : 1;
+      const part = parts[staff];
       const voicePartIndex = partIndex;
-      if (voiceIndex == 0) {
-        measures[partIndex].push(part.ele({ 'measure': { '@number': 1 }}));
-        firstMeasureInit(voicePartIndex, measures[partIndex][measures[partIndex].length - 1], firstParams);
+      if (division == 0 && partIndex % 2 == 0) {
+        measures[staff].push(part.ele({ 'measure': { '@number': 1 }}));
+        firstMeasureInit(voicePartIndex, measures[staff][measures[staff].length - 1], firstParams);
+      } else if (partIndex % 2 == 0) {
+        measures[staff].push(
+          part.ele({ 'measure': { '@number': `${(measureIndex) + 1}` } })
+        );
       }
-      let currentScale = new Scale({ key: 0 });
-      for (const division in divisionedNotes) {
-        const divisionNumber = parseInt(division);
-        const params = mainParams.currentCadenceParams(divisionNumber);
-        let measureIndex = Math.floor(divisionNumber / (params.beatsPerBar * BEAT_LENGTH))
-        let currentMeasure = measures[partIndex][measureIndex]
-        if (currentMeasure == undefined) {
-          measures[partIndex].push(
-            part.ele({ 'measure': { '@number': `${(measureIndex) + 1}` } })
-          );
-        }
-        const richNotes = divisionedNotes[division];
+      let currentMeasure = measures[staff][measureIndex]
 
-        for (const richNote of richNotes) {
-          if (richNote.partIndex != voicePartIndex) {
-            continue;
-          }
-          let staff = partIndex;
-          let keyChange: KeyChange | undefined = undefined
-          if (divisionNumber % (params.beatsPerBar * BEAT_LENGTH) == 0 && richNote.scale.key != currentScale.key) {
-            const prevSharpCount = getScaleSharpCount(currentScale);
-            const newSharpCount = getScaleSharpCount(richNote.scale);
-            let fifths = 0;
-            let cancel = 0;
-            if (prevSharpCount >= 0 && newSharpCount > prevSharpCount) {
-              // There were sharps, and now there are more sharps
-              fifths = newSharpCount - prevSharpCount;
-            } else if (prevSharpCount <= 0 && newSharpCount < prevSharpCount) {
-              // There were flats, and now there are more flats
-              fifths = newSharpCount - prevSharpCount;
-            } else if (prevSharpCount >= 0 && newSharpCount < prevSharpCount) {
-              // There were sharps, and now there are fewer sharps (maybe even flats)
-              for (let i=prevSharpCount; i>newSharpCount; i--) {
-                if (i > 0) {
-                  // Turn these fifths into cancels
-                  cancel++;
-                  fifths--;
-                }
-                if (i < 0) {
-                  fifths--;
-                }
-              }
-              //TODO
-            }else if (prevSharpCount <= 0 && newSharpCount > prevSharpCount) {
-              // There were flats, and now there are fewer flats (maybe even sharps)
-              //TODO
-              for (let i=prevSharpCount; i>newSharpCount; i++) {
-                if (i < 0) {
-                  // Turn these flats into cancels
-                  cancel++;
-                  fifths--;
-                }
-                if (i < 0) {
-                  fifths++;
-                }
-              }
+      // Move second voice backwards by a full measure
+      if (partIndex % 2 != 0) {
+        measures[staff][measures[staff].length - 1].ele({
+          'backup': {
+            'duration': {
+              "#text": `${params.beatsPerBar * BEAT_LENGTH}`,
             }
-            console.log(`prevSharpCount: ${prevSharpCount}, newSharpCount: ${newSharpCount}, fifths: ${fifths}, cancel: ${cancel}`);
-            keyChange = {
-              fifths: fifths,
-              cancel: cancel,
-            } as KeyChange
           }
-          addRichNoteToMeasure(
-            richNote,
-            measures[partIndex][measures[partIndex].length - 1],
-            staff,
-            voice,
-            true,
-            divisionNumber % BEAT_LENGTH == 0,
-            keyChange,
-            params,
-          );
+        });
+      }
+
+      // Get all richNotes for this part for this measure
+
+      for (let tmpDivision=0; tmpDivision <params.beatsPerBar * BEAT_LENGTH; tmpDivision++) {
+        const measureDivision = division + tmpDivision;
+        const richNotes = (divisionedNotes[measureDivision] || []).filter((rn) => rn.partIndex == partIndex);
+        if (!richNotes || richNotes.length == 0) {
+          continue;
         }
+        const richNote = richNotes[0];
+        // let keyChange: KeyChange | undefined = undefined
+        // if (division % (params.beatsPerBar * BEAT_LENGTH) == 0 && richNote.scale.key != currentScale.key) {
+        //   const prevSharpCount = getScaleSharpCount(currentScale);
+        //   const newSharpCount = getScaleSharpCount(richNote.scale);
+        //   let fifths = 0;
+        //   let cancel = 0;
+        //   if (prevSharpCount >= 0 && newSharpCount > prevSharpCount) {
+        //     // There were sharps, and now there are more sharps
+        //     fifths = newSharpCount - prevSharpCount;
+        //   } else if (prevSharpCount <= 0 && newSharpCount < prevSharpCount) {
+        //     // There were flats, and now there are more flats
+        //     fifths = newSharpCount - prevSharpCount;
+        //   } else if (prevSharpCount >= 0 && newSharpCount < prevSharpCount) {
+        //     // There were sharps, and now there are fewer sharps (maybe even flats)
+        //     for (let i=prevSharpCount; i>newSharpCount; i--) {
+        //       if (i > 0) {
+        //         // Turn these fifths into cancels
+        //         cancel++;
+        //         fifths--;
+        //       }
+        //       if (i < 0) {
+        //         fifths--;
+        //       }
+        //     }
+        //     //TODO
+        //   } else if (prevSharpCount <= 0 && newSharpCount > prevSharpCount) {
+        //     // There were flats, and now there are fewer flats (maybe even sharps)
+        //     //TODO
+        //     for (let i=prevSharpCount; i>newSharpCount; i++) {
+        //       if (i < 0) {
+        //         // Turn these flats into cancels
+        //         cancel++;
+        //         fifths--;
+        //       }
+        //       if (i < 0) {
+        //         fifths++;
+        //       }
+        //     }
+        //   }
+        //   console.log(`prevSharpCount: ${prevSharpCount}, newSharpCount: ${newSharpCount}, fifths: ${fifths}, cancel: ${cancel}`);
+        //   keyChange = {
+        //     fifths: fifths,
+        //     cancel: cancel,
+        //   } as KeyChange
+        // }
+        addRichNoteToMeasure(
+          richNote,
+          currentMeasure,
+          staff,
+          partIndex % 2,
+          true,
+          measureDivision % BEAT_LENGTH == 0,
+          undefined, //keyChange,
+          params,
+        );
       }
     }
+    division += params.beatsPerBar * BEAT_LENGTH;
   }
 
   const ret = root.end({ pretty: true});
