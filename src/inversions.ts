@@ -71,13 +71,15 @@ export const getInversions = (chord: Chord, prevNotes: Array<Note>, beat: number
 
         // Depending on the inversion and chord type, we're doing different things
 
-        let inversionNames = ["root", "first-root", "first-root-lower", "first-third", "first-fifth", "first-fifth-lower", "second"];
+        let inversionNames = ["root", "first-root", "first-third", "first-fifth", "second"];
+        let combinationCount = 3 * 2 * 1;
         if (chord.notes.length > 3) {
             inversionNames = ["root", "first", "second", "third"];
         }
 
         for (let skipFifthIndex = 0; skipFifthIndex < 2; skipFifthIndex++) {
         for (let inversionIndex=0; inversionIndex<inversionNames.length; inversionIndex++) {
+        for (let combinationIndex=0; combinationIndex<combinationCount; combinationIndex++) {
             const skipFifth = skipFifthIndex == 1;
 
             // We try each inversion. Which is best?
@@ -107,105 +109,90 @@ export const getInversions = (chord: Chord, prevNotes: Array<Note>, beat: number
 
             logger.log("inversion: ", inversion, "skipFifth: ", skipFifth);
             let partToIndex: { [key: number]: number } = {};
+
+            // First select bottom note
+            if (inversion.startsWith('root')) {
+                partToIndex[3] = 0;
+            } else if (inversion.startsWith('first')) {
+                partToIndex[3] = 1;
+            } else if (inversion.startsWith('second')) {
+                partToIndex[3] = 2;
+            } else if (inversion.startsWith('third')) {
+                partToIndex[3] = 3;
+            }
+
+            // List notes we have left over
+            let leftOverIndexes: number[] = [];
             if (chord.notes.length == 3) {
-                if (inversion == 'root') {
-                    partToIndex[0] = 2;
-                    partToIndex[1] = 1;
-                    partToIndex[2] = 0;
-                    partToIndex[3] = 0;  // Root is doubled
-                } else if (inversion == 'first-root') {
-                    partToIndex[0] = 0;
-                    partToIndex[1] = 2;
-                    partToIndex[2] = 1;
-                    partToIndex[3] = 0;  // Root is doubled
-                } else if (inversion == 'first-root-lower') {
-                    partToIndex[0] = 0;
-                    partToIndex[1] = 0;
-                    partToIndex[2] = 2;
-                    partToIndex[3] = 1;
-                    if (!thirdIsGood) {
-                        logger.log("thirdIsGood is false, skipping ", inversion);
-                        continue;
-                    }
-                } else if (inversion == 'first-third') {
-                    partToIndex[0] = 0;
-                    partToIndex[1] = 2;
-                    partToIndex[2] = 1;
-                    partToIndex[3] = 1;  // Third is doubled
-                    if (!thirdIsGood) {
-                        logger.log("thirdIsGood is false, skipping ", inversion);
-                        continue;
-                    }
-                } else if (inversion == 'first-fifth') {
-                    partToIndex[0] = 0;
-                    partToIndex[1] = 2;
-                    partToIndex[2] = 1;
-                    partToIndex[3] = 2;  // Fifth is doubled
-                } else if (inversion == 'first-fifth-lower') {
-                    partToIndex[0] = 2;
-                    partToIndex[1] = 0;
-                    partToIndex[2] = 2;
-                    partToIndex[3] = 1;
-                    if (!thirdIsGood) {
-                        logger.log("thirdIsGood is false, skipping ", inversion);
-                        continue;
-                    }
-                } else if (inversion == 'second') {
-                    partToIndex[0] = 1;
-                    partToIndex[1] = 0;
-                    partToIndex[2] = 2;
-                    partToIndex[3] = 2;  // Fifth is doubled
+                if (inversion == "root") {
+                    leftOverIndexes = [0, 1, 2];  // Double the root
+                } else if (inversion == "first-root") {
+                    // First -> We already have 1
+                    leftOverIndexes = [0, 0, 2];  // Double the root
+                } else if (inversion == "first-third") {
+                    leftOverIndexes = [0, 1, 2];  // Double the third
+                } else if (inversion == "first-fifth") {
+                    leftOverIndexes = [0, 2, 2];  // Double the fifth
+                } else if (inversion == "second") {
+                    // Second -> We already have 2
+                    leftOverIndexes = [0, 0, 1];  // Double the root
+                }
+            } else if (chord.notes.length == 4) {
+                leftOverIndexes = [0, 1, 2, 3].filter(i => i != partToIndex[3]);
+            }
+
+            if (skipFifth) {
+                if (partToIndex[3] == 2) {
+                    // Can't skip fifth in second inversion
+                    continue;
+                }
+                if (leftOverIndexes.filter(i => i == 2).length != 0) {
+                    // Can't skip fifth if we have two
+                    continue;
+                }
+                leftOverIndexes = leftOverIndexes.filter(i => i != 2);
+                // Add either a 0 or 1 to replace the fifth
+                if (leftOverIndexes.filter(i => i == 0).length == 1) {
+                    leftOverIndexes.push(0);
                 } else {
-                    throw "No inversion?"
-                }
-            } else {
-                if (inversion == 'root') {
-                    partToIndex[0] = 3;
-                    partToIndex[1] = 2;
-                    partToIndex[2] = 1;
-                    partToIndex[3] = 0;
-                } else if (inversion == 'first') {
-                    partToIndex[0] = 0;
-                    partToIndex[1] = 3;
-                    partToIndex[2] = 2;
-                    partToIndex[3] = 1;
-                    if (!thirdIsGood) {
-                        logger.log("thirdIsGood is false, skipping ", inversion);
-                        continue;
-                    }
-                } else if (inversion == 'second') {
-                    partToIndex[0] = 1;
-                    partToIndex[1] = 0;
-                    partToIndex[2] = 3;
-                    partToIndex[3] = 2;
-                } else if (inversion == 'third') {
-                    partToIndex[0] = 2;
-                    partToIndex[1] = 1;
-                    partToIndex[2] = 0;
-                    partToIndex[3] = 3;
+                    leftOverIndexes.push(1);
                 }
             }
 
-            const indexCounts: {[key: number]: number} = {
-                0: 0,
-                1: 0,
-                2: 0,
-                3: 0,
-            };
-            for (let partIndex=0; partIndex<4; partIndex++) {
-                indexCounts[partToIndex[partIndex]]++;
-            }
-            let convertFifthTo;
-            if (indexCounts[0] == 1) {
-                convertFifthTo = 0;
-            } else if (indexCounts[1] == 1) {
-                convertFifthTo = 1;
+            // Depending on combinationIndex, we select the notes for partIndexes 0, 1, 2
+            if (combinationIndex === 0) {
+                // First permutation
+                partToIndex[0] = leftOverIndexes[0];
+                partToIndex[1] = leftOverIndexes[1];
+                partToIndex[2] = leftOverIndexes[2];
+            } else if (combinationIndex === 1) {
+                // Second permutation
+                partToIndex[0] = leftOverIndexes[0];
+                partToIndex[1] = leftOverIndexes[2];
+                partToIndex[2] = leftOverIndexes[1];
+            } else if (combinationIndex === 2) {
+                // Third permutation
+                partToIndex[0] = leftOverIndexes[1];
+                partToIndex[1] = leftOverIndexes[0];
+                partToIndex[2] = leftOverIndexes[2];
+            } else if (combinationIndex === 3) {
+                // Fourth permutation
+                partToIndex[0] = leftOverIndexes[1];
+                partToIndex[1] = leftOverIndexes[2];
+                partToIndex[2] = leftOverIndexes[0];
+            } else if (combinationIndex === 4) {
+                // Fifth permutation
+                partToIndex[0] = leftOverIndexes[2];
+                partToIndex[1] = leftOverIndexes[0];
+                partToIndex[2] = leftOverIndexes[1];
+            } else if (combinationIndex === 5) {
+                // Sixth permutation
+                partToIndex[0] = leftOverIndexes[2];
+                partToIndex[1] = leftOverIndexes[1];
+                partToIndex[2] = leftOverIndexes[0];
             }
 
             for (let partIndex=0; partIndex<4; partIndex++) {
-                if (skipFifth && partToIndex[partIndex] == 2 && convertFifthTo) {
-                    partToIndex[partIndex] = convertFifthTo;
-                } 
                 if (inversionResult.notes[partIndex]) {
                     // This part is already set
                     continue;
@@ -293,6 +280,7 @@ export const getInversions = (chord: Chord, prevNotes: Array<Note>, beat: number
                     }
                 }
             }
+        }
         }
         }
     }

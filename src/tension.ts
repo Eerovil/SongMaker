@@ -2,7 +2,7 @@ import { Note, Scale } from "musictheoryjs";
 import { Logger } from "./mylogger";
 import { BEAT_LENGTH, DivisionedRichnotes, globalSemitone, gToneString, majScaleDifference, MusicParams, Nullable, semitoneDistance } from "./utils";
 
-export const getTension = (divisionedNotes: DivisionedRichnotes, toNotes: Array<Note>, currentScale: Scale, beatsUntilLastChordInCadence: number, params: MusicParams, logger: Logger, beatsUntilLastChordInSong: number, inversionName: string) => {
+export const getTension = (divisionedNotes: DivisionedRichnotes, toNotes: Array<Note>, currentScale: Scale, beatsUntilLastChordInCadence: number, params: MusicParams, logger: Logger, beatsUntilLastChordInSong: number, inversionName: string, prevInversionName: String) => {
     /*
     *   Get the tension between two chords
     *   @param fromChord: Chord
@@ -57,22 +57,7 @@ export const getTension = (divisionedNotes: DivisionedRichnotes, toNotes: Array<
     logger.log("fromGlobalSemitones: ", fromGlobalSemitones.map(s => gToneString(s)));
     logger.log("toGlobalSemitones: ", toGlobalSemitones.map(s => gToneString(s)));
 
-    if (differingNotes.length > 0) {
-        tension += 0.1;
-        if (differingNotes.length > 1) {
-            tension += 0.3;
-            if (differingNotes.length > 2) {
-                tension += 0.5;
-                if (differingNotes.length > 3) {
-                    tension += 0.5;
-                }
-            }
-        }
-    }
-
-    tension += differingNotes.length * (1 / noteCount) * 0.5;
     // tension += sameNotes.length * (1 / noteCount) * -0.5;
-    logger.log("Differing notes: ", tension);
     logger.log("tension: ", tension);
 
     // If the notes are not in the current scale, increase the tension
@@ -88,32 +73,6 @@ export const getTension = (divisionedNotes: DivisionedRichnotes, toNotes: Array<
     }
     logger.log("tension: ", tension);
 
-    // Figure out where the fromChord resolves to. If it resolves to the toChord, decrease the tension
-    // const fromIntervals = fromSemitones.map((semitone, index) => {
-    //     if (index < fromSemitones.length - 1) {
-    //         const nextSemitone = fromSemitones[(index + 1)];
-    //         return ((nextSemitone - semitone) + 24) % 12;
-    //     } else {
-    //         return null;
-    //     }
-    // }).filter(Boolean);
-    // Does fromChord have any tensioning intervals?
-    // for (let i = 0; i < fromIntervals.length; i++) {
-    //     // Seconds want to "grow" by one semitone
-    //     if (fromIntervals[i] === 2) {
-    //         const goodTones = [fromSemitones[i] - 1, fromSemitones[i + 1] + 1].map(semitone => (semitone + 12) % 12);
-    //         if (toSemitones.filter(semitone => goodTones.includes(semitone)).length === 1) {
-    //             tension -= 0.5;
-    //         }
-    //     }
-    //     // Perfect Fourths want to "shrink" by one semitones
-    //     if (fromIntervals[i] === 5) {
-    //         const goodTones = [fromSemitones[i] + 1, fromSemitones[i + 1] - 1].map(semitone => (semitone + 12) % 12);
-    //         if (toSemitones.filter(semitone => goodTones.includes(semitone)).length === 1) {
-    //             tension -= 0.5;
-    //         }
-    //     }
-    // }
     for (let i = 0; i < toGlobalSemitones.length; i++) {
         for (let j = i; j < toGlobalSemitones.length; j++) {
             const interval = Math.abs(toGlobalSemitones[i] - toGlobalSemitones[j]);
@@ -137,10 +96,17 @@ export const getTension = (divisionedNotes: DivisionedRichnotes, toNotes: Array<
         return { tension, newScale };
     }
 
-    // // If chord has not 5th with base, increase tension
-    // if (toIntervals.length > 1 && toIntervals[0] + toIntervals[1] !== 7) {
-    //     tension += 0.5;
-    // }
+    if (inversionName.startsWith('second') || prevInversionName.startsWith('second')) {
+        for (let i=0; i<fromGlobalSemitones.length; i++) {
+            const fromSemitone = fromGlobalSemitones[i];
+            const toSemitone = toGlobalSemitones[i];
+            if (Math.abs(fromSemitone - toSemitone) > 2) {
+                logger.log("Can't have a jump in second inversion");
+                tension += 100;
+                logger.log("tension: ", tension);
+            }
+        }
+    }
 
     const semitoneScaleIndex: { [key: number]: number } = {
         [currentScale.notes[0].semitone]: 0,
@@ -471,6 +437,11 @@ export const getTension = (divisionedNotes: DivisionedRichnotes, toNotes: Array<
     // Avoid jumps that are aug or 7th or higher
     for (let i=0; i<fromGlobalSemitones.length; i++) {
         const interval = Math.abs(fromGlobalSemitones[i] - toGlobalSemitones[i]);
+        if (interval >= 3) {
+            tension += 0.2;
+            logger.log("Tension from melody jump: ", interval);
+            logger.log("tension: ", tension);
+        }
         if (interval >= 10) {  // 7th == 10
             tension += 10;
             logger.log("Tension from melody interval: ", interval);
@@ -568,7 +539,9 @@ export const getTension = (divisionedNotes: DivisionedRichnotes, toNotes: Array<
                 // Higher than that, no triad is possible.
                 if ((fromSemitone >= prevFromSemitone && toSemitone >= fromSemitone) || (fromSemitone <= prevFromSemitone && toSemitone <= fromSemitone)) {
                     // Not goinf back down/up...
-                    if (interval <= 5) {
+                    if (interval <= 3) {
+                        tension += 0.2;
+                    } else if (interval <= 4) {
                         tension += 1;  // Not as bad
                     } else {
                         tension += 10;  // Terrible
@@ -578,9 +551,11 @@ export const getTension = (divisionedNotes: DivisionedRichnotes, toNotes: Array<
                 } else {
                     // Going back down/up...
                     const backInterval = Math.abs(toSemitone - fromSemitone);
-                    if (backInterval >= interval) {
+                    if (backInterval > 2) {
                         // Going back too far...
-                        if (interval <= 5) {
+                        if (interval <= 3) {
+                            tension += 0.2;
+                        } else  if (interval <= 4) {
                             tension += 1;  // Not as bad
                         } else {
                             tension += 10;  // Terrible

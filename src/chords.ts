@@ -29,6 +29,7 @@ const makeChords = async (mainParams: MainMusicParams, progressCallback: Nullabl
     let result: DivisionedRichnotes = {};
     let tensions: Array<number> = [];
     let prevChord = null;
+    let prevInversionName: Nullable<string> = null;
     const prevNotes: Array<Note> = [];
     const prevMelody: Note[] = [];
 
@@ -172,6 +173,7 @@ const makeChords = async (mainParams: MainMusicParams, progressCallback: Nullabl
                         chordTensionLogger,
                         maxBeats - currentBeat,
                         inversionResult.inversionName,
+                        prevInversionName,
                     );
                     chordTensionLogger.title = [
                         prevChord ? prevChord.toString() : "", " -> ", newChord.toString(), ": ", tensionResult.tension
@@ -233,6 +235,7 @@ const makeChords = async (mainParams: MainMusicParams, progressCallback: Nullabl
                         chordIsGood = true;
                         newScale = availableScale.scale.copy();
                         chordTensionLogger.log("Chord is good: ", tension, " wanted: ", wantedTension);
+                        prevInversionName = inversionResult.inversionName;
                         break;  // Skip checking other voice leading inversions
                     } else {
                         if (tension < bestResult.tension) {
