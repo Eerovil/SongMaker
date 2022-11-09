@@ -110,6 +110,33 @@ function addRichNoteToMeasure(richNote: RichNote, measure: builder.XMLElement, s
     }
   }
 
+  let lyric = richNote.tension && staff == 0 ? { 'text': { '#text': richNote.tension.toFixed(2) } } : undefined
+
+  if (richNote.scale && richNote.chord && staff == 1) {
+    const roman = richNote.scale.notes.map(n => n.semitone).indexOf(richNote.chord.notes[0].semitone);
+    const numberToRoman = ['I', 'II', 'III', 'IV', 'V', 'VI', 'VII'];
+    let romanNumeral = numberToRoman[roman];
+    if (richNote.chord.chordType == 'min') {
+      romanNumeral = romanNumeral.toLowerCase();
+    }
+    if (richNote.chord.chordType == 'dim') {
+      romanNumeral = romanNumeral.toLowerCase() + '°';
+    }
+    if (richNote.chord.chordType == 'dom7') {
+      romanNumeral = romanNumeral + '7';
+    }
+    if (richNote.inversionName) {
+      if (richNote.inversionName.startsWith('first')) {
+        romanNumeral = romanNumeral + '6';
+      }
+      if (richNote.inversionName.startsWith('second')) {
+        romanNumeral = romanNumeral + '64';
+      }
+    }
+
+    lyric = { 'text': { '#text': romanNumeral } }
+  }
+
   const attrs =  {
     'chord': !firstNoteInChord ? {} : undefined,
     'pitch': noteToPitch(richNote),
@@ -120,7 +147,7 @@ function addRichNoteToMeasure(richNote: RichNote, measure: builder.XMLElement, s
     'staff': staff,
     'beam': richNote.beam ? { '@number': beamNumber, '#text': richNote.beam } : undefined,
     'tie': richNote.tie ? { '@type': richNote.tie } : undefined,
-    'lyric': richNote.tension && staff == 0 ? { 'text': { '#text': richNote.tension.toFixed(2) } } : undefined,
+    'lyric': lyric,
     'notations': notations,
   };
   if (writeChord && richNote.chord && staff == 1) {

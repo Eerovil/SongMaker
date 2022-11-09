@@ -295,6 +295,8 @@ const makeChords = async (mainParams: MainMusicParams, progressCallback: Nullabl
             duration: BEAT_LENGTH,
             chord: newChord,
             scale: currentScale,
+            tension: tension,
+            inversionName: `${prevInversionName}`,
         }) as RichNote);
 
         if (progressCallback) {

@@ -264,6 +264,7 @@ export type RichNote = {
     beam?: string,
     tie?: string,
     tension?: number,
+    inversionName?: string,
 }
 
 export type DivisionedRichnotes = {
