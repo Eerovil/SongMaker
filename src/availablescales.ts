@@ -94,5 +94,5 @@ export const getAvailableScales = (values: {
     }
     logger.print("Available scales", ret)
 
-    return ret.filter(item => item.tension < 20);
+    return ret.filter(item => item.tension < 10);
 }

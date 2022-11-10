@@ -38,7 +38,11 @@ export class Logger {
             }
             return;
         }
-        console.groupCollapsed(...args)
+        if (args.length > 0) {
+            console.groupCollapsed(...args)
+        } else {
+            console.groupCollapsed(...this.title);
+        }
         // This is the top logger. Print everything.
         printChildMessages(this);
         for (let i = 0; i < this.messages.length; i++) {

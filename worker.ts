@@ -1,7 +1,7 @@
 import { makeMusic, buildTables, makeMelody } from "./src/chords"
 import { loadPlayer } from "./src/player"
 import { toXml } from "./src/musicxmlgen"
-import { DivisionedRichnotes, MainMusicParams, MusicParams } from "./src/utils";
+import { BEAT_LENGTH, DivisionedRichnotes, MainMusicParams, MusicParams } from "./src/utils";
 
 buildTables()
 
@@ -24,12 +24,23 @@ self.onmessage = (event: { data: { params: string, newMelody: undefined | boolea
     }
 
     let promise: Promise<any>;
-    const progressCallback = (currentBeat: number, richNotes: any) => {
-        if (currentBeat != null && richNotes && richNotes[0] && richNotes[0].chord) {
-            self.postMessage({progress: {currentBeat, chord: richNotes[0].chord.toString()}});
-        }
+    const progressCallback = (currentBeat: number, divisionedRichNotes: DivisionedRichnotes) => {
         if ((self as any).giveUP) {
             return "giveUP";
+        }
+        if (!divisionedRichNotes) {
+            return;
+        }
+        const richNotes = divisionedRichNotes[currentBeat * BEAT_LENGTH];
+        const scoreXML = toXml(divisionedRichNotes, params);
+        if (currentBeat != null && richNotes && richNotes[0] && richNotes[0].chord) {
+            self.postMessage({
+                progress: {
+                    currentBeat,
+                    chord: richNotes[0].chord.toString(),
+                },
+                xml: scoreXML,
+            });
         }
     }
     makeMusic(params, progressCallback).then((result) => {

@@ -2,7 +2,7 @@ import { OpenSheetMusicDisplay } from "opensheetmusicdisplay";
 import AudioPlayer from "osmd-audio-player";
 
 
-const loadPlayer = async (scoreXml: string) => {
+const loadPlayer = async (scoreXml: string, autoplay: boolean) => {
   if (!document) {
     return;
   }
@@ -12,7 +12,10 @@ const loadPlayer = async (scoreXml: string) => {
   }
   el.innerHTML = "";
   const osmd = new OpenSheetMusicDisplay(el);
-  const audioPlayer = new AudioPlayer();
+  if (!(window as any).audioPlayer) {
+    (window as any).audioPlayer = new AudioPlayer();
+  }
+  const audioPlayer = (window as any).audioPlayer;
   audioPlayer.playbackSettings.masterVolume = 40;
 
   await osmd.load(scoreXml);
@@ -22,7 +25,9 @@ const loadPlayer = async (scoreXml: string) => {
   hideLoadingMessage();
   registerButtonEvents(audioPlayer);
   setTimeout(() => {
-    audioPlayer.play();
+    if (audioPlayer.state === "STOPPED" && autoplay) {
+      audioPlayer.play();
+    }
   }, 500)
 }
 

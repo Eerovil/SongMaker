@@ -1,4 +1,5 @@
 import { Note, Scale, Semitone } from "musictheoryjs";
+import { Logger } from "./mylogger";
 
 export const BEAT_LENGTH = 12;
 
@@ -265,6 +266,7 @@ export type RichNote = {
     tie?: string,
     tension?: number,
     inversionName?: string,
+    logger?: Logger, 
 }
 
 export type DivisionedRichnotes = {

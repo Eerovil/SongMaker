@@ -23,17 +23,49 @@ export const getTension = (divisionedNotes: DivisionedRichnotes, toNotes: Array<
         }
     }
 
+    let prevChord;
+    let prevPrevChord;
     const latestDivision = Math.max(...Object.keys(divisionedNotes).map((x) => parseInt(x, 10)));
     let tmp : Array<Note | null> = [null, null, null, null];
     for (const richNote of (divisionedNotes[latestDivision] || [])) {
         tmp[richNote.partIndex] = richNote.note;
+        prevChord = richNote.chord;
     }
     const passedFromNotes = [...tmp].filter(Boolean);
     tmp = [null, null, null, null];
     for (const richNote of (divisionedNotes[latestDivision - BEAT_LENGTH] || [])) {
         tmp[richNote.partIndex] = richNote.note;
+        prevPrevChord = richNote.chord;
     }
     const prevPassedFromNotes = [...tmp].filter(Boolean);
+
+    if (!prevChord) {
+        wantedFunction = "tonic";
+    }
+
+    let allsame = true;
+    for (let i=0; i<toNotes.length; i++) {
+        if (!passedFromNotes[i]) {
+            allsame = false;
+            break;
+        }
+        if (!prevPassedFromNotes[i]) {
+            allsame = false;
+            break;
+        }
+        if (!passedFromNotes[i].equals(toNotes[i])) {
+            allsame = false;
+            break;
+        }
+        if (!prevPassedFromNotes[i].equals(toNotes[i])) {
+            allsame = false;
+            break;
+        }
+    }
+    if (allsame) {
+        logger.log("all same");
+        return {tension: 10, wantedFunction};
+    }
 
     let fromNotes;
     if (passedFromNotes.length < 4) {
@@ -92,11 +124,7 @@ export const getTension = (divisionedNotes: DivisionedRichnotes, toNotes: Array<
     }
     logger.log("tension: ", tension);
 
-    if (passedFromNotes.length == 0) {
-        return { tension, newScale };
-    }
-
-    if (inversionName.startsWith('second') || prevInversionName.startsWith('second')) {
+    if (inversionName.startsWith('second') || (prevInversionName || "").startsWith('second')) {
         for (let i=0; i<fromGlobalSemitones.length; i++) {
             const fromSemitone = fromGlobalSemitones[i];
             const toSemitone = toGlobalSemitones[i];
@@ -118,170 +146,162 @@ export const getTension = (divisionedNotes: DivisionedRichnotes, toNotes: Array<
         [currentScale.notes[6].semitone]: 6,
     }
 
-
-    // Major / Minor
-    // C 0: Tonic
-    // D 1: SubDominant
-    // E 2: Tonic
-    // F 3: SubDominant
-    // G 4: Dominant
-    // A 5: Tonic
-    // B 6: Dominant
-
-    // I notes:
-    // 0, 2, 4
-    // ii notes:
-    // 1, 3, 5
-    // iii notes:
-    // 2, 4, 6
-    // IV notes:
-    // 3, 5, 0
-    // V notes:
-    // 4, 6, 1
-    // vi notes:
-    // 5, 0, 2
-    // viio notes:
-    // 6, 1, 3
-
-    // -> Tonic notes =       0,    2,    4
-    // -> SubDominant notes = 0, 1,    3,    5
-    // -> Dominant notes =       1,    3, 4,   6
-
-    // Use relative diffs here for easy comparison
-    let chordLeads: { [key: number]: { [key: number]: number } } = {
-        0: {  // C
-            [-1]: 0,
-            0: 1,
-            1: 0,
-        },
-        1: {  // D
-            [-1]: 1,
-            0: -0.5,
-            1: 0.5,
-        },
-        2: {  // E
-            [-1]: 0,
-            0: 1,
-            1: 0,
-        },
-        3: {  // F
-            [-1]: 1,
-            0: -0.5,
-            1: 0.5,
-        },
-        4: {  // G
-            [-1]: 0,
-            0: 1,
-            1: 0,
-        },
-        5: {  // A
-            [-1]: 1,
-            0: -0.5,
-            1: 0,
-        },
-        6: {  // B
-            [-1]: 0,
-            0: -1,
-            1: 2,
-        },
+    let possibleToFunctions = {
+        'tonic': true,
+        'sub-dominant': true,
+        'dominant': true,
     }
-
-    let tensionBeforelead = tension;
-    const resolvedLeads: { [key: number]: number } = {};
-    let availableLeads: { [key: number]: { [key: number]: number } } = {};
-
-    for (const fromGlobalSemitone of fromGlobalSemitones) {
-        // Each note may be "leading" somewhere.
-        const fromSemitone = (fromGlobalSemitone + 12) % 12;
-        const scaleIndex: number = semitoneScaleIndex[fromSemitone];
+    const toScaleIndexes = toNotes.map(note => semitoneScaleIndex[note.semitone]);
+    for (const scaleIndex of toScaleIndexes) {
         if (scaleIndex == undefined) {
-            // Out of scale. This note leads to 1 semitone up or down
-            resolvedLeads[fromGlobalSemitone + 1] = 1;
-            resolvedLeads[fromGlobalSemitone - 1] = 1;
-            continue;
+            possibleToFunctions.tonic = false;
+            possibleToFunctions['sub-dominant'] = false;
+            possibleToFunctions.dominant = false;
+            break;
         }
-        const leadsTo: { [key: number]: number } =  chordLeads[scaleIndex];
-        availableLeads[scaleIndex] = chordLeads[scaleIndex];
+        if (![0, 1, 3, 5].includes(scaleIndex)) {
+            possibleToFunctions["sub-dominant"] = false;
+        }
+        if (![1, 3, 4, 6].includes(scaleIndex)) {
+            possibleToFunctions.dominant = false;
+        }
+        if (![0, 2, 4].includes(scaleIndex)) {
+            possibleToFunctions.tonic = false;
+        }
+    }
+    let possibleFromFunctions = {
+        'tonic': true,
+        'sub-dominant': true,
+        'dominant': true,
+    }
+    const fromScaleIndexes = fromNotes.map(note => semitoneScaleIndex[note.semitone]);
+    for (const scaleIndex of fromScaleIndexes) {
+        if (scaleIndex == undefined) {
+            possibleFromFunctions.tonic = false;
+            possibleFromFunctions['sub-dominant'] = false;
+            possibleFromFunctions.dominant = false;
+            break;
+        }
+        if (!([0, 1, 3, 5].includes(scaleIndex))) {
+            logger.log("Scale index ", scaleIndex, " is not in sub-dominant");
+            possibleFromFunctions["sub-dominant"] = false;
+        }
+        if (!([1, 3, 4, 6].includes(scaleIndex))) {
+            logger.log("Scale index ", scaleIndex, " is not in dominant");
+            possibleFromFunctions.dominant = false;
+        }
+        if (!([0, 2, 4].includes(scaleIndex))) {
+            logger.log("Scale index ", scaleIndex, " is not in tonic");
+            possibleFromFunctions.tonic = false;
+        }
+    }
+    logger.log("possibleFromFunctions: ", possibleFromFunctions, ", fromScaleIndexes: ", fromScaleIndexes);
+    logger.log("possibleToFunctions: ", possibleToFunctions, ", toScaleIndexes: ", toScaleIndexes);
 
-        for (const relativeDiff in leadsTo) {
-            const relativeDiffNum = parseInt(relativeDiff);
-            const nextScaleIndex = (scaleIndex + relativeDiffNum + 7) % 7;
-            let semitoneDiff = semitoneDistance(currentScale.notes[nextScaleIndex].semitone, fromSemitone);
-            if (relativeDiffNum < 0) {
-                semitoneDiff = -semitoneDiff;
+
+    if (wantedFunction) {
+        if (wantedFunction == "sub-dominant") {
+            if (!possibleToFunctions["sub-dominant"] && !possibleToFunctions.dominant) {
+                tension += 100;
+                logger.log("wanted sub-dominant, this is not it or dominant");
+                logger.log("tension: ", tension);
             }
-            const nextGTone = fromGlobalSemitone + semitoneDiff
-            resolvedLeads[nextGTone] = resolvedLeads[nextGTone] || 0
-            resolvedLeads[nextGTone] += leadsTo[relativeDiff];
-
-            // // Add leads to all octaves
-            // for (let i=-12*5; i<12*5; i+=12) {
-            //     resolvedLeads[nextGTone+i] = resolvedLeads[nextGTone+i] || 0
-            //     resolvedLeads[nextGTone+i] += leadsTo[relativeDiff];
-            // }
+        }
+        if (wantedFunction == "dominant") {
+            if (!possibleToFunctions.dominant) {
+                tension += 100;
+                logger.log("wanted dominant, this is not it");
+                logger.log("tension: ", tension);
+            }
+        }
+        if (wantedFunction == "tonic") {
+            if (!possibleToFunctions.tonic) {
+                tension += 100;
+                logger.log("wanted tonic, this is not it");
+                logger.log("tension: ", tension);
+            }
         }
     }
 
-    logger.log(
-        "availableLeads: ", availableLeads,
-        "chords: ", fromSemitones.map(s => semitoneScaleIndex[s]), " - ",
-        toSemitones.map(s => semitoneScaleIndex[s]),
-        " - resolvedLeads: ", resolvedLeads,
-    )
+    if (possibleFromFunctions.tonic == false && wantedFunction != "tonic" && prevChord) {
+        let prevIndex1 = semitoneScaleIndex[prevChord.notes[0].semitone];
+        let prevIndex2 = semitoneScaleIndex[prevChord.notes[1].semitone];
+        let prevIndex3 = semitoneScaleIndex[prevChord.notes[2].semitone];
+        let prevIndex4 = semitoneScaleIndex[(prevChord.notes[3] || {}).semitone];
 
-    const handledSemitones: number[] = []
-    for (const toGlobalSemitone of toGlobalSemitones) {
-        const toSemitone = (toGlobalSemitone + 12) % 12;
-        if (handledSemitones.includes(toSemitone)) {
-            continue;
-        }
-        handledSemitones.push(toSemitone);
-
-        const scaleIndex: number = semitoneScaleIndex[toSemitone];
-
-        if (wantedFunction) {
-            let wantedScaleIndexes;
-            if (wantedFunction == "sub-dominant") {
-                // Modify weights so that all lead to subdominants (0, 1, 3, 5)
-                wantedScaleIndexes = [0, 1, 3, 5];
-            }
-            if (wantedFunction == "dominant") {
-                // Modify weights so that all lead to dominants (1, 3, 4, 6)
-                wantedScaleIndexes = [1, 3, 4, 6];
-            }
-            if (wantedFunction == "tonic") {
-                // Modify weights so that all lead to tonic (0, 2, 4)
-                wantedScaleIndexes = [0, 2, 4];
-            }
-            
-            if (wantedScaleIndexes.indexOf(parseInt(scaleIndex as any)) === -1) {
-                tension += 2;
-                logger.log("Tension from wanted function: ", scaleIndex, " : ", wantedFunction);
-                if (beatsUntilLastChordInSong < 3) {
-                    tension += 5;
+        // Choices: 4 moves up, 3 and 4 move up, 2, 3, and 4 move up, 1, 2, 3, and 4 move up
+        // Check all
+        let isGood = false;
+        while (isGood == false) {
+            const toScaleIndexes = toSemitones.map(semitone => semitoneScaleIndex[semitone]);
+            let allowedIndexes: number[];
+            if (prevIndex4) {
+                allowedIndexes = [prevIndex1, prevIndex2, prevIndex3, prevIndex4]
+                if (toScaleIndexes.every(index => allowedIndexes.includes(index))) {
+                    logger.log("All staying same");
+                    isGood = true;
+                    break;
                 }
-                continue;
+                allowedIndexes = [prevIndex1, (prevIndex2 + 1) % 7, (prevIndex3 + 1) % 7, (prevIndex4 + 1) % 7]
+                if (toScaleIndexes.every(index => allowedIndexes.includes(index))) {
+                    logger.log("2, 3, and 4 move up");
+                    isGood = true;
+                    break;
+                }
+                allowedIndexes = [(prevIndex1 + 1) % 7, (prevIndex2 + 1) % 7, (prevIndex3 + 1) % 7, (prevIndex4 + 1) % 7]
+                if (toScaleIndexes.every(index => allowedIndexes.includes(index))) {
+                    logger.log("1, 2, 3, and 4 move up");
+                    isGood = true;
+                    break;
+                }
+                allowedIndexes = [prevIndex1, prevIndex2, (prevIndex3 + 1) % 7, (prevIndex4 + 1) % 7]
+                if (toScaleIndexes.every(index => allowedIndexes.includes(index))) {
+                    logger.log("3 and 4 move up");
+                    isGood = true;
+                    break;
+                }
+                allowedIndexes = [prevIndex1, prevIndex2, prevIndex3, (prevIndex4 + 1) % 7]
+                if (toScaleIndexes.every(index => allowedIndexes.includes(index))) {
+                    logger.log("4 moves up");
+                    isGood = true;
+                    break;
+                }
             } else {
-                tension -= 1;
-                logger.log("Reduced tension from wanted function: ", scaleIndex, " : ", wantedFunction);
+                allowedIndexes = [prevIndex1, prevIndex2, prevIndex3]
+                if (toScaleIndexes.every(index => allowedIndexes.includes(index))) {
+                    logger.log("All staying same");
+                    isGood = true;
+                    break;
+                }
+                allowedIndexes = [prevIndex1, (prevIndex2 + 1) % 7, (prevIndex3 + 1) % 7]
+                if (toScaleIndexes.every(index => allowedIndexes.includes(index))) {
+                    logger.log("2 and 3 move up");
+                    isGood = true;
+                    break;
+                }
+                allowedIndexes = [(prevIndex1 + 1) % 7, (prevIndex2 + 1) % 7, (prevIndex3 + 1) % 7]
+                if (toScaleIndexes.every(index => allowedIndexes.includes(index))) {
+                    logger.log("1, 2, and 3 move up");
+                    isGood = true;
+                    break;
+                }
+                allowedIndexes = [prevIndex1, prevIndex2, (prevIndex3 + 1) % 7]
+                if (toScaleIndexes.every(index => allowedIndexes.includes(index))) {
+                    logger.log("3 moves up");
+                    tension += 100;  // FIXME sometimes ok
+                    isGood = true;
+                    break;
+                }
             }
+            break;
         }
-
-        const leadsTo: { [key: number]: number } = availableLeads[scaleIndex];
-        if (leadsTo && leadsTo[0]) {
-            // This note is leading to itself, with some tension.
-            tension -= leadsTo[0];
-            logger.log("Tension from lead to itself: ", scaleIndex, -leadsTo[0], " : ", wantedFunction);
-            continue;
+        if (!isGood) {
+            tension += 100;
+            logger.log("Not a good move from previous chord");
+            logger.log("tension: ", tension);
         }
-
-        if (resolvedLeads[toGlobalSemitone] !== undefined) {
-            tension -= resolvedLeads[toGlobalSemitone] * params.leadingWeight;
-            logger.log("Tension from lead: ", toGlobalSemitone, -resolvedLeads[toGlobalSemitone], " : ", wantedFunction);
-            continue;
-        }
-
     }
+
     logger.log("tension: ", tension);
     const leadingToneSemitone = currentScale.notes[0].semitone + 11;
     for (let i=0; i<fromGlobalSemitones.length; i++) {
@@ -540,7 +560,7 @@ export const getTension = (divisionedNotes: DivisionedRichnotes, toNotes: Array<
                 if ((fromSemitone >= prevFromSemitone && toSemitone >= fromSemitone) || (fromSemitone <= prevFromSemitone && toSemitone <= fromSemitone)) {
                     // Not goinf back down/up...
                     if (interval <= 3) {
-                        tension += 0.2;
+                        tension += 0.5;
                     } else if (interval <= 4) {
                         tension += 1;  // Not as bad
                     } else {
@@ -554,7 +574,7 @@ export const getTension = (divisionedNotes: DivisionedRichnotes, toNotes: Array<
                     if (backInterval > 2) {
                         // Going back too far...
                         if (interval <= 3) {
-                            tension += 0.2;
+                            tension += 0.5;
                         } else  if (interval <= 4) {
                             tension += 1;  // Not as bad
                         } else {
@@ -606,7 +626,7 @@ export const getTension = (divisionedNotes: DivisionedRichnotes, toNotes: Array<
     }
 
     logger.log("tension: ", tension);
-    if (tension > 100) {
+    if (tension > 1000) {
         // Don't even log this crappy inversion
         logger.clear();
     }

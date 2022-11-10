@@ -317,6 +317,54 @@ const getScaleSharpCount = (scale: Scale) => {
   }
 }
 
+
+const getKeyChange = (currentScale: Scale, richNote: RichNote) => {
+  let keyChange: KeyChange | undefined = undefined
+  const prevSharpCount = getScaleSharpCount(currentScale);
+  const newSharpCount = getScaleSharpCount(richNote.scale);
+  let fifths = 0;
+  let cancel = 0;
+  if (prevSharpCount >= 0 && newSharpCount > prevSharpCount) {
+    // There were sharps, and now there are more sharps
+    fifths = newSharpCount - prevSharpCount;
+  } else if (prevSharpCount <= 0 && newSharpCount < prevSharpCount) {
+    // There were flats, and now there are more flats
+    fifths = newSharpCount - prevSharpCount;
+  } else if (prevSharpCount >= 0 && newSharpCount < prevSharpCount) {
+    // There were sharps, and now there are fewer sharps (maybe even flats)
+    for (let i=prevSharpCount; i>newSharpCount; i--) {
+      if (i > 0) {
+        // Turn these fifths into cancels
+        cancel++;
+        fifths--;
+      }
+      if (i < 0) {
+        fifths--;
+      }
+    }
+    //TODO
+  } else if (prevSharpCount <= 0 && newSharpCount > prevSharpCount) {
+    // There were flats, and now there are fewer flats (maybe even sharps)
+    //TODO
+    for (let i=prevSharpCount; i>newSharpCount; i++) {
+      if (i < 0) {
+        // Turn these flats into cancels
+        cancel++;
+        fifths--;
+      }
+      if (i < 0) {
+        fifths++;
+      }
+    }
+  }
+  console.log(`prevSharpCount: ${prevSharpCount}, newSharpCount: ${newSharpCount}, fifths: ${fifths}, cancel: ${cancel}`);
+  return {
+    fifths: fifths,
+    cancel: cancel,
+  } as KeyChange
+}
+
+
 export function toXml(divisionedNotes: DivisionedRichnotes, mainParams: MainMusicParams): string {
   const root = builder.create({ 'score-partwise' : { '@version': 3.1 }},
     { version: '1.0', encoding: 'UTF-8', standalone: false},
@@ -397,6 +445,11 @@ export function toXml(divisionedNotes: DivisionedRichnotes, mainParams: MainMusi
   let division = 0;
   let currentScale = new Scale({ key: 0 });
   while (division <= maxDivision) {
+    let keyChange;
+    if (divisionedNotes[division]) {
+      keyChange = getKeyChange(currentScale, divisionedNotes[division][0]);
+      currentScale = divisionedNotes[division][0].scale || currentScale;
+    }
     const params = mainParams.currentCadenceParams(division);
     let measureIndex = Math.floor(division / (params.beatsPerBar * BEAT_LENGTH))
     for (let partIndex=0; partIndex<4; partIndex++) {
@@ -433,51 +486,6 @@ export function toXml(divisionedNotes: DivisionedRichnotes, mainParams: MainMusi
           continue;
         }
         const richNote = richNotes[0];
-        // let keyChange: KeyChange | undefined = undefined
-        // if (division % (params.beatsPerBar * BEAT_LENGTH) == 0 && richNote.scale.key != currentScale.key) {
-        //   const prevSharpCount = getScaleSharpCount(currentScale);
-        //   const newSharpCount = getScaleSharpCount(richNote.scale);
-        //   let fifths = 0;
-        //   let cancel = 0;
-        //   if (prevSharpCount >= 0 && newSharpCount > prevSharpCount) {
-        //     // There were sharps, and now there are more sharps
-        //     fifths = newSharpCount - prevSharpCount;
-        //   } else if (prevSharpCount <= 0 && newSharpCount < prevSharpCount) {
-        //     // There were flats, and now there are more flats
-        //     fifths = newSharpCount - prevSharpCount;
-        //   } else if (prevSharpCount >= 0 && newSharpCount < prevSharpCount) {
-        //     // There were sharps, and now there are fewer sharps (maybe even flats)
-        //     for (let i=prevSharpCount; i>newSharpCount; i--) {
-        //       if (i > 0) {
-        //         // Turn these fifths into cancels
-        //         cancel++;
-        //         fifths--;
-        //       }
-        //       if (i < 0) {
-        //         fifths--;
-        //       }
-        //     }
-        //     //TODO
-        //   } else if (prevSharpCount <= 0 && newSharpCount > prevSharpCount) {
-        //     // There were flats, and now there are fewer flats (maybe even sharps)
-        //     //TODO
-        //     for (let i=prevSharpCount; i>newSharpCount; i++) {
-        //       if (i < 0) {
-        //         // Turn these flats into cancels
-        //         cancel++;
-        //         fifths--;
-        //       }
-        //       if (i < 0) {
-        //         fifths++;
-        //       }
-        //     }
-        //   }
-        //   console.log(`prevSharpCount: ${prevSharpCount}, newSharpCount: ${newSharpCount}, fifths: ${fifths}, cancel: ${cancel}`);
-        //   keyChange = {
-        //     fifths: fifths,
-        //     cancel: cancel,
-        //   } as KeyChange
-        // }
         addRichNoteToMeasure(
           richNote,
           currentMeasure,
@@ -485,7 +493,7 @@ export function toXml(divisionedNotes: DivisionedRichnotes, mainParams: MainMusi
           partIndex % 2,
           true,
           measureDivision % BEAT_LENGTH == 0,
-          undefined, //keyChange,
+          keyChange,
           params,
         );
       }
@@ -494,6 +502,5 @@ export function toXml(divisionedNotes: DivisionedRichnotes, mainParams: MainMusi
   }
 
   const ret = root.end({ pretty: true});
-  console.log(ret)
   return ret;
 }

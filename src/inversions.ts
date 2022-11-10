@@ -15,7 +15,11 @@ export type SimpleInversionResult = {
     inversionName: string,
 }
 
-export const getInversions = (chord: Chord, prevNotes: Array<Note>, beat: number, params: MusicParams, logger: Logger, beatsUntilLastChordInSong: number): Array<SimpleInversionResult> => {
+export const getInversions = (values: {
+        chord: Chord, prevNotes: Array<Note>, beat: number, params: MusicParams,
+        logger: Logger, beatsUntilLastChordInSong: number
+    }): Array<SimpleInversionResult> => {
+    const {chord, prevNotes, beat, params, logger, beatsUntilLastChordInSong} = values;
     // Return Notes in the Chord that are closest to the previous notes
     // For each part
 

@@ -32,8 +32,9 @@ setTimeout(() => {
         if (browser && data.xml) {
             // console.log((window as any).result);
             (window as any).loadPlayer = loadPlayer;
+            let autoplay = !data.progress;
             setTimeout(() => {
-                loadPlayer(data.xml);
+                loadPlayer(data.xml, autoplay);
             }, 2000)
         }
         if (browser && data.progress) {
