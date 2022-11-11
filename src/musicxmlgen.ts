@@ -295,9 +295,15 @@ function firstMeasureInit(voicePartIndex: number, measure: builder.XMLElement, p
 
 const getScaleSharpCount = (scale: Scale) => {
   let sharpCount = 0;
-  const semitone = scale.key;
+  let semitone = scale.key;
+  if (scale.template == ScaleTemplates.minor) {
+    semitone = scale.relativeMajor().key;
+  }
+  if (semitone == 11) {
+    return 5;
+  }
   const baseTones = [0, 2, 4, 5, 7, 9, 11];
-  if (semitone == 0 || semitone == 2 || semitone == 4 || semitone == 7 || semitone == 9 || semitone == 11) {
+  if (semitone == 0 || semitone == 2 || semitone == 4 || semitone == 7 || semitone == 9) {
     // Add sharps to the scale
     for (const note of scale.notes) {
       if (!baseTones.includes(note.semitone)) {
@@ -446,13 +452,16 @@ export function toXml(divisionedNotes: DivisionedRichnotes, mainParams: MainMusi
   while (division <= maxDivision) {
     let keyChange;
     if (
-          divisionedNotes[division + BEAT_LENGTH] &&
-          divisionedNotes[division + BEAT_LENGTH][0] &&
-          divisionedNotes[division + BEAT_LENGTH][0].scale &&
-          !currentScale.equals(divisionedNotes[division + BEAT_LENGTH][0].scale)
+          divisionedNotes[division] &&
+          divisionedNotes[division][0] &&
+          divisionedNotes[division][0].scale &&
+          !currentScale.equals(divisionedNotes[division][0].scale)
         ) {
-      keyChange = getKeyChange(currentScale, divisionedNotes[division + BEAT_LENGTH][0]);
-      currentScale = divisionedNotes[division + BEAT_LENGTH][0].scale || currentScale;
+      keyChange = getKeyChange(currentScale, divisionedNotes[division][0]);
+      currentScale = divisionedNotes[division][0].scale;
+      if (keyChange.fifths === 0 && keyChange.cancel === 0) {
+        keyChange = undefined;
+      }
     }
     const params = mainParams.currentCadenceParams(division);
     let measureIndex = Math.floor(division / (params.beatsPerBar * BEAT_LENGTH))
@@ -497,10 +506,9 @@ export function toXml(divisionedNotes: DivisionedRichnotes, mainParams: MainMusi
           partIndex % 2,
           true,
           measureDivision % BEAT_LENGTH == 0,
-          keyChange,
+          partIndex % 2 ? keyChange : undefined,
           params,
         );
-        keyChange = undefined;
       }
     }
     division += params.beatsPerBar * BEAT_LENGTH;
