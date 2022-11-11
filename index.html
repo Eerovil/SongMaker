@@ -166,18 +166,6 @@
                     <label :for="`${index}-scale-minor`">Minor</label>
                     <input v-model="cadenceParams.scaleSettings.minor.weight" @change="updateCadenceScaleWeight(cadenceParams.scaleSettings.minor)" type="range" min="-0.5" max="0" step="0.1">
                 </div>
-                <div class="settings-row">
-                    <label :for="`${index}-scale-harmonicMinor`">Harmonic minor</label>
-                    <input v-model="cadenceParams.scaleSettings.harmonicMinor.weight" @change="updateCadenceScaleWeight(cadenceParams.scaleSettings.harmonicMinor)" type="range" min="-0.5" max="0" step="0.1">
-                </div>
-                <div class="settings-row">
-                    <label :for="`${index}-scale-melodicMinorAscending`">Melodic minor ascending</label>
-                    <input v-model="cadenceParams.scaleSettings.melodicMinorAscending.weight" @change="updateCadenceScaleWeight(cadenceParams.scaleSettings.melodicMinorAscending)" type="range" min="-0.5" max="0" step="0.1">
-                </div>
-                <div class="settings-row">
-                    <label :for="`${index}-scale-melodicMinorDescending`">Melodic minor descending</label>
-                    <input v-model="cadenceParams.scaleSettings.melodicMinorDescending.weight" @change="updateCadenceScaleWeight(cadenceParams.scaleSettings.melodicMinorDescending)" type="range" min="-0.5" max="0" step="0.1">
-                </div>
             </div>
             <div class="secondary-settings-wrapper">
                 <h4>Soinnut</h4>
@@ -205,13 +193,15 @@
                     <label for="`${index}-chord-maj7`">maj7</label>
                     <input v-model="cadenceParams.chordSettings.maj7.weight" @change="chordSettingsUpdate(cadenceParams.chordSettings.maj7)" type="range" min="-1" max="0" step="0.1">
                 </div>
+            </div>
+            <div class="secondary-settings-wrapper">
+                <h4>Kadenssi</h4>
                 <div class="settings-row">
-                    <label for="`${index}-chord-sus2`">sus2</label>
-                    <input v-model="cadenceParams.chordSettings.sus2.weight" @change="chordSettingsUpdate(cadenceParams.chordSettings.sus2)" type="range" min="-1" max="0" step="0.1">
-                </div>
-                <div class="settings-row">
-                    <label for="`${index}-chord-sus4`">sus4</label>
-                    <input v-model="cadenceParams.chordSettings.sus4.weight" @change="chordSettingsUpdate(cadenceParams.chordSettings.sus4)" type="range" min="-1" max="0" step="0.1">
+                    <select v-model="cadenceParams.selectedCadence">
+                        <option value="PAC">PAC</option>
+                        <option value="IAC">IAC</option>
+                        <option value="HC">HC</option>
+                    </select>
                 </div>
             </div>
             <div class="secondary-settings-wrapper">
@@ -402,71 +392,6 @@ window.midiInstruments = [
 ];
 </script>
 <script>
-    const beatMS = 3000;
-    const beep = (freq = 320, duration = 100, vol = 5) => {
-        const oscillator = context.createOscillator();
-        const gain = context.createGain();
-        oscillator.connect(gain);
-        oscillator.frequency.value = freq;
-        oscillator.type = "square";
-        gain.connect(context.destination);
-        gain.gain.value = vol * 0.01;
-        oscillator.start(context.currentTime);
-        oscillator.stop(context.currentTime + duration * 0.001);
-    }
-    const playChord = (notes, length, volMultiplier) => {
-        context = new AudioContext();
-        volMultiplier = volMultiplier || 1;
-        return new Promise((resolve) => {
-            let index = 0
-            for (const note of notes) {
-                const freq = note
-                let vol = 2;
-                if (index == 0) {
-                    vol = 5
-                }
-                if (index == 2) {
-                    vol = 5
-                }
-                beep(freq, length, vol * volMultiplier)
-                index++;
-            }
-            setTimeout(resolve, length)
-        })
-    }
-    const runChords = async function() {
-        let i = 0;
-        for (const chord of window.chords) {
-            document.querySelector("#currentChord").innerHTML = `${window.result[i].chord.toString()} (${window.result[i].tension.toFixed(2)})`
-            await playChord(chord, beatMS)
-            i++;
-        }
-    }
-    const playMelody = async function() {
-        for (const tick in window.melody) {
-            setTimeout(() => {
-                const note = window.melody[tick]
-                if (note) {
-                    beep(note.freq, beatMS / 12 * note.duration, 7)
-                }
-            }, beatMS / 12 * tick)
-        }
-    }
-
-    const changeBaseTension = () => {
-        const oldBaseTension = window.params.baseTension;
-        const newBaseTension = document.querySelector("#base-tension").value;
-        const beatSettings = window.params.beatSettings;
-        for (let i=0; i<beatSettings.length; i++) {
-            const beatSetting = beatSettings[i];
-            if (beatSetting.tension === oldBaseTension) {
-                beatSetting.tension = newBaseTension;
-                document.querySelector(`#beat-${i}`).value = newBaseTension;
-            }
-        }
-        window.params.baseTension = newBaseTension;
-    }
-
     const newMelody = () => {
         window.getNewMelody(window.params);
     }

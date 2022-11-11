@@ -445,7 +445,12 @@ export function toXml(divisionedNotes: DivisionedRichnotes, mainParams: MainMusi
   let currentScale = new Scale({ key: 0 });
   while (division <= maxDivision) {
     let keyChange;
-    if (divisionedNotes[division + BEAT_LENGTH] && divisionedNotes[division + BEAT_LENGTH][0] && divisionedNotes[division + BEAT_LENGTH][0].scale && !currentScale.equals(divisionedNotes[division + BEAT_LENGTH][0].scale)) {
+    if (
+          divisionedNotes[division + BEAT_LENGTH] &&
+          divisionedNotes[division + BEAT_LENGTH][0] &&
+          divisionedNotes[division + BEAT_LENGTH][0].scale &&
+          !currentScale.equals(divisionedNotes[division + BEAT_LENGTH][0].scale)
+        ) {
       keyChange = getKeyChange(currentScale, divisionedNotes[division + BEAT_LENGTH][0]);
       currentScale = divisionedNotes[division + BEAT_LENGTH][0].scale || currentScale;
     }
@@ -495,6 +500,7 @@ export function toXml(divisionedNotes: DivisionedRichnotes, mainParams: MainMusi
           keyChange,
           params,
         );
+        keyChange = undefined;
       }
     }
     division += params.beatsPerBar * BEAT_LENGTH;

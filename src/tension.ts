@@ -81,20 +81,49 @@ export const getTension = (values: {
     */
     const tension = new Tension();
     let wantedFunction = null;
-    if (beatsUntilLastChordInCadence == 5) {
-        wantedFunction = "not-dominant";
-    }
-    if (beatsUntilLastChordInCadence == 4) {
-        wantedFunction = "sub-dominant";
-    }
-    if (beatsUntilLastChordInCadence == 3) {
-        wantedFunction = "dominant";
-    }
-    if (beatsUntilLastChordInCadence < 3) {
-        wantedFunction = "tonic";
-        // if (!inversionName.startsWith('root')) {
-        //     return {tension: 100, wantedFunction};
-        // }
+    if (params.selectedCadence == "PAC") {
+        if (beatsUntilLastChordInCadence == 5) {
+            wantedFunction = "not-dominant";
+        }
+        if (beatsUntilLastChordInCadence == 4) {
+            wantedFunction = "sub-dominant";
+        }
+        if (beatsUntilLastChordInCadence == 3) {
+            wantedFunction = "dominant";
+        }
+        if (beatsUntilLastChordInCadence < 3) {
+            wantedFunction = "tonic";
+        }
+        if (beatsUntilLastChordInCadence <= 3 && !inversionName.startsWith('root')) {
+            tension.cadence += 100;
+        }
+    } else if (params.selectedCadence == "IAC") {
+        if (beatsUntilLastChordInCadence == 5) {
+            wantedFunction = "not-dominant";
+        }
+        if (beatsUntilLastChordInCadence == 4) {
+            wantedFunction = "sub-dominant";
+        }
+        if (beatsUntilLastChordInCadence == 3) {
+            wantedFunction = "dominant";
+        }
+        if (beatsUntilLastChordInCadence < 3) {
+            wantedFunction = "tonic";
+        }
+        if (beatsUntilLastChordInCadence <= 3 && inversionName.startsWith('root')) {
+            // Not root inversion
+            tension.cadence += 100;
+        }
+    } else if (params.selectedCadence == "HC") {
+        if (beatsUntilLastChordInCadence == 4) {
+            wantedFunction = "not-dominant";
+        }
+        if (beatsUntilLastChordInCadence == 3) {
+            wantedFunction = "sub-dominant";
+        }
+        if (beatsUntilLastChordInCadence < 3) {
+            wantedFunction = "dominant";
+        }
     }
 
     let prevChord;
@@ -137,7 +166,7 @@ export const getTension = (values: {
         }
     }
     if (allsame) {
-        tension.allNotesSame = 1;
+        tension.allNotesSame = 100;
     }
 
     let fromNotes;
@@ -154,9 +183,11 @@ export const getTension = (values: {
     // If the notes are not in the current scale, increase the tension
     let notesNotInScale: Array<number> = []
     let newScale: Nullable<Scale> = null;
+    const leadingTone = (currentScale.key - 1 + 24) % 12
     if (currentScale) {
         const scaleSemitones = currentScale.notes.map(note => note.semitone);
         notesNotInScale = toSemitones.filter(semitone => !scaleSemitones.includes(semitone));
+        notesNotInScale = notesNotInScale.filter(semitone => semitone != leadingTone);
         if (notesNotInScale.length > 0) {
             // Quick return, this chord sucks
             tension.notInScale += 100

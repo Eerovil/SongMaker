@@ -25,15 +25,10 @@ const sleepMS = async (ms: number): Promise<null> => {
 const makeChords = async (mainParams: MainMusicParams, progressCallback: Nullable<Function> = null): Promise<DivisionedRichnotes> => {
     // generate a progression
     const maxBeats = mainParams.getMaxBeats();
-    //let currentScale = new Scale({ key: Math.floor(Math.random() * 12) , octave: 5, template: ScaleTemplates[params.scaleTemplate]});
 
     let result: DivisionedRichnotes = {};
 
     let divisionBannedNotes: {[key: number]: Array<Array<Note>>} = {}
-
-    // for (let i=0; i<maxTensions; i++) {
-    //     // tensionBeats.push(Math.floor(Math.random() * (maxBeats - 10)) + 6);
-    // }
 
     for (let division = 0; division < maxBeats * BEAT_LENGTH; division += BEAT_LENGTH) {
         let prevResult = result[division - BEAT_LENGTH];
@@ -228,10 +223,18 @@ const makeChords = async (mainParams: MainMusicParams, progressCallback: Nullabl
                             ));
                         }
                     } else if (badChords.length < BAD_CHORD_LIMIT) {
-                        badChords.push({
-                            chord: newChord.toString(),
-                            tension: tensionResult
-                        });
+                        let chordCountInBadChords = 0;
+                        for (const badChord of badChords) {
+                            if (badChord.chord == newChord.toString()) {
+                                chordCountInBadChords++;
+                            }
+                        }
+                        if (chordCountInBadChords < 3) {
+                            badChords.push({
+                                chord: newChord.toString(),
+                                tension: tensionResult
+                            });
+                        }
                     }
                 }  // For available scales end
             }  // For voiceleading results end
@@ -341,49 +344,5 @@ export function makeMelody(divisionedNotes: DivisionedRichnotes, mainParams: Mai
     // addEighthNotes(divisionedNotes, params)
     addHalfNotes(divisionedNotes, mainParams)
 }
-
-// export async function testFunc(params: MusicParams) {
-//     console.log(params)
-//     let chords: Array<Array<RichNote>> = [];
-
-//     chords = moonlightsonata
-//         .map((noteNames) => (
-//             noteNames.map(
-//                 (noteName) => ({
-//                     note: new Note(noteName),
-//                     duration: BEAT_LENGTH,
-//                 }) as RichNote
-//             )
-//         ));
-
-//     const divisionedNotes: DivisionedRichnotes = {};
-
-//     // Lower all semitones by 4
-//     chords.forEach(richNoteList => richNoteList.forEach(richNote => {
-//         const gTone = globalSemitone(richNote.note) - 4;
-//         richNote.note.semitone = gTone % 12;
-//         richNote.note.octave = Math.floor(gTone / 12);
-//     }))
-
-
-//     let prevChord = chords[0];
-//     for (let i=0; i<chords.length; i++) {
-//         const chord = chords[i];
-//         const scale = new Scale({key: 0, template: ScaleTemplates.major});
-//         console.log(getTension(prevChord.map(richNote => richNote.note), chord.map(richNote => richNote.note), scale, 10, params));
-//         prevChord = chord;
-//         divisionedNotes[i * BEAT_LENGTH] = chord.map((note, index) => ({
-//             note: note.note,
-//             partIndex: index,
-//             duration: BEAT_LENGTH,
-//             scale: scale,
-//         }) as RichNote);
-//     }
-
-//     return {
-//         chords: chords,
-//         divisionedNotes: divisionedNotes,
-//     }
-// }
 
 export { buildTables }

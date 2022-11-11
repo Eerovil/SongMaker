@@ -165,28 +165,20 @@ export class MusicParams {
             weight: 0,
         },
         dim: {
-            enabled: false,
-            weight: -1,
+            enabled: true,
+            weight: 0
         },
         aug: {
-            enabled: false,
-            weight: -1,
+            enabled: true,
+            weight: 0,
         },
         maj7: {
-            enabled: false,
-            weight: -1,
+            enabled: true,
+            weight: 0,
         },
         dom7: {
-            enabled: false,
-            weight: -1,
-        },
-        sus2: {
-            enabled: false,
-            weight: -1,
-        },
-        sus4: {
-            enabled: false,
-            weight: -1,
+            enabled: true,
+            weight: 0,
         },
     }
     scaleSettings: {
@@ -203,29 +195,8 @@ export class MusicParams {
             enabled: true,
             weight: 0,
         },
-        harmonicMinor: {
-            enabled: false,
-            weight: -0.5,
-        },
-        melodicMinorAscending: {
-            enabled: false,
-            weight: -0.5,
-        },
-        melodicMinorDescending: {
-            enabled: false,
-            weight: -0.5,
-        },
     };
-    melodySettings: {
-        "up": number,
-        "down": number,
-        "same": number,
-    } = {
-        "up": 0,
-        "down": 0,
-        "same": 0,
-    }
-
+    selectedCadence: string = "PAC";
     constructor(params: Partial<MusicParams> | undefined = undefined) {
         if (params) {
             for (let key in params) {
