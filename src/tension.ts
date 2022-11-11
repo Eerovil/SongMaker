@@ -38,8 +38,10 @@ export class Tension {
         tension += this.leadingToneUp;
         if (beatsUntilLastChordInCadence > 2) {
             tension += this.fourthDownChordProgression;
-            tension += this.melodyJump;
             tension += this.melodyTarget;
+            tension += this.melodyJump * 0.5;
+        } else {
+            tension += this.melodyJump;
         }
         tension += this.voiceDirections;
         tension += this.overlapping;
