@@ -11,7 +11,7 @@ import { getTension, Tension } from "./tension";
 import { buildTopMelody } from "./topmelody";
 import { addHalfNotes } from "./halfnotes";
 import { getAvailableScales } from "./availablescales";
-
+import * as time from "./timer"; 
 
 const GOOD_CHORD_LIMIT = 12;
 const GOOD_CHORDS_PER_CHORD = 3;
@@ -81,9 +81,6 @@ const makeChords = async (mainParams: MainMusicParams, progressCallback: Nullabl
 
         while (!skipLoop && goodChords.length < GOOD_CHORD_LIMIT) {
             iterations++;
-            if (iterations % 100) {
-                await sleepMS(100);
-            }
             newChord = randomGenerator.getChord();
             const chordLogger = new Logger();
             if (iterations > 1000 || !newChord) {
@@ -173,7 +170,10 @@ const makeChords = async (mainParams: MainMusicParams, progressCallback: Nullabl
                             tensionResult.modulation += 100;
                         }
                     }
-                    let tension = tensionResult.getTotalTension(params);
+                    let tension = tensionResult.getTotalTension({
+                        params,
+                        beatsUntilLastChordInCadence
+                    });
 
                     if (progressCallback) {
                         const giveUP = progressCallback(null, null);
@@ -248,7 +248,7 @@ const makeChords = async (mainParams: MainMusicParams, progressCallback: Nullabl
                 division -= BEAT_LENGTH * 2;
                 // Mark the previous chord as banned
                 const newBannedNotes = [];
-                for (const note of result[division]) {
+                for (const note of result[division + BEAT_LENGTH]) {
                     newBannedNotes[note.partIndex] = note.note;
                 }
                 // Delete the previous chord (where we are going to)

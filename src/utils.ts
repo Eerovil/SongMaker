@@ -121,12 +121,12 @@ export class MusicParams {
     beatsPerBar: number = 4;
 
     baseTension?: number = 0.3;
-    barsPerCadence?: number = 4
+    barsPerCadence?: number = 2
     tempo?: number = 40;
     halfNotes?: boolean = true;
     sixteenthNotes?: number = 0.2;
     eighthNotes?: number = 0.4;
-    modulationWeight?: number = 0.5;
+    modulationWeight?: number = 0.2;
     leadingWeight?: number = 2;
     parts: Array<{
         voice: string,
@@ -196,7 +196,7 @@ export class MusicParams {
             weight: 0,
         },
     };
-    selectedCadence: string = "PAC";
+    selectedCadence: string = "HC";
     constructor(params: Partial<MusicParams> | undefined = undefined) {
         if (params) {
             for (let key in params) {

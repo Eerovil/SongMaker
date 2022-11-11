@@ -22,13 +22,13 @@ export class Tension {
 
     totalTension: number = 0;
 
-    getTotalTension(params: MusicParams) {
+    getTotalTension(values: {params: MusicParams, beatsUntilLastChordInCadence}) {
+        const {params, beatsUntilLastChordInCadence} = values;
         let tension = 0;
         tension += this.notInScale * 100;
         tension += this.modulation;
         tension += this.allNotesSame;
         tension += this.chordProgression;
-        tension += this.fourthDownChordProgression;
         tension += this.parallelFifths;
         tension += this.spacingError;
         tension += this.cadence;
@@ -36,8 +36,11 @@ export class Tension {
         tension += this.secondInversion;
         tension += this.doubleLeadingTone;
         tension += this.leadingToneUp;
-        tension += this.melodyJump;
-        tension += this.melodyTarget;
+        if (beatsUntilLastChordInCadence > 2) {
+            tension += this.fourthDownChordProgression;
+            tension += this.melodyJump;
+            tension += this.melodyTarget;
+        }
         tension += this.voiceDirections;
         tension += this.overlapping;
 
@@ -50,7 +53,7 @@ export class Tension {
         const toPrint: {[key: string]: string} = {};
         for (const key in this) {
             if (this[key] && typeof this[key] == "number") {
-                toPrint[key] = (this[key] as number).toFixed(1);
+                toPrint[key] = (this[key] as unknown as number).toFixed(1);
             }
         }
         console.log(...args, toPrint)

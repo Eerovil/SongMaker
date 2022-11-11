@@ -21,6 +21,7 @@ if (browser) {
 }
 
 let worker: Worker;
+let playerLoadTime = new Date();
 setTimeout(() => {
     // WAit for params to be parsed
     worker = new Worker('dist/worker.js');
@@ -33,9 +34,10 @@ setTimeout(() => {
             // console.log((window as any).result);
             (window as any).loadPlayer = loadPlayer;
             let autoplay = !data.progress;
-            setTimeout(() => {
+            if (autoplay || playerLoadTime.getTime() - (new Date()).getTime() < -1000) {
                 loadPlayer(data.xml, autoplay);
-            }, 2000)
+                playerLoadTime = new Date();
+            }
         }
         if (browser && data.progress) {
             const {currentBeat, chord} = data.progress;
