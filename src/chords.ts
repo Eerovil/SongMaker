@@ -13,7 +13,8 @@ import { addHalfNotes } from "./halfnotes";
 import { getAvailableScales } from "./availablescales";
 
 
-const GOOD_CHORD_LIMIT = 10;
+const GOOD_CHORD_LIMIT = 12;
+const GOOD_CHORDS_PER_CHORD = 3;
 
 
 const sleepMS = async (ms: number): Promise<null> => {
@@ -28,6 +29,8 @@ const makeChords = async (mainParams: MainMusicParams, progressCallback: Nullabl
     let result: DivisionedRichnotes = {};
     let lastLogger: Logger;
 
+    let divisionBannedNotes: {[key: number]: Array<Array<Note>>} = {}
+
     // for (let i=0; i<maxTensions; i++) {
     //     // tensionBeats.push(Math.floor(Math.random() * (maxBeats - 10)) + 6);
     // }
@@ -38,6 +41,7 @@ const makeChords = async (mainParams: MainMusicParams, progressCallback: Nullabl
         let prevNotes: Note[];
         let prevInversionName: string;
         let currentScale: Scale;
+        let bannedNotess = divisionBannedNotes[division];
         if (prevResult) {
             prevNotes = [];
             for (const richNote of prevResult) {
@@ -62,8 +66,25 @@ const makeChords = async (mainParams: MainMusicParams, progressCallback: Nullabl
         const randomNotes: Array<Note> = [];
 
         let iterations = 0;
+        let skipLoop = false;
 
-        while (goodChords.length < GOOD_CHORD_LIMIT) {
+        if (beatsUntilLastChordInCadence == 1) {
+            // Force same chord twice
+            goodChords.splice(0, goodChords.length);
+            goodChords.push(prevNotes.map((note, index) => ({
+                note: note,
+                duration: BEAT_LENGTH,
+                chord: newChord,
+                partIndex: index,
+                inversionName: prevInversionName,
+                tension: 0,
+                scale: currentScale,
+                logger: null,
+            } as RichNote)));
+            skipLoop = true;
+        }
+
+        while (!skipLoop && goodChords.length < GOOD_CHORD_LIMIT) {
             iterations++;
             if (iterations % 100) {
                 await sleepMS(100);
@@ -82,17 +103,6 @@ const makeChords = async (mainParams: MainMusicParams, progressCallback: Nullabl
             let allInversions;
             let availableScales;
 
-            if (beatsUntilLastChordInCadence == 1) {
-                // Force same chord twice
-                if (prevChord && newChord.toString() != prevChord.toString()) {
-                    continue;
-                }
-            } else {
-                // Force different chord
-                if (prevChord && newChord.toString() == prevChord.toString()) {
-                    continue;
-                }
-            }
             const availableScaleLogger = new Logger(chordLogger)
             availableScales = getAvailableScales({
                 latestDivision: division,
@@ -121,7 +131,28 @@ const makeChords = async (mainParams: MainMusicParams, progressCallback: Nullabl
                 inversionLogger.title = ["Inversion ", `${inversionResult.inversionName}`];
                 randomNotes.splice(0, randomNotes.length);  // Empty this and replace contents
                 randomNotes.push(...inversionResult.notes);
-                let bestTension = 999;
+                if (bannedNotess && bannedNotess.length > 0) {
+                    let banned = true;
+                    for (const bannedNotes of bannedNotess) {
+                        if (bannedNotes.length != randomNotes.length) {
+                            continue;
+                        }
+                        banned = true;
+                        for (let i = 0; i < randomNotes.length; i++) {
+                            if (randomNotes[i].toString() != bannedNotes[i].toString()) {
+                                banned = false;
+                                break;
+                            }
+                        }
+                        if (banned) {
+                            break;
+                        }
+                    }
+                    if (banned) {
+                        console.log("Banned notes", randomNotes.map(n => n.toString()), "bannedNotess", bannedNotess.map(n => n.map(n => n.toString())));
+                        continue;
+                    }
+                }
                 for (const availableScale of availableScales) {
                     const scaleLogger = new Logger(inversionLogger)
                     const chordTensionLogger = new Logger(scaleLogger);
@@ -187,17 +218,45 @@ const makeChords = async (mainParams: MainMusicParams, progressCallback: Nullabl
                     }
                     else if (tension < 10) {
                         inversionLogger.parent = null;
-                        goodChords.push(randomNotes.map((note, index) => ({
-                            note: note,
-                            duration: BEAT_LENGTH,
-                            chord: newChord,
-                            partIndex: index,
-                            inversionName: inversionResult.inversionName,
-                            tension: tension,
-                            scale: availableScale.scale,
-                            logger: inversionLogger,
-                        } as RichNote)
-                        ));
+                        let thisChordCount = 0;
+                        for (const goodChord of goodChords) {
+                            if (goodChord[0].chord.toString() == newChord.toString()) {
+                                thisChordCount++;
+                            }
+                        }
+                        if (thisChordCount >= GOOD_CHORDS_PER_CHORD) {
+                            // Replace the worst previous goodChord if this has less tension
+                            let worstChord = null;
+                            let worstChordTension = 0;
+                            for (let i = 0; i < goodChords.length; i++) {
+                                const goodChord = goodChords[i];
+                                if (goodChord[0].chord.toString() == newChord.toString()) {
+                                    if (goodChord[0].tension < worstChordTension) {
+                                        worstChord = i;
+                                    }
+                                }
+                            }
+                            if (worstChord != null) {
+                                if (goodChords[worstChord][0].tension > tension) {
+                                    // Just remove that index, add a new one later
+                                    goodChords.splice(worstChord, 1);
+                                }
+                            }
+
+                        }
+                        if (thisChordCount < GOOD_CHORDS_PER_CHORD) {
+                            goodChords.push(randomNotes.map((note, index) => ({
+                                note: note,
+                                duration: BEAT_LENGTH,
+                                chord: newChord,
+                                partIndex: index,
+                                inversionName: inversionResult.inversionName,
+                                tension: tension,
+                                scale: availableScale.scale,
+                                logger: inversionLogger,
+                            } as RichNote)
+                            ));
+                        }
                         chordTensionLogger.log("Chord is good: ", tension)
                     } else {
                         chordTensionLogger.log("Chord is bad: ", tension)
@@ -212,7 +271,14 @@ const makeChords = async (mainParams: MainMusicParams, progressCallback: Nullabl
             // Go back to previous chord, and make it again
             if (division >= BEAT_LENGTH) {
                 division -= BEAT_LENGTH * 2;
+                // Mark the previous chord as banned
+                const newBannedNotes = [];
+                for (const note of result[division]) {
+                    newBannedNotes[note.partIndex] = note.note;
+                }
                 // Delete the previous chord (where we are going to)
+                divisionBannedNotes[division + BEAT_LENGTH] = divisionBannedNotes[division + BEAT_LENGTH] || [];
+                divisionBannedNotes[division + BEAT_LENGTH].push(newBannedNotes);
                 delete result[division + BEAT_LENGTH];
             } else {
                 // We failed right at the start.
@@ -221,6 +287,9 @@ const makeChords = async (mainParams: MainMusicParams, progressCallback: Nullabl
             }
             randomGenerator.cleanUp();
             console.groupEnd();
+            if (progressCallback) {
+                progressCallback(currentBeat - 1, result);
+            }
             continue;
         }
 

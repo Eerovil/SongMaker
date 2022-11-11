@@ -10,6 +10,9 @@ export const getTension = (divisionedNotes: DivisionedRichnotes, toNotes: Array<
     *   @return: tension value between -1 and 1
     */
     let wantedFunction = null;
+    if (beatsUntilLastChordInCadence == 5) {
+        wantedFunction = "not-dominant";
+    }
     if (beatsUntilLastChordInCadence == 4) {
         wantedFunction = "sub-dominant";
     }
@@ -18,9 +21,9 @@ export const getTension = (divisionedNotes: DivisionedRichnotes, toNotes: Array<
     }
     if (beatsUntilLastChordInCadence < 3) {
         wantedFunction = "tonic";
-        if (!inversionName.startsWith('root')) {
-            return {tension: 100, wantedFunction};
-        }
+        // if (!inversionName.startsWith('root')) {
+        //     return {tension: 100, wantedFunction};
+        // }
     }
 
     let prevChord;
@@ -201,7 +204,7 @@ export const getTension = (divisionedNotes: DivisionedRichnotes, toNotes: Array<
 
     if (wantedFunction) {
         if (wantedFunction == "sub-dominant") {
-            if (!possibleToFunctions["sub-dominant"] && !possibleToFunctions.dominant) {
+            if (!possibleToFunctions["sub-dominant"]) {// && !possibleToFunctions.dominant) {
                 tension += 100;
                 logger.log("wanted sub-dominant, this is not it or dominant");
                 logger.log("tension: ", tension);
@@ -218,6 +221,13 @@ export const getTension = (divisionedNotes: DivisionedRichnotes, toNotes: Array<
             if (!possibleToFunctions.tonic) {
                 tension += 100;
                 logger.log("wanted tonic, this is not it");
+                logger.log("tension: ", tension);
+            }
+        }
+        if (wantedFunction == "not-dominant") {
+            if (possibleToFunctions.dominant) {
+                tension += 100;
+                logger.log("wanted not-dominant, this is not it");
                 logger.log("tension: ", tension);
             }
         }
@@ -452,177 +462,178 @@ export const getTension = (divisionedNotes: DivisionedRichnotes, toNotes: Array<
         }
     }
 
-
-    // Melody tension
-    // Avoid jumps that are aug or 7th or higher
-    for (let i=0; i<fromGlobalSemitones.length; i++) {
-        const interval = Math.abs(fromGlobalSemitones[i] - toGlobalSemitones[i]);
-        if (interval >= 3) {
-            tension += 0.2;
-            logger.log("Tension from melody jump: ", interval);
-            logger.log("tension: ", tension);
-        }
-        if (interval >= 10) {  // 7th == 10
-            tension += 10;
-            logger.log("Tension from melody interval: ", interval);
-            logger.log("tension: ", tension);
-            continue;
-        }
-        if (interval == 6 || interval == 8) // tritone (aug 4th) or aug 5th
-        {
-            tension += 5;
-            logger.log("Tension from melody interval: ", interval);
-            logger.log("tension: ", tension);
-            continue;
-        }
-        if (interval == 7) {
-            tension += 1;
-            logger.log("Tension from melody interval: ", interval);
-            logger.log("tension: ", tension);
-            continue;
-        }
-        if (interval == 9) {
-            tension += 2;
-            logger.log("Tension from melody interval: ", interval);
-            logger.log("tension: ", tension);
-            continue;
-        }
-    }
-    if (tension > 10) {
-        return {tension, currentScale}
-    }
-
-
-    // 0 priimi
-    // 1 pieni sekunti
-    // 2 suuri sekunti
-    // 3 pieni terssi
-    // 4 suuri terssi
-    // 5 kvartti
-    // 6 tritonus
-    // 7 kvintti
-    // 8 pieni seksti
-    // 9 suuri seksti
-    // 10 pieni septimi
-    // 11 suuri septimi
-    // 12 oktaavi
-
-    // Was there a jump before?
-    if (prevPassedFromNotes && prevPassedFromNotes.length == 4) {
-        const prevFromGlobalSemitones = prevPassedFromNotes.map((n) => globalSemitone(n));
-        logger.log("prevFromGlobalSemitones:", prevFromGlobalSemitones.map((s) => gToneString(s)));
+    if (wantedFunction != "tonic") {
+        // Melody tension
+        // Avoid jumps that are aug or 7th or higher
         for (let i=0; i<fromGlobalSemitones.length; i++) {
-            const interval = Math.abs(prevFromGlobalSemitones[i] - fromGlobalSemitones[i]);
+            const interval = Math.abs(fromGlobalSemitones[i] - toGlobalSemitones[i]);
             if (interval >= 3) {
-                // There was a jump. WE MUST GO BACK!
-                // Basically the toGlobalSemitone must be between the prevFromGlobalSemitone and the fromGlobalSemitone
-                // UNLESS we're outlining a triad.
-                // This would mean that after a 4th up, we need to go up another 3rd
-                const prevFromSemitone = prevFromGlobalSemitones[i];
-                const fromSemitone = fromGlobalSemitones[i];
-                const toSemitone = toGlobalSemitones[i];
-    
-                const directionMultiplier = fromSemitone > prevFromSemitone ? 1 : -1;
-                const nextInterval = directionMultiplier * (toSemitone - fromSemitone);
+                tension += 0.2;
+                logger.log("Tension from melody jump: ", interval);
+                logger.log("tension: ", tension);
+            }
+            if (interval >= 10) {  // 7th == 10
+                tension += 10;
+                logger.log("Tension from melody interval: ", interval);
+                logger.log("tension: ", tension);
+                continue;
+            }
+            if (interval == 6 || interval == 8) // tritone (aug 4th) or aug 5th
+            {
+                tension += 5;
+                logger.log("Tension from melody interval: ", interval);
+                logger.log("tension: ", tension);
+                continue;
+            }
+            if (interval == 7) {
+                tension += 1;
+                logger.log("Tension from melody interval: ", interval);
+                logger.log("tension: ", tension);
+                continue;
+            }
+            if (interval == 9) {
+                tension += 2;
+                logger.log("Tension from melody interval: ", interval);
+                logger.log("tension: ", tension);
+                continue;
+            }
+        }
+        if (tension > 10) {
+            return {tension, currentScale}
+        }
 
-                if (interval == 3) {
-                    if (nextInterval == 4) {
-                        // minor 3rd up, then maj third up. That's a root inversion minor chord!
-                        continue;
-                    }
-                    if (nextInterval == 5) {
-                        // minor 3rd up, then perfect 4th up. That's a first inversion major chord!
-                        continue;
-                    }
-                }
-                if (interval == 4) {
-                    if (nextInterval == 3) {
-                        // major 3rd up, then minor 3rd up. That's a root inversion major chord!
-                        continue;
-                    }
-                    if (nextInterval == 5) {
-                        // major 3rd up, then perfect 4th up. That's a first inversion minor chord!
-                        continue;
-                    }
-                }
-                if (interval == 5) {
-                    if (nextInterval == 3) {
-                        // perfect 4th up, then minor 3rd up. That's a second inversion minor chord!
-                        continue;
-                    }
-                    if (nextInterval == 4) {
-                        // perfect 4th up, then major 3rd up. That's a second inversion major chord!
-                        continue;
-                    }
-                }
 
-                // Higher than that, no triad is possible.
-                if ((fromSemitone >= prevFromSemitone && toSemitone >= fromSemitone) || (fromSemitone <= prevFromSemitone && toSemitone <= fromSemitone)) {
-                    // Not goinf back down/up...
-                    if (interval <= 3) {
-                        tension += 0.5;
-                    } else if (interval <= 4) {
-                        tension += 1;  // Not as bad
-                    } else {
-                        tension += 10;  // Terrible
+        // 0 priimi
+        // 1 pieni sekunti
+        // 2 suuri sekunti
+        // 3 pieni terssi
+        // 4 suuri terssi
+        // 5 kvartti
+        // 6 tritonus
+        // 7 kvintti
+        // 8 pieni seksti
+        // 9 suuri seksti
+        // 10 pieni septimi
+        // 11 suuri septimi
+        // 12 oktaavi
+
+        // Was there a jump before?
+        if (prevPassedFromNotes && prevPassedFromNotes.length == 4) {
+            const prevFromGlobalSemitones = prevPassedFromNotes.map((n) => globalSemitone(n));
+            logger.log("prevFromGlobalSemitones:", prevFromGlobalSemitones.map((s) => gToneString(s)));
+            for (let i=0; i<fromGlobalSemitones.length; i++) {
+                const interval = Math.abs(prevFromGlobalSemitones[i] - fromGlobalSemitones[i]);
+                if (interval >= 3) {
+                    // There was a jump. WE MUST GO BACK!
+                    // Basically the toGlobalSemitone must be between the prevFromGlobalSemitone and the fromGlobalSemitone
+                    // UNLESS we're outlining a triad.
+                    // This would mean that after a 4th up, we need to go up another 3rd
+                    const prevFromSemitone = prevFromGlobalSemitones[i];
+                    const fromSemitone = fromGlobalSemitones[i];
+                    const toSemitone = toGlobalSemitones[i];
+        
+                    const directionMultiplier = fromSemitone > prevFromSemitone ? 1 : -1;
+                    const nextInterval = directionMultiplier * (toSemitone - fromSemitone);
+
+                    if (interval == 3) {
+                        if (nextInterval == 4) {
+                            // minor 3rd up, then maj third up. That's a root inversion minor chord!
+                            continue;
+                        }
+                        if (nextInterval == 5) {
+                            // minor 3rd up, then perfect 4th up. That's a first inversion major chord!
+                            continue;
+                        }
                     }
-                    logger.log("Tension from jump and no back: ", interval, " part ", i);
-                    logger.log("tension: ", tension);
-                } else {
-                    // Going back down/up...
-                    const backInterval = Math.abs(toSemitone - fromSemitone);
-                    if (backInterval > 2) {
-                        // Going back too far...
+                    if (interval == 4) {
+                        if (nextInterval == 3) {
+                            // major 3rd up, then minor 3rd up. That's a root inversion major chord!
+                            continue;
+                        }
+                        if (nextInterval == 5) {
+                            // major 3rd up, then perfect 4th up. That's a first inversion minor chord!
+                            continue;
+                        }
+                    }
+                    if (interval == 5) {
+                        if (nextInterval == 3) {
+                            // perfect 4th up, then minor 3rd up. That's a second inversion minor chord!
+                            continue;
+                        }
+                        if (nextInterval == 4) {
+                            // perfect 4th up, then major 3rd up. That's a second inversion major chord!
+                            continue;
+                        }
+                    }
+
+                    // Higher than that, no triad is possible.
+                    if ((fromSemitone >= prevFromSemitone && toSemitone >= fromSemitone) || (fromSemitone <= prevFromSemitone && toSemitone <= fromSemitone)) {
+                        // Not goinf back down/up...
                         if (interval <= 3) {
                             tension += 0.5;
-                        } else  if (interval <= 4) {
+                        } else if (interval <= 4) {
                             tension += 1;  // Not as bad
                         } else {
                             tension += 10;  // Terrible
                         }
-                        logger.log("Tension from jump and too far back: ", interval, " part ", i);
+                        logger.log("Tension from jump and no back: ", interval, " part ", i);
                         logger.log("tension: ", tension);
+                    } else {
+                        // Going back down/up...
+                        const backInterval = Math.abs(toSemitone - fromSemitone);
+                        if (backInterval > 2) {
+                            // Going back too far...
+                            if (interval <= 3) {
+                                tension += 0.5;
+                            } else  if (interval <= 4) {
+                                tension += 1;  // Not as bad
+                            } else {
+                                tension += 10;  // Terrible
+                            }
+                            logger.log("Tension from jump and too far back: ", interval, " part ", i);
+                            logger.log("tension: ", tension);
+                        }
                     }
                 }
             }
         }
-    }
-    if (tension > 10) {
-        return {tension, currentScale}
-    }
+        if (tension > 10) {
+            return {tension, currentScale}
+        }
 
 
-    for (let i=0; i<toGlobalSemitones.length; i++) {
-        const fromGlobalSemitone = fromGlobalSemitones[i];
-        const toGlobalSemitone = toGlobalSemitones[i];
-        let direction = toGlobalSemitone - fromGlobalSemitone;
-        const baseNote = params.parts[i].note || "F4";
-        const startingGlobalSemitone = globalSemitone(new Note(baseNote))
-        const semitoneLimit = [startingGlobalSemitone + -12, startingGlobalSemitone + 12]
+        for (let i=0; i<toGlobalSemitones.length; i++) {
+            const fromGlobalSemitone = fromGlobalSemitones[i];
+            const toGlobalSemitone = toGlobalSemitones[i];
+            let direction = toGlobalSemitone - fromGlobalSemitone;
+            const baseNote = params.parts[i].note || "F4";
+            const startingGlobalSemitone = globalSemitone(new Note(baseNote))
+            const semitoneLimit = [startingGlobalSemitone + -12, startingGlobalSemitone + 12]
 
-        let targetNote = semitoneLimit[1] - 4;
-        targetNote -= i * 2;
+            let targetNote = semitoneLimit[1] - 4;
+            targetNote -= i * 2;
 
-        let targetNoteReached = false;
-        for (const division in divisionedNotes) {
-            const notes = divisionedNotes[division];
-            for (const prevNote of notes.filter(richNote => richNote.partIndex == i)) {
-                if (globalSemitone(prevNote.note) == targetNote) {
-                    targetNoteReached = true;
+            let targetNoteReached = false;
+            for (const division in divisionedNotes) {
+                const notes = divisionedNotes[division];
+                for (const prevNote of notes.filter(richNote => richNote.partIndex == i)) {
+                    if (globalSemitone(prevNote.note) == targetNote) {
+                        targetNoteReached = true;
+                    }
                 }
             }
-        }
-        if (targetNoteReached) {
-            if (Math.abs(toGlobalSemitone - targetNote) < 2) {
-                // We're close to the target note, let's NOT go there any more
-                if (direction > 0) {
-                    tension += 10;
-                    logger.log("Tension from already reaching target note: ", direction, " part ", i);
-                    logger.log("tension: ", tension);
+            if (targetNoteReached) {
+                if (Math.abs(toGlobalSemitone - targetNote) < 2) {
+                    // We're close to the target note, let's NOT go there any more
+                    if (direction > 0) {
+                        tension += 10;
+                        logger.log("Tension from already reaching target note: ", direction, " part ", i);
+                        logger.log("tension: ", tension);
+                    }
                 }
             }
+            break;
         }
-        break;
     }
 
     logger.log("tension: ", tension);
