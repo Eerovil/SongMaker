@@ -22,7 +22,7 @@ export class Tension {
 
     totalTension: number = 0;
 
-    getTotalTension(values: {params: MusicParams, beatsUntilLastChordInCadence}) {
+    getTotalTension(values: {params: MusicParams, beatsUntilLastChordInCadence: number}) {
         const {params, beatsUntilLastChordInCadence} = values;
         let tension = 0;
         tension += this.notInScale * 100;

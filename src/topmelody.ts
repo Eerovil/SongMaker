@@ -1,8 +1,8 @@
-import { Note } from "musictheoryjs";
-import { BEAT_LENGTH, DivisionedRichnotes, globalSemitone, MainMusicParams, MusicParams, Nullable } from "./utils";
+import { Note, Scale } from "musictheoryjs";
+import { BEAT_LENGTH, DivisionedRichnotes, globalSemitone, MainMusicParams, MusicParams, Nullable, semitoneDistance, semitoneScaleIndex } from "./utils";
 
 
-const addNoteBetween = (division: number, nextDivision: number, partIndex: number, divisionedNotes: DivisionedRichnotes): boolean => {
+const addNoteBetween = (newNote: Note, division: number, nextDivision: number, partIndex: number, divisionedNotes: DivisionedRichnotes): boolean => {
     const divisionDiff = nextDivision - division;
     const beatRichNote = (divisionedNotes[division] || []).filter(note => note.partIndex == partIndex)[0];
     if (!beatRichNote || !beatRichNote.note) {
@@ -14,41 +14,11 @@ const addNoteBetween = (division: number, nextDivision: number, partIndex: numbe
     if (!nextBeatRichNote || !nextBeatRichNote.note) {
         return;
     }
-    const scaleTones = nextBeatRichNote.scale.notes.map(n => n.semitone).filter(n => prevScaleTones.includes(n));
-    const currentGTone = globalSemitone(beatRichNote.note)
-    const nextGTone = globalSemitone(nextBeatRichNote.note);
-    const randomNote = beatRichNote.note.copy();
-
-    const diff = Math.abs(currentGTone - nextGTone);
-    if (diff < 2) {
-        return false;
-    }
-
-    if (currentGTone != nextGTone) {
-        const availableGTones = []
-        for (let gTone=currentGTone; gTone != nextGTone; gTone += (currentGTone < nextGTone ? 1 : -1)) {
-            if (gTone == currentGTone) {
-                continue;
-            }
-            const semitone = gTone % 12;
-            if (!scaleTones.includes(semitone)) {
-                continue;
-            }
-            availableGTones.push(gTone);
-        }
-        if (availableGTones.length == 0) {
-            availableGTones.push(currentGTone);
-        }
-        console.log(currentGTone, " -> ", nextGTone, ", availableGTones: ", availableGTones, ", scaleTones: ", scaleTones);
-        const randomGTone = availableGTones[Math.floor(Math.random() * availableGTones.length)];
-        randomNote.semitone = randomGTone % 12;
-        randomNote.octave = Math.floor(randomGTone / 12);
-    }
 
     beatRichNote.duration = divisionDiff / 2;
     divisionedNotes[division + divisionDiff / 2] = divisionedNotes[division + divisionDiff / 2] || [];
     const newRandomRichNote = {
-        note: randomNote,
+        note: newNote,
         duration: divisionDiff / 2,
         chord: beatRichNote.chord,
         scale: beatRichNote.scale,
@@ -56,6 +26,55 @@ const addNoteBetween = (division: number, nextDivision: number, partIndex: numbe
     }
     divisionedNotes[division + divisionDiff / 2].push(newRandomRichNote);
     return true;
+}
+
+
+const passingTone = (gTone1: number, gTone2: number, scale: Scale): Nullable<Note> => {
+    // Return a new gTone or null, based on whether adding a passing tone is a good idea.
+    const distance = Math.abs(gTone1 - gTone2);
+    if (distance < 3 || distance > 4) {
+        return null;
+    }
+    const scaleTones = scale.notes.map(n => n.semitone);
+    for (let gTone=gTone1; gTone != gTone2; gTone += (gTone1 < gTone2 ? 1 : -1)) {
+        if (gTone == gTone1) {
+            continue;
+        }
+        const semitone = gTone % 12;
+        if (scaleTones.includes(semitone)) {
+            return new Note({
+                semitone: gTone % 12,
+                octave: Math.floor(gTone / 12),
+            });
+        }
+    }
+}
+
+
+const neighborTone = (gTone1: number, gTone2: number, scale: Scale): Nullable<Note> => {
+    // Step, then step back. This is on Weak beat
+    if (gTone1 != gTone2) {
+        return null;
+    }
+    const scaleIndex = semitoneScaleIndex(scale)[gTone1 % 12];
+    if (!scaleIndex) {
+        return null;
+    }
+    const upOrDown = Math.random() < 0.5 ? 1 : -1;
+    const newScaleIndex = (scaleIndex + upOrDown) % 7;
+    const newSemitone = scale.notes[newScaleIndex].semitone;
+    const distance = semitoneDistance(gTone1 % 12, newSemitone);
+    const newGtone = gTone1 + (distance * upOrDown);
+    return new Note({
+        semitone: newGtone % 12,
+        octave: Math.floor(newGtone / 12),
+    })
+}
+
+
+const appogiatura = (gTone1: number, gTone2: number, scale: Scale): Nullable<Note> => {
+    // Leap, then step back. This is on Strong beat
+    return null;
 }
 
 
@@ -79,15 +98,24 @@ export const buildTopMelody = (divisionedNotes: DivisionedRichnotes, mainParams:
 
         for (let partIndex = 0; partIndex < 4; partIndex++) {
             // Is this a good part to add eighths?
-            const result = addNoteBetween(i, i + BEAT_LENGTH, partIndex, divisionedNotes);
-            if (!result) {
+            const richNote = divisionedNotes[i].filter(note => note.partIndex == partIndex)[0];
+            const nextRichNote = divisionedNotes[i + BEAT_LENGTH].filter(note => note.partIndex == partIndex)[0];
+            if (!richNote || !richNote.note || !nextRichNote || !nextRichNote.note) {
                 continue;
             }
-            if (Math.random() < params.sixteenthNotes) {
-                addNoteBetween(i, i + BEAT_LENGTH / 2, partIndex, divisionedNotes);
+            const gTone1 = globalSemitone(richNote.note);
+            const gTone2 = globalSemitone(nextRichNote.note);
+            let nonChordTone = passingTone(gTone1, gTone2, richNote.scale);
+            if (!nonChordTone) {
+                nonChordTone = neighborTone(gTone1, gTone2, richNote.scale);
             }
-            if (Math.random() < params.sixteenthNotes) {
-                addNoteBetween(i + BEAT_LENGTH / 2, i + BEAT_LENGTH, partIndex, divisionedNotes);
+            if (!nonChordTone) {
+                continue;
+            }
+
+            const result = addNoteBetween(nonChordTone, i, i + BEAT_LENGTH, partIndex, divisionedNotes);
+            if (!result) {
+                continue;
             }
             break;
         }

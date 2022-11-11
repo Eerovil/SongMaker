@@ -5,6 +5,17 @@ import { Tension } from "./tension";
 export const BEAT_LENGTH = 12;
 
 
+export const semitoneScaleIndex = (scale: Scale): { [key: number]: number } => ({
+    [scale.notes[0].semitone]: 0,
+    [scale.notes[1].semitone]: 1,
+    [scale.notes[2].semitone]: 2,
+    [scale.notes[3].semitone]: 3,
+    [scale.notes[4].semitone]: 4,
+    [scale.notes[5].semitone]: 5,
+    [scale.notes[6].semitone]: 6,
+})
+
+
 export const gToneString = (gTone: number): string => {
     return new Note({
         semitone: gTone % 12,
@@ -348,5 +359,12 @@ export const semitoneDistance = (tone1: number, tone2: number) => {
     // 11 + 6 - 0 + 6 = 17 - 6 = 5 - 6 = -1
     // 0 + 6 - 11 + 6 = 6 - 17 = 6 - 5 = 1
 
-    return Math.abs((tone1 + 6) % 12 - (tone2 + 6) % 12);
+    // (6 + 6) % 12 = 0
+    // (5 + 6) % 12 = 11
+    // Result = 11!!!!
+
+    return Math.min(
+        Math.abs(tone1 - tone2),
+        Math.abs((tone1 + 6) % 12 - (tone2 + 6) % 12)
+    );
 }
