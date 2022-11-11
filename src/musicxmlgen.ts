@@ -63,8 +63,6 @@ const flatScaleSemitones: Set<number> = new Set([
   (new Note('Bb')).semitone,
   (new Note('Eb')).semitone,
   (new Note('Ab')).semitone,
-  (new Note('Db')).semitone,
-  (new Note('Gb')).semitone,
 ]);
 
 function noteToPitch(richNote: RichNote) {
@@ -374,7 +372,7 @@ const getKeyChange = (currentScale: Scale, richNote: RichNote) => {
   }
   console.log(`currentScale: ${currentScale.toString()}, newScale: ${richNote.scale.toString()}, prevSharpCount: ${prevSharpCount}, newSharpCount: ${newSharpCount}, fifths: ${fifths}, cancel: ${cancel}`);
   return {
-    fifths: fifths,
+    fifths: newSharpCount,
     cancel: cancel,
   } as KeyChange
 }
