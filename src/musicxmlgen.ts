@@ -73,7 +73,10 @@ function noteToPitch(richNote: RichNote) {
   const scoreScale = new Scale({key: 0, octave: note.octave, template: ScaleTemplates.major})
   let direction = 'sharp';
   if (noteScale) {
-    const base = noteScale.notes[0].semitone;
+    let base = noteScale.notes[0].semitone;
+    if (noteScale.toString().includes('Minor')) {
+      base = (base + 3) % 12;
+    }
     if (flatScaleSemitones.has(base)) {
       direction = 'flat';
     }
@@ -116,6 +119,9 @@ function addRichNoteToMeasure(richNote: RichNote, measure: builder.XMLElement, s
     const roman = richNote.scale.notes.map(n => n.semitone).indexOf(richNote.chord.notes[0].semitone);
     const numberToRoman = ['I', 'II', 'III', 'IV', 'V', 'VI', 'VII'];
     let romanNumeral = numberToRoman[roman];
+    if (romanNumeral == undefined) {
+      romanNumeral = '';
+    }
     if (richNote.chord.chordType == 'min') {
       romanNumeral = romanNumeral.toLowerCase();
     }
@@ -296,11 +302,15 @@ function firstMeasureInit(voicePartIndex: number, measure: builder.XMLElement, p
 const getScaleSharpCount = (scale: Scale) => {
   let sharpCount = 0;
   let semitone = scale.key;
-  if (scale.template == ScaleTemplates.minor) {
-    semitone = scale.relativeMajor().key;
+  if (scale.toString().includes("Minor")) {
+    semitone += 3;
+    semitone = semitone % 12;
   }
   if (semitone == 11) {
     return 5;
+  }
+  if (semitone == 6) {
+    return 6;
   }
   const baseTones = [0, 2, 4, 5, 7, 9, 11];
   if (semitone == 0 || semitone == 2 || semitone == 4 || semitone == 7 || semitone == 9) {
@@ -362,7 +372,7 @@ const getKeyChange = (currentScale: Scale, richNote: RichNote) => {
       }
     }
   }
-  // console.log(`currentScale: ${currentScale.toString()}, newScale: ${richNote.scale.toString()}, prevSharpCount: ${prevSharpCount}, newSharpCount: ${newSharpCount}, fifths: ${fifths}, cancel: ${cancel}`);
+  console.log(`currentScale: ${currentScale.toString()}, newScale: ${richNote.scale.toString()}, prevSharpCount: ${prevSharpCount}, newSharpCount: ${newSharpCount}, fifths: ${fifths}, cancel: ${cancel}`);
   return {
     fifths: fifths,
     cancel: cancel,

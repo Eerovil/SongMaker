@@ -26,7 +26,7 @@ const scalesForNotes = (notes: Note[], params: MusicParams): Scale[] => {
                 scales.add({
                     key: semitone,
                     templateSlug: scaleSlug,
-                    semitones: scale.notes.map(note => note.semitone),
+                    semitones: semitones,
                 } as LightScale)
             }
         }
