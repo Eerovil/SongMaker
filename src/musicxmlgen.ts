@@ -357,7 +357,7 @@ const getKeyChange = (currentScale: Scale, richNote: RichNote) => {
       }
     }
   }
-  console.log(`prevSharpCount: ${prevSharpCount}, newSharpCount: ${newSharpCount}, fifths: ${fifths}, cancel: ${cancel}`);
+  console.log(`currentScale: ${currentScale.toString()}, newScale: ${richNote.scale.toString()}, prevSharpCount: ${prevSharpCount}, newSharpCount: ${newSharpCount}, fifths: ${fifths}, cancel: ${cancel}`);
   return {
     fifths: fifths,
     cancel: cancel,
@@ -446,9 +446,9 @@ export function toXml(divisionedNotes: DivisionedRichnotes, mainParams: MainMusi
   let currentScale = new Scale({ key: 0 });
   while (division <= maxDivision) {
     let keyChange;
-    if (divisionedNotes[division]) {
-      keyChange = getKeyChange(currentScale, divisionedNotes[division][0]);
-      currentScale = divisionedNotes[division][0].scale || currentScale;
+    if (divisionedNotes[division + BEAT_LENGTH] && divisionedNotes[division + BEAT_LENGTH][0] && divisionedNotes[division + BEAT_LENGTH][0].scale && !currentScale.equals(divisionedNotes[division + BEAT_LENGTH][0].scale)) {
+      keyChange = getKeyChange(currentScale, divisionedNotes[division + BEAT_LENGTH][0]);
+      currentScale = divisionedNotes[division + BEAT_LENGTH][0].scale || currentScale;
     }
     const params = mainParams.currentCadenceParams(division);
     let measureIndex = Math.floor(division / (params.beatsPerBar * BEAT_LENGTH))
