@@ -7,7 +7,7 @@ import { Logger } from "./mylogger";
 import { Chord, Nullable, DivisionedRichnotes, RichNote, BEAT_LENGTH, MainMusicParams } from "./utils";
 import { RandomChordGenerator } from "./randomchords";
 import { getInversions } from "./inversions";
-import { getTension } from "./tension";
+import { getTension, Tension } from "./tension";
 import { buildTopMelody } from "./topmelody";
 import { addHalfNotes } from "./halfnotes";
 import { getAvailableScales } from "./availablescales";
@@ -15,6 +15,7 @@ import { getAvailableScales } from "./availablescales";
 
 const GOOD_CHORD_LIMIT = 12;
 const GOOD_CHORDS_PER_CHORD = 3;
+const BAD_CHORD_LIMIT = 20;
 
 
 const sleepMS = async (ms: number): Promise<null> => {
@@ -27,7 +28,6 @@ const makeChords = async (mainParams: MainMusicParams, progressCallback: Nullabl
     //let currentScale = new Scale({ key: Math.floor(Math.random() * 12) , octave: 5, template: ScaleTemplates[params.scaleTemplate]});
 
     let result: DivisionedRichnotes = {};
-    let lastLogger: Logger;
 
     let divisionBannedNotes: {[key: number]: Array<Array<Note>>} = {}
 
@@ -62,6 +62,7 @@ const makeChords = async (mainParams: MainMusicParams, progressCallback: Nullabl
         let newChord: Nullable<Chord> = null;
 
         let goodChords: RichNote[][] = []
+        const badChords: {tension: Tension, chord: string}[] = []
 
         const randomNotes: Array<Note> = [];
 
@@ -77,9 +78,8 @@ const makeChords = async (mainParams: MainMusicParams, progressCallback: Nullabl
                 chord: newChord,
                 partIndex: index,
                 inversionName: prevInversionName,
-                tension: 0,
+                tension: new Tension(),
                 scale: currentScale,
-                logger: null,
             } as RichNote)));
             skipLoop = true;
         }
@@ -90,26 +90,20 @@ const makeChords = async (mainParams: MainMusicParams, progressCallback: Nullabl
                 await sleepMS(100);
             }
             newChord = randomGenerator.getChord();
+            const chordLogger = new Logger();
             if (iterations > 1000 || !newChord) {
                 console.log("Too many iterations, going back");
-                if (lastLogger) {
-                    lastLogger.print();
-                }
                 break;
             }
-            const chordLogger = new Logger();
-            chordLogger.log("Chord ", newChord.toString());
-
             let allInversions;
             let availableScales;
 
-            const availableScaleLogger = new Logger(chordLogger)
             availableScales = getAvailableScales({
                 latestDivision: division,
                 divisionedRichNotes: result,
                 params: params,
                 randomNotes: newChord.notes,
-                logger: availableScaleLogger,
+                logger: new Logger(chordLogger),
             })
             if (currentScale && (maxBeats - currentBeat < 3 || beatsUntilLastChordInCadence < 3 || currentBeat < 5)) {
                 // Don't allow other scales than the current one
@@ -154,53 +148,37 @@ const makeChords = async (mainParams: MainMusicParams, progressCallback: Nullabl
                     }
                 }
                 for (const availableScale of availableScales) {
-                    const scaleLogger = new Logger(inversionLogger)
-                    const chordTensionLogger = new Logger(scaleLogger);
-                    scaleLogger.title = ["Scale ", `${availableScale.scale.toString()}`];
                     if (goodChords.length >= GOOD_CHORD_LIMIT) {
                         break;
                     }
-                    const tensionResult = getTension(
-                        result,
-                        randomNotes,
-                        availableScale.scale,
+                    const tensionResult = getTension({
+                        divisionedNotes: result,
+                        toNotes: randomNotes,
+                        currentScale: availableScale.scale,
                         beatsUntilLastChordInCadence,
+                        beatsUntilLastChordInSong: maxBeats - currentBeat,
                         params,
-                        chordTensionLogger,
-                        maxBeats - currentBeat,
-                        inversionResult.inversionName,
+                        inversionName: inversionResult.inversionName,
                         prevInversionName,
-                    );
-                    chordTensionLogger.title = [
-                        prevChord ? prevChord.toString() : "", " -> ", newChord.toString(), ": ", tensionResult.tension
-                    ]
-                    for (const chord in params.chordSettings) {
-                        const chordSetting = params.chordSettings[chord];
-                        const chordWeight = parseFloat(`${chordSetting.weight}` || '0');
-                        if (newChord.chordType == chord) {
-                            tensionResult.tension -= ((chordWeight * 10) ** 3) / 10;
-                            chordTensionLogger.log("Chord ", chord, " weight: ", chordWeight, " tension: ", tensionResult.tension);
-                        }
-                    }
-                    tensionResult.tension += availableScale.tension / Math.max(0.01, params.modulationWeight);
-                    chordTensionLogger.log("Scale tension: ", tensionResult.tension);
+                    });
+
+                    tensionResult.modulation += availableScale.tension / Math.max(0.01, params.modulationWeight);
                     if (currentScale && !availableScale.scale.equals(currentScale)) {
-                        tensionResult.tension += 1 / Math.max(0.01, params.modulationWeight);
-                        chordTensionLogger.log("Scale change tension: ", tensionResult.tension);
+                        tensionResult.modulation += 1 / Math.max(0.01, params.modulationWeight);
                         if (maxBeats - currentBeat < 3) {
                             // Last 2 bars, don't change scale
-                            tensionResult.tension += 100;
+                            tensionResult.modulation += 100;
                         }
                         if (beatsUntilLastChordInCadence < 3) {
                             // Don't change scale in last 2 beats of cadence
-                            tensionResult.tension += 100;
+                            tensionResult.modulation += 100;
                         }
                         if (currentBeat < 5) {
                             // Don't change scale in first 5 beats
-                            tensionResult.tension += 100;
+                            tensionResult.modulation += 100;
                         }
                     }
-                    let tension = tensionResult.tension;
+                    let tension = tensionResult.getTotalTension(params);
 
                     if (progressCallback) {
                         const giveUP = progressCallback(null, null);
@@ -209,14 +187,7 @@ const makeChords = async (mainParams: MainMusicParams, progressCallback: Nullabl
                         }
                     }
 
-                    inversionLogger.title.push("chord: ");
-                    inversionLogger.title.push(`${newChord.toString()}`);
-                    inversionLogger.title.push("tension: ");
-                    inversionLogger.title.push(`${tension}`);
-                    if (tension > 10000) {
-                        inversionLogger.print();
-                    }
-                    else if (tension < 10) {
+                    if (tension < 10) {
                         inversionLogger.parent = null;
                         let thisChordCount = 0;
                         for (const goodChord of goodChords) {
@@ -231,13 +202,13 @@ const makeChords = async (mainParams: MainMusicParams, progressCallback: Nullabl
                             for (let i = 0; i < goodChords.length; i++) {
                                 const goodChord = goodChords[i];
                                 if (goodChord[0].chord.toString() == newChord.toString()) {
-                                    if (goodChord[0].tension < worstChordTension) {
+                                    if (goodChord[0].tension.totalTension < worstChordTension) {
                                         worstChord = i;
                                     }
                                 }
                             }
                             if (worstChord != null) {
-                                if (goodChords[worstChord][0].tension > tension) {
+                                if (goodChords[worstChord][0].tension.totalTension > tension) {
                                     // Just remove that index, add a new one later
                                     goodChords.splice(worstChord, 1);
                                 }
@@ -251,23 +222,24 @@ const makeChords = async (mainParams: MainMusicParams, progressCallback: Nullabl
                                 chord: newChord,
                                 partIndex: index,
                                 inversionName: inversionResult.inversionName,
-                                tension: tension,
+                                tension: tensionResult,
                                 scale: availableScale.scale,
-                                logger: inversionLogger,
                             } as RichNote)
                             ));
                         }
-                        chordTensionLogger.log("Chord is good: ", tension)
-                    } else {
-                        chordTensionLogger.log("Chord is bad: ", tension)
-                        lastLogger = inversionLogger;
+                    } else if (badChords.length < BAD_CHORD_LIMIT) {
+                        badChords.push({
+                            chord: newChord.toString(),
+                            tension: tensionResult
+                        });
                     }
-                    scaleLogger.title.push("tension: ");
-                    scaleLogger.title.push(`${tension}`);
                 }  // For available scales end
             }  // For voiceleading results end
         }  // While end
         if (goodChords.length == 0) {
+            for (const badChord of badChords) {
+                badChord.tension.print("Bad chord ", badChord.chord);
+            }
             // Go back to previous chord, and make it again
             if (division >= BEAT_LENGTH) {
                 division -= BEAT_LENGTH * 2;
@@ -296,8 +268,8 @@ const makeChords = async (mainParams: MainMusicParams, progressCallback: Nullabl
         // Choose the best chord from goodChords
         let bestChord = goodChords[0];
         for (const chord of goodChords) {
-            if (chord[0].logger) {
-                chord[0].logger.print();  
+            if (chord[0]) {
+                chord[0].tension.print(chord[0].chord ? chord[0].chord.toString() : "?Chord?", ": ")
             }
             if (chord[0].tension < bestChord[0].tension) {
                 bestChord = chord;
