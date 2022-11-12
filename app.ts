@@ -1,3 +1,4 @@
+import PlaybackEngine from "osmd-audio-player";
 import { buildTables } from "./src/chords"
 import { toXml } from "./src/musicxmlgen";
 import { loadPlayer, renderMusic } from "./src/player"
@@ -38,8 +39,20 @@ setTimeout(() => {
             (window as any).loadPlayer = loadPlayer;
             let autoplay = !data.progress;
             if (autoplay) {
+                const loadingEl = document.getElementById("loading");
+                if (loadingEl) {
+                    loadingEl.innerHTML = "Ladataan ääntä...";
+                }
                 const musicXML = toXml(divisionedRichNotes, params, true);
-                loadPlayer(musicXML, true)
+                loadPlayer(musicXML, true).then((audioPlayer) => {
+                    if (loadingEl) {
+                        loadingEl.innerHTML = "";
+                    }
+                    audioPlayer.scoreInstruments[0].Voices[0].volume = parseInt(params.cadences[0].parts[0].volume);
+                    audioPlayer.scoreInstruments[1].Voices[0].volume = parseInt(params.cadences[0].parts[1].volume);
+                    audioPlayer.scoreInstruments[2].Voices[0].volume = parseInt(params.cadences[0].parts[2].volume);
+                    audioPlayer.scoreInstruments[3].Voices[0].volume = parseInt(params.cadences[0].parts[3].volume);
+                })
             }
             if (autoplay || (!playerLoading && playerLoadTime.getTime() - (new Date()).getTime() < -1000)) {
                 const sheetXML = toXml(divisionedRichNotes, params, false);

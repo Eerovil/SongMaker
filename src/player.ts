@@ -7,6 +7,10 @@ export const renderMusic = async (scoreXml: string) => {
   if (!document) {
     return;
   }
+  if (!(window as any).audioPlayer) {
+    (window as any).audioPlayer = new AudioPlayer();
+  }
+  const audioPlayer = (window as any).audioPlayer;
   let el = document.getElementById("score");
   if (!el) {
     return;
@@ -15,6 +19,7 @@ export const renderMusic = async (scoreXml: string) => {
   const osmd = new OpenSheetMusicDisplay(el);
   await osmd.load(scoreXml);
   osmd.render();
+  audioPlayer.loadScore(osmd as any);
 }
 
 
@@ -46,6 +51,8 @@ const loadPlayer = async (scoreXml: string, autoplay: boolean) => {
       audioPlayer.play();
     }
   }, 500)
+
+  return audioPlayer;
 }
 
 function hideLoadingMessage() {

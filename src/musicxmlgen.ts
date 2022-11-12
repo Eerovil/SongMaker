@@ -692,6 +692,8 @@ export function toXml(divisionedNotes: DivisionedRichnotes, mainParams: MainMusi
   }
 
   const ret = root.end({ pretty: true });
+  console.groupCollapsed('Generated XML');
   console.log("Writing XML: ", ret);
+  console.groupEnd();
   return ret;
 }

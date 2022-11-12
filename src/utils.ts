@@ -217,22 +217,27 @@ export class MusicParams {
     parts: Array<{
         voice: string,
         note: string,
+        volume: string,
     }> = [
         {
             voice: "42",
             note: "C5",
+            volume: "10",
         },
         {
             voice: "42",
             note: "A4",
+            volume: "7",
         },
         {
             voice: "42",
             note: "C4",
+            volume: "7",
         },
         {
             voice: "42",
             note: "E3",
+            volume: "10",
         }
     ];
     beatSettings: Array<{
