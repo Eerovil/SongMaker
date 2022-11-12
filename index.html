@@ -5,20 +5,7 @@
 
     <title>My First Web Page</title>
     <script>
-        loadQueryParams = function() {
-            var params = {};
-            var query = window.location.search.substring(1);
-            var vars = query.split("&");
-            for (var i = 0; i < vars.length; i++) {
-                var pair = vars[i].split("=");
-                params[pair[0]] = decodeURIComponent(pair[1]);
-            }
-            if (params.fulldata) {
-                return JSON.parse(params.fulldata);
-            }
-            return params;
-        }
-        window.params = loadQueryParams();
+        window.params = JSON.parse(window.localStorage.getItem('fulldata') || "{}")
     </script>
     <script src="dist/bundle.js"></script>
     <style>
@@ -98,7 +85,7 @@
         <div>
             <button @click="saveParams(true)">Aja koko sävellys</button>
             <button onclick="newMelody()">Aja vain melodia</button>
-            <button onclick="window.location.href = '/'">Reset</button>
+            <button @click="resetParams()">Reset</button>
         </div>
         <div class="main-settings-wrapper">
             <h2>Pääasetukset</h2>
@@ -431,14 +418,14 @@ createApp({
   },
   methods: {
     saveParams(reload = undefined) {
-        const searchParams = new URLSearchParams();
-        searchParams.set("fulldata", JSON.stringify(this.params));
-        const url = new URL(window.location.href);
-        url.search = searchParams.toString();
-        window.history.pushState({}, "", url.toString());
+        window.localStorage.setItem('fulldata', JSON.stringify(this.params));
         if (reload) {
             window.location.reload();
         }
+    },
+    resetParams() {
+        window.localStorage.setItem('fulldata', "{}");
+        window.location.reload();
     },
     checkCadenceCount() {
         const newVal = this.params.cadenceCount || 0;
