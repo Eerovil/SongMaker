@@ -4,6 +4,65 @@ import { Tension } from "./tension";
 
 export const BEAT_LENGTH = 12;
 
+
+export const semitoneDistance = (tone1: number, tone2: number) => {
+    // distance from 0 to 11 should be 1
+    // 0 - 11 + 12 => 1
+    // 11 - 0 + 12 => 23 => 11
+
+    // 0 - 6 + 12 => 6
+    // 6 - 0 + 12 => 18 => 6
+
+    // 0 + 6 - 3 + 6 = 6 - 9 = -3
+    // 6 + 6 - 9 + 6 = 12 - 15 = 0 - 3 = -3
+    // 11 + 6 - 0 + 6 = 17 - 6 = 5 - 6 = -1
+    // 0 + 6 - 11 + 6 = 6 - 17 = 6 - 5 = 1
+
+    // (6 + 6) % 12 = 0
+    // (5 + 6) % 12 = 11
+    // Result = 11!!!!
+
+    return Math.min(
+        Math.abs(tone1 - tone2),
+        Math.abs((tone1 + 6) % 12 - (tone2 + 6) % 12)
+    );
+}
+
+export const semitoneScaleIndex = (scale: Scale): { [key: number]: number } => ({
+    [scale.notes[0].semitone]: 0,
+    [scale.notes[1].semitone]: 1,
+    [scale.notes[2].semitone]: 2,
+    [scale.notes[3].semitone]: 3,
+    [scale.notes[4].semitone]: 4,
+    [scale.notes[5].semitone]: 5,
+    [scale.notes[6].semitone]: 6,
+})
+
+
+export const nextGToneInScale = (gTone: Semitone, indexDiff: number, scale: Scale): Nullable<number> => {
+    let gTone1 = gTone;
+    const scaleIndexes = semitoneScaleIndex(scale)
+    let scaleIndex = scaleIndexes[gTone1 % 12];
+    if (!scaleIndex) {
+        gTone1 = gTone + 1;
+        scaleIndex = scaleIndexes[gTone1 % 12];
+    }
+    if (!scaleIndex) {
+        gTone1 = gTone - 1;
+        scaleIndex = scaleIndexes[gTone1 % 12];
+    }
+    if (!scaleIndex) {
+        return null;
+    }
+    const newScaleIndex = (scaleIndex + indexDiff) % 7;
+    const newSemitone = scale.notes[newScaleIndex].semitone;
+    const distance = semitoneDistance(gTone1 % 12, newSemitone);
+    const newGtone = gTone1 + (distance * (indexDiff > 0 ? 1 : -1));
+
+    return newGtone;
+}
+
+
 export const startingNotes = (params: MusicParams) => {  
     const p1Note = params.parts[0].note || "F4";
     const p2Note = params.parts[1].note || "C4";
@@ -28,16 +87,6 @@ export const startingNotes = (params: MusicParams) => {
         semitoneLimits,
     }
 }
-
-export const semitoneScaleIndex = (scale: Scale): { [key: number]: number } => ({
-    [scale.notes[0].semitone]: 0,
-    [scale.notes[1].semitone]: 1,
-    [scale.notes[2].semitone]: 2,
-    [scale.notes[3].semitone]: 3,
-    [scale.notes[4].semitone]: 4,
-    [scale.notes[5].semitone]: 5,
-    [scale.notes[6].semitone]: 6,
-})
 
 
 export const gToneString = (gTone: number): string => {
@@ -118,7 +167,7 @@ export type Nullable<T> = T | null
 
 export class MainMusicParams {
     beatsPerBar?: number = 4;
-    cadenceCount?: number = 2
+    cadenceCount?: number = 4;
     cadences: Array<MusicParams> = [];
     testMode?: boolean = false;
 
@@ -161,26 +210,26 @@ export class MusicParams {
     halfNotes?: boolean = true;
     sixteenthNotes?: number = 0.2;
     eighthNotes?: number = 0.4;
-    modulationWeight?: number = 0.2;
+    modulationWeight?: number = 0;
     leadingWeight?: number = 2;
     parts: Array<{
         voice: string,
         note: string,
     }> = [
         {
-            voice: "1",
+            voice: "42",
             note: "C5",
         },
         {
-            voice: "1",
+            voice: "42",
             note: "A4",
         },
         {
-            voice: "1",
+            voice: "42",
             note: "C4",
         },
         {
-            voice: "1",
+            voice: "42",
             note: "E3",
         }
     ];
@@ -232,6 +281,51 @@ export class MusicParams {
         },
     };
     selectedCadence: string = "HC";
+    nonChordTones: {
+        [key: string]: {
+            enabled: boolean,
+            weight: number,
+        }
+    } = {
+        passingTone: {
+            enabled: true,
+            weight: 1,
+        },
+        neighborTone: {
+            enabled: false,
+            weight: 0,
+        },
+        suspension: {
+            enabled: true,
+            weight: 1,
+        },
+        retardation: {
+            enabled: true,
+            weight: 1,
+        },
+        appogiatura: {
+            enabled: true,
+            weight: 1,
+        },
+        escapeTone: {
+            enabled: true,
+            weight: 1,
+        },
+        anticipation: {
+            enabled: false,
+            weight: 0,
+        },
+        neighborGroup: {
+            enabled: true,
+            weight: 1,
+        },
+        pedalPoint: {
+            enabled: true,
+            weight: 1,
+        },
+    }
+
+
     constructor(params: Partial<MusicParams> | undefined = undefined) {
         if (params) {
             for (let key in params) {
@@ -367,28 +461,4 @@ export const majScaleDifference = (semitone1: number, semitone2: number) => {
         currentVal = [...newCurrentVal] as Array<number>;
     }
     return 12;
-}
-
-
-export const semitoneDistance = (tone1: number, tone2: number) => {
-    // distance from 0 to 11 should be 1
-    // 0 - 11 + 12 => 1
-    // 11 - 0 + 12 => 23 => 11
-
-    // 0 - 6 + 12 => 6
-    // 6 - 0 + 12 => 18 => 6
-
-    // 0 + 6 - 3 + 6 = 6 - 9 = -3
-    // 6 + 6 - 9 + 6 = 12 - 15 = 0 - 3 = -3
-    // 11 + 6 - 0 + 6 = 17 - 6 = 5 - 6 = -1
-    // 0 + 6 - 11 + 6 = 6 - 17 = 6 - 5 = 1
-
-    // (6 + 6) % 12 = 0
-    // (5 + 6) % 12 = 11
-    // Result = 11!!!!
-
-    return Math.min(
-        Math.abs(tone1 - tone2),
-        Math.abs((tone1 + 6) % 12 - (tone2 + 6) % 12)
-    );
 }

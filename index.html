@@ -73,7 +73,7 @@
         .secondary-settings-wrapper {
             display: flex;
             flex-direction: column;
-            width: 20%;
+            width: 15%;
             margin-left: 2rem;
         }
         .settings-row {
@@ -92,13 +92,6 @@
 </head>
 
 <body>
-    <button onclick="window.giveUp()">Luovuta generointi</button>
-    <button id="btn-play">PLAY</button>
-    <button id="btn-pause">PAUSE</button>
-    <button id="btn-stop">STOP</button>
-    <div id="score"></div>
-    <div id="loading">loading...</div>
-    
 <div style="margin-top: 3rem; display: flex; justify-content: space-between; padding: 1rem 5rem; border: 1px solid black; flex-wrap: wrap;">
 
     <div id="vue-template">
@@ -155,6 +148,14 @@
                     <label :for="`${index}-leading-weight`">Sävelen johtaminen</label>
                     <input v-model="cadenceParams.leadingWeight" type="range" :id="`${index}-leading-weight`" min="0" max="5" step="0.1" style="width: 100px">
                 </div>
+                <div class="settings-row">
+                    <label :for="`${index}-cadence-type`">Kadenssi</label>
+                    <select :id="`${index}-cadence-type`" v-model="cadenceParams.selectedCadence">
+                        <option value="PAC">PAC</option>
+                        <option value="IAC">IAC</option>
+                        <option value="HC">HC</option>
+                    </select>
+                </div>
             </div>
             <div class="secondary-settings-wrapper">
                 <h4>Asteikot</h4>
@@ -195,13 +196,10 @@
                 </div>
             </div>
             <div class="secondary-settings-wrapper">
-                <h4>Kadenssi</h4>
-                <div class="settings-row">
-                    <select v-model="cadenceParams.selectedCadence">
-                        <option value="PAC">PAC</option>
-                        <option value="IAC">IAC</option>
-                        <option value="HC">HC</option>
-                    </select>
+                <h4>Non Chord Tones</h4>
+                <div class="settings-row" v-for="(nacValue, nacKey) in cadenceParams.nonChordTones" :key="nacKey">
+                    <label for="`${index}-nac-${nacKey}`">{{ nacKey }}</label>
+                    <input v-model="nacValue.weight" @change="nacUpdate(nacValue)" type="range" min="0" max="1" step="0.1">
                 </div>
             </div>
             <div class="secondary-settings-wrapper">
@@ -258,6 +256,13 @@
         </div>
     </div>
 </div>
+<button onclick="window.giveUp()">Luovuta generointi</button>
+<button id="btn-play">PLAY</button>
+<button id="btn-pause">PAUSE</button>
+<button id="btn-stop">STOP</button>
+<div id="score"></div>
+<div id="loading">loading...</div>
+
 </body>
 <script>
 window.midiInstruments = [
@@ -438,7 +443,11 @@ createApp({
     checkCadenceCount() {
         const newVal = this.params.cadenceCount || 0;
         this.params.cadences = this.params.cadences || [];
+        let fullInit = false;
         if (this.params.cadences.length < newVal) {
+            if (newVal - this.params.cadences.length > 1) {
+                fullInit = true;
+            }
             const diff = newVal - this.params.cadences.length;
             for (let i=0; i<diff; i++) {
                 this.params.cadences.push(this.initCadenceParams());
@@ -448,6 +457,18 @@ createApp({
         }
         for (const cadence of this.params.cadences) {
             this.updateCadenceBars(cadence);
+        }
+        if (fullInit) {
+            for (let i=0; i<this.params.cadences.length; i++) {
+                if (i === 0 || i == 2) {
+                    this.params.cadences[i].selectedCadence = "HC";
+                } else if (i === 1) {
+                    this.params.cadences[i].selectedCadence = "IAC";
+                } else if (i === 3) {
+                    this.params.cadences[i].selectedCadence = "PAC";
+                }
+            }
+            this.saveParams(true);
         }
     },
     initCadenceParams() {
@@ -463,10 +484,13 @@ createApp({
         }
     },
     updateCadenceScaleWeight(scaleSettings) {
-        scaleSettings.enabled = scaleSettings.weight != -0.5;
+        scaleSettings.enabled = parseFloat(scaleSettings.weight) != -0.5;
     },
     chordSettingsUpdate(chordSettings) {
-        chordSettings.enabled = chordSettings.weight != -1;
+        chordSettings.enabled = parseFloat(chordSettings.weight) != -1;
+    },
+    nacUpdate(nacSettings) {
+        nacSettings.enabled = parseFloat(nacSettings.weight) != 0;
     },
     updateCadenceBars(cadenceParams) {
         const barCount = cadenceParams.barsPerCadence;

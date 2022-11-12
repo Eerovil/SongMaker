@@ -521,7 +521,6 @@ export function toXml(divisionedNotes: DivisionedRichnotes, mainParams: MainMusi
       const currentBeat = Math.floor(division / BEAT_LENGTH) + params.beatsPerBar;
       if (partIndex % 2 == 0 && params.beatsUntilCadenceEnd == params.beatsPerBar) {
         // Add cadence ending barline
-        console.log("Adding cadence ending barline on division ", division);
         let barStyle = 'light-light';
         if (currentBeat >= (maxDivision / BEAT_LENGTH) - params.beatsPerBar) {
           barStyle = 'light-heavy';

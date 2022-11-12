@@ -51,7 +51,7 @@ setTimeout(() => {
             }
         }
     };
-}, 10);
+}, 100);
 
 
 (window as any).getNewMelody = (params: MainMusicParams) => {
