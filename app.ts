@@ -1,5 +1,6 @@
 import { buildTables } from "./src/chords"
-import { loadPlayer } from "./src/player"
+import { toXml } from "./src/musicxmlgen";
+import { loadPlayer, renderMusic } from "./src/player"
 import { MainMusicParams, MusicParams } from "./src/utils";
 
 
@@ -31,12 +32,18 @@ setTimeout(() => {
         worker.postMessage({giveUp: true});
     }
     worker.onmessage = ({ data }) => {
-        if (browser && data.xml) {
+        if (browser && data.divisionedRichNotes) {
             // console.log((window as any).result);
+            const divisionedRichNotes = data.divisionedRichNotes;
             (window as any).loadPlayer = loadPlayer;
             let autoplay = !data.progress;
+            if (autoplay) {
+                const musicXML = toXml(divisionedRichNotes, params, true);
+                loadPlayer(musicXML, true)
+            }
             if (autoplay || (!playerLoading && playerLoadTime.getTime() - (new Date()).getTime() < -1000)) {
-                loadPlayer(data.xml, autoplay).then(() => {
+                const sheetXML = toXml(divisionedRichNotes, params, false);
+                renderMusic(sheetXML).then(() => {
                     playerLoading = false;
                 })
                 playerLoadTime = new Date();

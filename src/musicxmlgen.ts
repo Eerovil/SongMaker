@@ -1,12 +1,53 @@
 import { Note, Scale, ScaleTemplates } from 'musictheoryjs';
 
 import builder from 'xmlbuilder';
-import { DivisionedRichnotes, globalSemitone, MainMusicParams, MusicParams, RichNote } from './utils';
+import { Chord, DivisionedRichnotes, globalSemitone, MainMusicParams, MusicParams, RichNote } from './utils';
 
 const BEAT_LENGTH = 12
 
 
-function semitoneToPitch(semitone: number, scale: Scale, direction: string="sharp"): { noteName: string, alter: number } {
+const scaleToScale = (scale: any) => {
+  if (!scale) {
+    return scale;
+  }
+  if (scale instanceof Scale) {
+    return scale;
+  }
+  return new Scale({
+    key: scale._key,
+    octave: scale._octave,
+    template: scale._template,
+  })
+}
+
+const noteToNote = (note: any) => {
+  if (!note) {
+    return note;
+  }
+  if (note instanceof Note) {
+    return note;
+  }
+  return new Note({
+    semitone: note._tone,
+    octave: note._octave,
+  });
+}
+
+const chordToChord = (chord: any) => {
+  if (!chord) {
+    return chord;
+  }
+  if (chord instanceof Chord) {
+    return chord;
+  }
+  return new Chord(
+    chord.root,
+    chord.chordType,
+  );
+}
+
+function semitoneToPitch(semitone: number, scale: Scale, direction: string = "sharp"): { noteName: string, alter: number } {
+  scale = scaleToScale(scale);
   for (const note of scale.notes) {
     if (note.semitone === semitone) {
       return {
@@ -66,9 +107,9 @@ const flatScaleSemitones: Set<number> = new Set([
 ]);
 
 function noteToPitch(richNote: RichNote) {
-  const note = richNote.note;
-  const noteScale = richNote.scale;
-  const scoreScale = new Scale({key: 0, octave: note.octave, template: ScaleTemplates.major})
+  const note = noteToNote(richNote.note);
+  const noteScale = scaleToScale(richNote.scale);
+  const scoreScale = new Scale({ key: 0, octave: note.octave, template: ScaleTemplates.major })
   let direction = 'sharp';
   if (noteScale) {
     let base = noteScale.notes[0].semitone;
@@ -99,6 +140,8 @@ function addRichNoteToMeasure(richNote: RichNote, measure: builder.XMLElement, s
   if (richNote.duration == 0) {
     return;
   }
+  richNote.scale = scaleToScale(richNote.scale);
+  richNote.chord = chordToChord(richNote.chord);
   const duration = richNoteDuration(richNote);
   let beamNumber = 1;
 
@@ -141,7 +184,7 @@ function addRichNoteToMeasure(richNote: RichNote, measure: builder.XMLElement, s
     lyric = { 'text': { '#text': romanNumeral } }
   }
 
-  const attrs =  {
+  const attrs = {
     'chord': !firstNoteInChord ? {} : undefined,
     'pitch': noteToPitch(richNote),
     'duration': duration.duration,
@@ -193,17 +236,19 @@ function addRichNoteToMeasure(richNote: RichNote, measure: builder.XMLElement, s
       kindText = "sus4";
     }
 
-    const scoreScale = new Scale({key: 0, octave: 4, template: ScaleTemplates.major})
+    const scoreScale = new Scale({ key: 0, octave: 4, template: ScaleTemplates.major })
     let direction = 'sharp';
+    richNote.scale = scaleToScale(richNote.scale);
     if (richNote.scale) {
       const base = richNote.scale.notes[0].semitone;
       if (flatScaleSemitones.has(base)) {
         direction = 'flat';
       }
     }
-    const pitch = semitoneToPitch(richNote.chord.notes[0].semitone, scoreScale, direction);
+    const pitch = semitoneToPitch(noteToNote(richNote.chord.notes[0]).semitone, scoreScale, direction);
 
-    measure.ele({ 'harmony': {
+    measure.ele({
+      'harmony': {
         'root': {
           'root-step': { '#text': pitch.noteName },
           'root-alter': pitch.alter,
@@ -218,16 +263,18 @@ function addRichNoteToMeasure(richNote: RichNote, measure: builder.XMLElement, s
   }
   if (keychange) {
     const attributes = measure.ele('attributes');
-    attributes.ele({ 'key': {
+    attributes.ele({
+      'key': {
         'cancel': { '#text': keychange.cancel },
         'fifths': { '#text': keychange.fifths },
         'mode': { '#text': keychange.mode },
-    }})
+      }
+    })
   }
   measure.ele({ 'note': attrs });
 }
 
-function firstMeasureInit(voicePartIndex: number, measure: builder.XMLElement, params: MusicParams) {
+function firstMeasureInit(voicePartIndex: number, measure: builder.XMLElement, params: MusicParams, separated: boolean) {
   let clef;
   const semitones = [
     globalSemitone(new Note(params.parts[0].note || "F4")),
@@ -267,37 +314,49 @@ function firstMeasureInit(voicePartIndex: number, measure: builder.XMLElement, p
     };
   }
 
-  measure.ele({ 'attributes': {
-    'divisions': { '#text': `${BEAT_LENGTH}` },
-    'key': {
-      'fifths': { '#text': '0' }
+  measure.ele({
+    'attributes': {
+      'divisions': { '#text': `${BEAT_LENGTH}` },
+      'key': {
+        'fifths': { '#text': '0' }
+      },
+      'time': {
+        'beats': { '#text': params.beatsPerBar },
+        'beat-type': { '#text': '4' }
+      },
+      'staves': 1,
+      clef: [
+        clef
+      ]
     },
-    'time': {
-      'beats': { '#text': params.beatsPerBar },
-      'beat-type': { '#text': '4' }
-    },
-    'staves': 1,
-    clef: [
-      clef
-    ]
-  },
-  'direction': {
-    '@placement': 'above',
-    'direction-type': {
-      'metronome': {
-        'beat-unit': 'quarter',
-        'per-minute': `${params.tempo || 40}`
+    'direction': {
+      '@placement': 'above',
+      'direction-type': {
+        'metronome': {
+          'beat-unit': 'quarter',
+          'per-minute': `${params.tempo || 40}`
+        }
+      },
+      'sound': {
+        '@tempo': `${params.tempo || 40}`
       }
-    },
-    'sound': {
-      '@tempo': `${params.tempo || 40}`
     }
-  }
-});
+  });
+  // if (separated) {
+  //   measure.ele({
+  //     'direction': {
+  //       'sound': {
+  //         '@dynamics': [0, 3].includes(voicePartIndex) ? 10: 10,
+  //       }
+  //     }
+  //   })
+  // }
 }
 
 
 const getScaleSharpCount = (scale: Scale) => {
+  // Scale objects must be recreated as they might be plain objects
+  scale = scaleToScale(scale);
   let sharpCount = 0;
   let semitone = scale.key;
   if (scale.toString().includes("Minor")) {
@@ -333,6 +392,7 @@ const getScaleSharpCount = (scale: Scale) => {
 
 const getKeyChange = (currentScale: Scale, richNote: RichNote) => {
   let keyChange: KeyChange | undefined = undefined
+  richNote.scale = scaleToScale(richNote.scale);
   const prevSharpCount = getScaleSharpCount(currentScale);
   const newSharpCount = getScaleSharpCount(richNote.scale);
   let fifths = 0;
@@ -345,7 +405,7 @@ const getKeyChange = (currentScale: Scale, richNote: RichNote) => {
     fifths = newSharpCount - prevSharpCount;
   } else if (prevSharpCount >= 0 && newSharpCount < prevSharpCount) {
     // There were sharps, and now there are fewer sharps (maybe even flats)
-    for (let i=prevSharpCount; i>newSharpCount; i--) {
+    for (let i = prevSharpCount; i > newSharpCount; i--) {
       if (i > 0) {
         // Turn these fifths into cancels
         cancel++;
@@ -359,7 +419,7 @@ const getKeyChange = (currentScale: Scale, richNote: RichNote) => {
   } else if (prevSharpCount <= 0 && newSharpCount > prevSharpCount) {
     // There were flats, and now there are fewer flats (maybe even sharps)
     //TODO
-    for (let i=prevSharpCount; i>newSharpCount; i++) {
+    for (let i = prevSharpCount; i > newSharpCount; i++) {
       if (i < 0) {
         // Turn these flats into cancels
         cancel++;
@@ -378,75 +438,165 @@ const getKeyChange = (currentScale: Scale, richNote: RichNote) => {
 }
 
 
-export function toXml(divisionedNotes: DivisionedRichnotes, mainParams: MainMusicParams): string {
-  const root = builder.create({ 'score-partwise' : { '@version': 3.1 }},
-    { version: '1.0', encoding: 'UTF-8', standalone: false},
+export function toXml(divisionedNotes: DivisionedRichnotes, mainParams: MainMusicParams, separated: boolean = false): string {
+  const root = builder.create({ 'score-partwise': { '@version': 3.1 } },
+    { version: '1.0', encoding: 'UTF-8', standalone: false },
     {
       pubID: '-//Recordare//DTD MusicXML 3.1 Partwise//EN',
       sysID: 'http://www.musicxml.org/dtds/partwise.dtd'
     }
   );
-  root.ele({ 'work': { 'work-title': "My song" }});
+  root.ele({ 'work': { 'work-title': "My song" } });
   const firstParams = mainParams.currentCadenceParams(0);
-  const partList = root.ele({ 'part-list': {}});
-  partList.ele({
-    'score-part': {
-      '@id': 'P1',
-      'group': {
-        '#text': 'score'
-      },
-      'part-name': {
-        '#text': 'P1'
-      },
-      'score-instrument': {
-        '@id': 'P1-I1',
-        'instrument-name': {
-          '#text': `${firstParams.parts[0].voice}`
-        },
-      },
-      'midi-instrument': {
-        '@id': 'P1-I1',
-        'midi-channel': 1,
-        'midi-program': firstParams.parts[0].voice,
-        'volume': 100,
-        'pan': 0
-      }
-    }
-  });
-  partList.ele({
-    'score-part': {
-      '@id': 'P2',
-      'group': {
-        '#text': 'score'
-      },
-      'part-name': {
-        '#text': 'P2'
-      },
-      'score-instrument': {
-        '@id': 'P2-I1',
-        'instrument-name': {
-          '#text': `${firstParams.parts[3].voice}`
-        },
-      },
-      'midi-instrument': {
-        '@id': 'P2-I1',
-        'midi-channel': 1,
-        'midi-program': firstParams.parts[3].voice,
-        'volume': 100,
-        'pan': 0
-      }
-    }
-  });
+  const partList = root.ele({ 'part-list': {} });
+  let parts;
 
-  const parts = [
-    root.ele({ 'part': { '@id': 'P1' }}),
-    root.ele({ 'part': { '@id': 'P2' }}),
-  ];
+  if (separated) {
+    partList.ele({
+      'score-part': {
+        '@id': 'P1',
+        'group': {
+          '#text': 'score'
+        },
+        'part-name': {
+          '#text': 'P1'
+        },
+        'score-instrument': {
+          '@id': 'P1-I1',
+          'instrument-name': {
+            '#text': `${firstParams.parts[0].voice}`
+          },
+        },
+        'midi-instrument': {
+          '@id': 'P1-I1',
+          'midi-channel': 1,
+          'midi-program': firstParams.parts[0].voice,
+          'volume': 1,
+          'pan': 0
+        }
+      }
+    });
+    partList.ele({
+      'score-part': {
+        '@id': 'P2',
+        'group': {
+          '#text': 'score'
+        },
+        'part-name': {
+          '#text': 'P2'
+        },
+        'score-instrument': {
+          '@id': 'P2-I1',
+          'instrument-name': {
+            '#text': `${firstParams.parts[1].voice}`
+          },
+        },
+        'midi-instrument': {
+          '@id': 'P2-I1',
+          'midi-channel': 1,
+          'midi-program': firstParams.parts[1].voice,
+          'volume': 1,
+          'pan': 0
+        }
+      }
+    });
+
+    partList.ele({
+      'score-part': {
+        '@id': 'P3',
+        'group': {
+          '#text': 'score'
+        },
+        'part-name': {
+          '#text': 'P3'
+        },
+        'score-instrument': {
+          '@id': 'P3-I1',
+          'instrument-name': {
+            '#text': `${firstParams.parts[2].voice}`
+          },
+        },
+        'midi-instrument': {
+          '@id': 'P3-I1',
+          'midi-channel': 1,
+          'midi-program': firstParams.parts[2].voice,
+          'volume': 1,
+          'pan': 0
+        }
+      }
+    });
+    partList.ele({
+      'score-part': {
+        '@id': 'P4',
+        'group': {
+          '#text': 'score'
+        },
+        'part-name': {
+          '#text': 'P4'
+        },
+        'score-instrument': {
+          '@id': 'P4-I1',
+          'instrument-name': {
+            '#text': `${firstParams.parts[3].voice}`
+          },
+        },
+        'midi-instrument': {
+          '@id': 'P4-I1',
+          'midi-channel': 1,
+          'midi-program': firstParams.parts[3].voice,
+          'volume': 1,
+          'pan': 0
+        }
+      }
+    });
+
+    parts = [
+      root.ele({ 'part': { '@id': 'P1' } }),
+      root.ele({ 'part': { '@id': 'P2' } }),
+      root.ele({ 'part': { '@id': 'P3' } }),
+      root.ele({ 'part': { '@id': 'P4' } }),
+    ];
+
+  } else {
+
+    partList.ele({
+      'score-part': {
+        '@id': 'P1',
+        'group': {
+          '#text': 'score'
+        },
+        'part-name': {
+          '#text': 'P1'
+        },
+      }
+    });
+    partList.ele({
+      'score-part': {
+        '@id': 'P2',
+        'group': {
+          '#text': 'score'
+        },
+        'part-name': {
+          '#text': 'P2'
+        },
+      }
+    });
+
+    parts = [
+      root.ele({ 'part': { '@id': 'P1' } }),
+      root.ele({ 'part': { '@id': 'P2' } }),
+    ];
+  }
 
   const measures: Array<Array<builder.XMLElement>> = [
     [],
     [],
   ]
+
+  if (separated) {
+    measures.push([]);
+    measures.push([]);
+  }
 
   // (0 + 1) + ((0 + 1) * 2) = 1 + 2 = 3
   // 0 + 0 = 0
@@ -460,11 +610,11 @@ export function toXml(divisionedNotes: DivisionedRichnotes, mainParams: MainMusi
   while (division <= maxDivision) {
     let keyChange;
     if (
-          divisionedNotes[division] &&
-          divisionedNotes[division][0] &&
-          divisionedNotes[division][0].scale &&
-          !currentScale.equals(divisionedNotes[division][0].scale)
-        ) {
+      divisionedNotes[division] &&
+      divisionedNotes[division][0] &&
+      divisionedNotes[division][0].scale &&
+      !currentScale.equals(divisionedNotes[division][0].scale)
+    ) {
       keyChange = getKeyChange(currentScale, divisionedNotes[division][0]);
       currentScale = divisionedNotes[division][0].scale;
       if (keyChange.fifths === 0 && keyChange.cancel === 0) {
@@ -473,14 +623,17 @@ export function toXml(divisionedNotes: DivisionedRichnotes, mainParams: MainMusi
     }
     const params = mainParams.currentCadenceParams(division);
     let measureIndex = Math.floor(division / (params.beatsPerBar * BEAT_LENGTH))
-    for (let partIndex=0; partIndex<4; partIndex++) {
+    for (let partIndex = 0; partIndex < 4; partIndex++) {
       let staff = partIndex <= 1 ? 0 : 1;
+      if (separated) {
+        staff = partIndex;
+      }
       const part = parts[staff];
       const voicePartIndex = partIndex;
-      if (division == 0 && partIndex % 2 == 0) {
-        measures[staff].push(part.ele({ 'measure': { '@number': 1 }}));
-        firstMeasureInit(voicePartIndex, measures[staff][measures[staff].length - 1], firstParams);
-      } else if (partIndex % 2 == 0) {
+      if (division == 0 && (partIndex % 2 == 0 || separated)) {
+        measures[staff].push(part.ele({ 'measure': { '@number': 1 } }));
+        firstMeasureInit(voicePartIndex, measures[staff][measures[staff].length - 1], firstParams, separated);
+      } else if (partIndex % 2 == 0 || separated) {
         measures[staff].push(
           part.ele({ 'measure': { '@number': `${(measureIndex) + 1}` } })
         );
@@ -488,7 +641,7 @@ export function toXml(divisionedNotes: DivisionedRichnotes, mainParams: MainMusi
       let currentMeasure = measures[staff][measureIndex]
 
       // Move second voice backwards by a full measure
-      if (partIndex % 2 != 0) {
+      if (!separated && partIndex % 2 != 0) {
         measures[staff][measures[staff].length - 1].ele({
           'backup': {
             'duration': {
@@ -500,7 +653,7 @@ export function toXml(divisionedNotes: DivisionedRichnotes, mainParams: MainMusi
 
       // Get all richNotes for this part for this measure
 
-      for (let tmpDivision=0; tmpDivision <params.beatsPerBar * BEAT_LENGTH; tmpDivision++) {
+      for (let tmpDivision = 0; tmpDivision < params.beatsPerBar * BEAT_LENGTH; tmpDivision++) {
         const measureDivision = division + tmpDivision;
         const richNotes = (divisionedNotes[measureDivision] || []).filter((rn) => rn.partIndex == partIndex);
         if (!richNotes || richNotes.length == 0) {
@@ -511,10 +664,10 @@ export function toXml(divisionedNotes: DivisionedRichnotes, mainParams: MainMusi
           richNote,
           currentMeasure,
           staff,
-          partIndex % 2,
+          separated ? 0 : partIndex % 2,
           true,
           measureDivision % BEAT_LENGTH == 0,
-          partIndex % 2 ? keyChange : undefined,
+          (separated || partIndex % 2) ? keyChange : undefined,
           params,
         );
       }
@@ -525,17 +678,20 @@ export function toXml(divisionedNotes: DivisionedRichnotes, mainParams: MainMusi
         if (currentBeat >= (maxDivision / BEAT_LENGTH) - params.beatsPerBar) {
           barStyle = 'light-heavy';
         }
-        currentMeasure.ele({'barline': {
-          '@location': 'right',
-          'bar-style': {
-            '#text': barStyle,
-          },
-        }});
+        currentMeasure.ele({
+          'barline': {
+            '@location': 'right',
+            'bar-style': {
+              '#text': barStyle,
+            },
+          }
+        });
       }
     }
     division += params.beatsPerBar * BEAT_LENGTH;
   }
 
-  const ret = root.end({ pretty: true});
+  const ret = root.end({ pretty: true });
+  console.log("Writing XML: ", ret);
   return ret;
 }

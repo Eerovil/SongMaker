@@ -123,6 +123,7 @@ export const chordTemplates: { [key: string]: Array<number> } = {
 
 export class Chord {
     public notes: Array<Note>;
+    public root: number;
     public chordType: string;
     public toString() {
         // Find correct Semitone key
@@ -150,6 +151,7 @@ export class Chord {
         } else {
             semitone = semitoneOrName;
         }
+        this.root = parseInt(`${semitone}`);
         this.chordType = chordType;
         const template = chordTemplates[chordType];
         if (template == undefined) {

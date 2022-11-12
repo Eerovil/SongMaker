@@ -9,6 +9,20 @@
     </script>
     <script src="dist/bundle.js"></script>
     <style>
+        #score-wrapper {
+            height: 1000px;
+            position: relative;
+        }
+        #score-hidden {
+            position: absolute;
+            display: none;
+        }
+        #score {
+            position: absolute;
+            width: 100%;
+            height: 100%;
+        }
+
         .beatsettings input[type="range"] {
            appearance: slider-vertical;
            width: 1rem;
@@ -247,8 +261,10 @@
 <button id="btn-play">PLAY</button>
 <button id="btn-pause">PAUSE</button>
 <button id="btn-stop">STOP</button>
-<div id="score"></div>
-<div id="loading">loading...</div>
+<div id="score-wrapper">
+    <div id="score-hidden"></div>
+    <div id="score"></div>
+</div>
 
 </body>
 <script>

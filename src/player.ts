@@ -2,11 +2,28 @@ import { OpenSheetMusicDisplay } from "opensheetmusicdisplay";
 import AudioPlayer from "osmd-audio-player";
 
 
-const loadPlayer = async (scoreXml: string, autoplay: boolean) => {
+export const renderMusic = async (scoreXml: string) => {
+  // Render only
   if (!document) {
     return;
   }
   let el = document.getElementById("score");
+  if (!el) {
+    return;
+  }
+  el.innerHTML = "";
+  const osmd = new OpenSheetMusicDisplay(el);
+  await osmd.load(scoreXml);
+  osmd.render();
+}
+
+
+const loadPlayer = async (scoreXml: string, autoplay: boolean) => {
+  // Play only
+  if (!document) {
+    return;
+  }
+  let el = document.getElementById("score-hidden");
   if (!el) {
     return;
   }
