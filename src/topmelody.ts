@@ -4,6 +4,7 @@ import { BEAT_LENGTH, DivisionedRichnotes, globalSemitone, MainMusicParams, Musi
 
 type NonChordTone = {
     note: Note,
+    note2? : Note,  // This makes the notes 16ths
     strongBeat: boolean,
     replacement?: boolean,
 }
@@ -31,6 +32,7 @@ const addNoteBetween = (nac: NonChordTone, division: number, nextDivision: numbe
     }
 
     const newNote = nac.note;
+    const newNote2 = nac.note2;
     const strongBeat = nac.strongBeat;
     const replacement = nac.replacement || false;
 
@@ -59,16 +61,40 @@ const addNoteBetween = (nac: NonChordTone, division: number, nextDivision: numbe
             divisionedNotes[division + divisionDiff / 2].push(newRandomRichNote);
         }
     } else {
-        beatRichNote.duration = divisionDiff / 2;
-        divisionedNotes[division + divisionDiff / 2] = divisionedNotes[division + divisionDiff / 2] || [];
-        const newRandomRichNote = {
-            note: newNote,
-            duration: divisionDiff / 2,
-            chord: beatRichNote.chord,
-            scale: beatRichNote.scale,
-            partIndex: partIndex,
+        if (!newNote2) {
+            // adding 1 8th note
+            beatRichNote.duration = divisionDiff / 2;
+            divisionedNotes[division + divisionDiff / 2] = divisionedNotes[division + divisionDiff / 2] || [];
+            const newRandomRichNote = {
+                note: newNote,
+                duration: divisionDiff / 2,
+                chord: beatRichNote.chord,
+                scale: beatRichNote.scale,
+                partIndex: partIndex,
+            }
+            divisionedNotes[division + divisionDiff / 2].push(newRandomRichNote);
+        } else {
+            // adding 2 16th notes
+            beatRichNote.duration = divisionDiff / 2;
+            divisionedNotes[division + divisionDiff / 2] = divisionedNotes[division + divisionDiff / 2] || [];
+            const newRandomRichNote = {
+                note: newNote,
+                duration: divisionDiff / 4,
+                chord: beatRichNote.chord,
+                scale: beatRichNote.scale,
+                partIndex: partIndex,
+            }
+            divisionedNotes[division + divisionDiff / 2].push(newRandomRichNote);
+            divisionedNotes[division + divisionDiff * 0.75] = divisionedNotes[division + divisionDiff * 0.75] || [];
+            const newRandomRichNote2 = {
+                note: newNote2,
+                duration: divisionDiff / 4,
+                chord: beatRichNote.chord,
+                scale: beatRichNote.scale,
+                partIndex: partIndex,
+            }
+            divisionedNotes[division + divisionDiff * 0.75].push(newRandomRichNote2);
         }
-        divisionedNotes[division + divisionDiff / 2].push(newRandomRichNote);
     }
     return true;
 }
@@ -252,7 +278,36 @@ const anticipation = (values: NonChordToneParams): NonChordTone => {
 const neighborGroup = (values: NonChordToneParams): NonChordTone => {
     const {gTone0, gTone1, gTone2, scale, gToneLimits} = values;
     // Step away, then leap into the "other possible" neighbor tone. This uses 16ths (two notes).
-    return null;
+    // Weak beat
+    if (gTone1 != gTone2) {
+        return null;
+    }
+    const scaleIndex = semitoneScaleIndex(scale)[gTone1 % 12];
+    if (!scaleIndex) {
+        return null;
+    }
+    const upGtone = nextGToneInScale(gTone1, 1, scale);
+    const downGtone = nextGToneInScale(gTone1, -1, scale);
+    if (!upGtone || !downGtone) {
+        return null;
+    }
+    if (upGtone < gToneLimits[0] || upGtone > gToneLimits[1]) {
+        return null;
+    }
+    if (downGtone < gToneLimits[0] || downGtone > gToneLimits[1]) {
+        return null;
+    }
+    return {
+        note: new Note({
+            semitone: upGtone % 12,
+            octave: Math.floor(upGtone / 12),
+        }),
+        note2: new Note({
+            semitone: downGtone % 12,
+            octave: Math.floor(downGtone / 12),
+        }),
+        strongBeat: false
+    };
 }
 
 
