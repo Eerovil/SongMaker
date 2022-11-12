@@ -7,6 +7,7 @@ export const renderMusic = async (scoreXml: string) => {
   if (!document) {
     return;
   }
+  (window as any).scoreXML = scoreXml;
   if (!(window as any).audioPlayer) {
     (window as any).audioPlayer = new AudioPlayer();
   }

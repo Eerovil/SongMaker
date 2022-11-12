@@ -188,14 +188,14 @@ function addRichNoteToMeasure(richNote: RichNote, measure: builder.XMLElement, s
     'chord': !firstNoteInChord ? {} : undefined,
     'pitch': noteToPitch(richNote),
     'duration': duration.duration,
-    'voice': voice,
-    'stem': { '#text': voice == 0 ? 'up' : 'down', '@default-y': voice == 0 ? 5 : -45 },
-    'type': duration.type,
-    'staff': staff,
-    'beam': richNote.beam ? { '@number': beamNumber, '#text': richNote.beam } : undefined,
     'tie': richNote.tie ? { '@type': richNote.tie } : undefined,
-    'lyric': lyric,
+    'voice': voice,
+    'type': duration.type,
+    'stem': { '#text': voice == 0 ? 'up' : 'down', '@default-y': voice == 0 ? 5 : -45 },
+    'staff': staff + 1,
+    'beam': richNote.beam ? { '@number': beamNumber, '#text': richNote.beam } : undefined,
     'notations': notations,
+    'lyric': lyric,
   };
   if (writeChord && richNote.chord && staff == 1) {
     let chordType: string = 'major';
@@ -455,9 +455,6 @@ export function toXml(divisionedNotes: DivisionedRichnotes, mainParams: MainMusi
     partList.ele({
       'score-part': {
         '@id': 'P1',
-        'group': {
-          '#text': 'score'
-        },
         'part-name': {
           '#text': 'P1'
         },
@@ -479,9 +476,6 @@ export function toXml(divisionedNotes: DivisionedRichnotes, mainParams: MainMusi
     partList.ele({
       'score-part': {
         '@id': 'P2',
-        'group': {
-          '#text': 'score'
-        },
         'part-name': {
           '#text': 'P2'
         },
@@ -504,9 +498,6 @@ export function toXml(divisionedNotes: DivisionedRichnotes, mainParams: MainMusi
     partList.ele({
       'score-part': {
         '@id': 'P3',
-        'group': {
-          '#text': 'score'
-        },
         'part-name': {
           '#text': 'P3'
         },
@@ -528,9 +519,6 @@ export function toXml(divisionedNotes: DivisionedRichnotes, mainParams: MainMusi
     partList.ele({
       'score-part': {
         '@id': 'P4',
-        'group': {
-          '#text': 'score'
-        },
         'part-name': {
           '#text': 'P4'
         },
@@ -562,9 +550,6 @@ export function toXml(divisionedNotes: DivisionedRichnotes, mainParams: MainMusi
     partList.ele({
       'score-part': {
         '@id': 'P1',
-        'group': {
-          '#text': 'score'
-        },
         'part-name': {
           '#text': 'P1'
         },
@@ -573,9 +558,6 @@ export function toXml(divisionedNotes: DivisionedRichnotes, mainParams: MainMusi
     partList.ele({
       'score-part': {
         '@id': 'P2',
-        'group': {
-          '#text': 'score'
-        },
         'part-name': {
           '#text': 'P2'
         },

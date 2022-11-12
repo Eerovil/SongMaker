@@ -100,6 +100,7 @@
             <button @click="saveParams(true)">Aja koko sävellys</button>
             <button onclick="newMelody()">Aja vain melodia</button>
             <button @click="resetParams()">Reset</button>
+            <button onclick="download()">Download</button>
         </div>
         <div class="main-settings-wrapper">
             <h2>Pääasetukset</h2>
@@ -418,6 +419,22 @@ window.midiInstruments = [
     }
 
     //console.log(window.scoreXML)
+
+    const download = () => {
+        const mimeType = "text/xml";
+        const filename = "score.xml";
+        const content = window.scoreXML;
+        if (!content) {
+            alert("Lataus epäonnistui");
+            return;
+        }
+        const a = document.createElement('a') // Create "a" element
+        const blob = new Blob([content], {type: mimeType}) // Create a blob (file-like object)
+        const url = URL.createObjectURL(blob) // Create an object URL from blob
+        a.setAttribute('href', url) // Set "a" element link
+        a.setAttribute('download', filename) // Set download filename
+        a.click() // Start downloading
+    }
 
 </script>
 <script>
