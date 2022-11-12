@@ -227,12 +227,12 @@ export class MusicParams {
         {
             voice: "42",
             note: "A4",
-            volume: "7",
+            volume: "5",
         },
         {
             voice: "42",
             note: "C4",
-            volume: "7",
+            volume: "5",
         },
         {
             voice: "42",

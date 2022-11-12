@@ -1,5 +1,5 @@
 import { Note, Scale } from "musictheoryjs";
-import { BEAT_LENGTH, DivisionedRichnotes, globalSemitone, gToneString, majScaleDifference, MusicParams, Nullable, semitoneDistance } from "./utils";
+import { BEAT_LENGTH, Chord, DivisionedRichnotes, globalSemitone, gToneString, majScaleDifference, MusicParams, Nullable, semitoneDistance } from "./utils";
 
 
 export class Tension {
@@ -66,11 +66,13 @@ export class Tension {
 export const getTension = (values: {
         divisionedNotes: DivisionedRichnotes, toNotes: Array<Note>, currentScale: Scale,
         beatsUntilLastChordInCadence: number, params: MusicParams,
-        beatsUntilLastChordInSong: number, inversionName: string, prevInversionName: String
+        beatsUntilLastChordInSong: number, inversionName: string, prevInversionName: String,
+        newChord: Chord,
     }): Tension => {
         const {
             divisionedNotes,
             toNotes,
+            newChord,
             currentScale,
             beatsUntilLastChordInCadence,
             beatsUntilLastChordInSong,
@@ -169,6 +171,9 @@ export const getTension = (values: {
             allsame = false;
             break;
         }
+    }
+    if (prevChord && prevPrevChord && prevChord.toString() == newChord.toString() && prevPrevChord.toString() == prevChord.toString()) {
+        allsame = true;
     }
     if (allsame) {
         tension.allNotesSame = 100;
@@ -407,11 +412,13 @@ export const getTension = (values: {
         "down": 0,
         "same": 0,
     }
+    const partDirection = [];
     let rootBassDirection = null;
     for (let i=0; i<fromGlobalSemitones.length; i++) {
         const fromSemitone = fromGlobalSemitones[i];
         const toSemitone = toGlobalSemitones[i];
         const diff = toSemitone - fromSemitone;
+        partDirection[i] = diff < 0 ? "down" : diff > 0 ? "up" : "same";
         if (diff > 0) {
             directionCounts.up += 1;
         }
@@ -434,10 +441,14 @@ export const getTension = (values: {
         directionCounts.up -= 1;
     }
     if (directionCounts.up > 2 && directionCounts.down < 1) {
-        tension.voiceDirections += 10;
+        tension.voiceDirections += 3;
     }
     if (directionCounts.down > 2 && directionCounts.up < 1) {
+        tension.voiceDirections += 3;
+    }
+    if (partDirection[0] == partDirection[3] && partDirection[0] != "same") {
         tension.voiceDirections += 10;
+        // root and sopranos moving in same direction
     }
 
     // Parallel motion and hidden fifths

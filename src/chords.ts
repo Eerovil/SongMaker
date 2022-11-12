@@ -152,6 +152,7 @@ const makeChords = async (mainParams: MainMusicParams, progressCallback: Nullabl
                         params,
                         inversionName: inversionResult.inversionName,
                         prevInversionName,
+                        newChord,
                     });
 
                     tensionResult.modulation += availableScale.tension / Math.max(0.01, params.modulationWeight);
