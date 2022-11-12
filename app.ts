@@ -22,6 +22,7 @@ if (browser) {
 
 let worker: Worker;
 let playerLoadTime = new Date();
+let playerLoading = false;
 setTimeout(() => {
     // WAit for params to be parsed
     worker = new Worker('dist/worker.js');
@@ -34,9 +35,12 @@ setTimeout(() => {
             // console.log((window as any).result);
             (window as any).loadPlayer = loadPlayer;
             let autoplay = !data.progress;
-            if (autoplay || playerLoadTime.getTime() - (new Date()).getTime() < -1000) {
-                loadPlayer(data.xml, autoplay);
+            if (autoplay || (!playerLoading && playerLoadTime.getTime() - (new Date()).getTime() < -1000)) {
+                loadPlayer(data.xml, autoplay).then(() => {
+                    playerLoading = false;
+                })
                 playerLoadTime = new Date();
+                playerLoading = true;
             }
         }
         if (browser && data.progress) {

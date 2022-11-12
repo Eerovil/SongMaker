@@ -4,6 +4,30 @@ import { Tension } from "./tension";
 
 export const BEAT_LENGTH = 12;
 
+export const startingNotes = (params: MusicParams) => {  
+    const p1Note = params.parts[0].note || "F4";
+    const p2Note = params.parts[1].note || "C4";
+    const p3Note = params.parts[2].note || "A3";
+    const p4Note = params.parts[3].note || "C3";
+
+    const startingGlobalSemitones = [
+        globalSemitone(new Note(p1Note)),
+        globalSemitone(new Note(p2Note)),
+        globalSemitone(new Note(p3Note)),
+        globalSemitone(new Note(p4Note)),
+    ]
+
+    const semitoneLimits = [
+        [startingGlobalSemitones[0] + -12, startingGlobalSemitones[0] + 12 - 5],
+        [startingGlobalSemitones[1] + -12, startingGlobalSemitones[1] + 12 - 5],
+        [startingGlobalSemitones[2] + -12, startingGlobalSemitones[2] + 12 - 5],
+        [startingGlobalSemitones[3] + -12, startingGlobalSemitones[3] + 12 - 5],
+    ]
+    return {
+        startingGlobalSemitones,
+        semitoneLimits,
+    }
+}
 
 export const semitoneScaleIndex = (scale: Scale): { [key: number]: number } => ({
     [scale.notes[0].semitone]: 0,
