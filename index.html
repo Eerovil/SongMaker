@@ -96,12 +96,6 @@
 <div style="margin-top: 3rem; display: flex; justify-content: space-between; padding: 1rem 5rem; border: 1px solid black; flex-wrap: wrap;">
 
     <div id="vue-template">
-        <div>
-            <button @click="saveParams(true)">Aja koko sävellys</button>
-            <button onclick="newMelody()">Aja vain melodia</button>
-            <button @click="resetParams()">Reset</button>
-            <button onclick="download()">Download</button>
-        </div>
         <div class="main-settings-wrapper">
             <h2>Pääasetukset</h2>
             <div class="secondary-settings-wrapper">
@@ -268,12 +262,18 @@
                 </div>
             </div>
         </div>
-    </div>
+        <div>
+            <button @click="saveParams(true)">Aja koko sävellys</button>
+            <button onclick="newMelody()">Aja vain välinuotit</button>
+            <button @click="resetParams()">Reset</button>
+            <button onclick="download()">Download</button>
+            <button onclick="window.giveUp()">Luovuta generointi</button>
+            <button id="btn-play">PLAY</button>
+            <button id="btn-pause">PAUSE</button>
+            <button id="btn-stop">STOP</button>
+        </div>
 </div>
-<button onclick="window.giveUp()">Luovuta generointi</button>
-<button id="btn-play">PLAY</button>
-<button id="btn-pause">PAUSE</button>
-<button id="btn-stop">STOP</button>
+</div>
 <h4 id="loading"></h4>
 <div id="score-wrapper">
     <div id="score-hidden"></div>

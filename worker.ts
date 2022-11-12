@@ -8,7 +8,7 @@ self.onmessage = (event: { data: { params: string, newMelody: undefined | boolea
 
     if (event.data.newMelody) {
         makeMelody((self as any).divisionedNotes, params);
-        self.postMessage({divisionedNotes: JSON.parse(JSON.stringify((self as any).divisionedNotes))});
+        self.postMessage({divisionedRichNotes: JSON.parse(JSON.stringify((self as any).divisionedNotes))});
         return;
     }
 
