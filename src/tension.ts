@@ -28,7 +28,7 @@ export class Tension {
         tension += this.notInScale * 100;
         tension += this.modulation;
         tension += this.allNotesSame;
-        tension += this.chordProgression;
+        tension += this.chordProgression * 2;
         tension += this.parallelFifths;
         tension += this.spacingError;
         tension += this.cadence;
