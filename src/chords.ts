@@ -157,7 +157,7 @@ const makeChords = async (mainParams: MainMusicParams, progressCallback: Nullabl
                         newChord,
                     });
 
-                    const modulationWeight = parseFloat((`${params.modulationWeight || "1"}`))
+                    const modulationWeight = parseFloat((`${params.modulationWeight || "0"}`))
                     tensionResult.modulation += availableScale.tension / Math.max(0.01, modulationWeight);
                     if (currentScale && !availableScale.scale.equals(currentScale)) {
                         tensionResult.modulation += 1 / Math.max(0.01, modulationWeight);
