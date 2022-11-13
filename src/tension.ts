@@ -32,7 +32,7 @@ export class Tension {
         tension += this.parallelFifths;
         tension += this.spacingError;
         tension += this.cadence;
-        tension += this.tensioningInterval * -1;
+        tension += this.tensioningInterval;
         tension += this.secondInversion;
         tension += this.doubleLeadingTone;
         tension += this.leadingToneUp;
