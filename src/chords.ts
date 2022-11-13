@@ -13,8 +13,8 @@ import { addHalfNotes } from "./halfnotes";
 import { getAvailableScales } from "./availablescales";
 import * as time from "./timer"; 
 
-const GOOD_CHORD_LIMIT = 12;
-const GOOD_CHORDS_PER_CHORD = 3;
+const GOOD_CHORD_LIMIT = 30;
+const GOOD_CHORDS_PER_CHORD = 10;
 const BAD_CHORD_LIMIT = 20;
 
 
@@ -291,10 +291,10 @@ const makeChords = async (mainParams: MainMusicParams, progressCallback: Nullabl
         let bestChord = goodChords[0];
         for (const chord of goodChords) {
             if (chord[0]?.tension != undefined) {
-                chord[0].tension.print(chord[0].chord ? chord[0].chord.toString() : "?Chord?", ": ")
-                if (chord[0].tension < (bestChord[0]?.tension || 999)) {
+                if (chord[0].tension.totalTension < (bestChord[0]?.tension?.totalTension || 999)) {
                     bestChord = chord;
                 }
+                chord[0].tension.print(chord[0].chord ? chord[0].chord.toString() : "?Chord?", "best: ", bestChord[0]?.tension?.totalTension || 999, ": ")
             }
         }
 

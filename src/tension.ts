@@ -7,7 +7,7 @@ export class Tension {
     modulation: number = 0;
     allNotesSame: number = 0;
     chordProgression: number = 0;
-    fourthDownChordProgression: number = 0;
+    keepDominantTones: number = 0;
     parallelFifths: number = 0;
     spacingError: number = 0;
     cadence: number = 0;
@@ -28,7 +28,8 @@ export class Tension {
         tension += this.notInScale * 100;
         tension += this.modulation;
         tension += this.allNotesSame;
-        tension += this.chordProgression * 2;
+        // tension += this.chordProgression * 0.5;
+        tension += this.keepDominantTones;
         tension += this.parallelFifths;
         tension += this.spacingError;
         tension += this.cadence;
@@ -37,9 +38,8 @@ export class Tension {
         tension += this.doubleLeadingTone;
         tension += this.leadingToneUp;
         if (beatsUntilLastChordInCadence > 2) {
-            tension += this.fourthDownChordProgression;
             tension += this.melodyTarget;
-            tension += this.melodyJump * 0.5;
+            tension += this.melodyJump;
         } else {
             tension += this.melodyJump;
         }
@@ -103,9 +103,6 @@ export const getTension = (values: TensionParams): Tension => {
 
     if (beatsUntilLastChordInCadence && inversionName) {
         if (params.selectedCadence == "PAC") {
-            if (beatsUntilLastChordInCadence == 5) {
-                wantedFunction = "not-dominant";
-            }
             if (beatsUntilLastChordInCadence == 4) {
                 wantedFunction = "sub-dominant";
             }
@@ -121,9 +118,6 @@ export const getTension = (values: TensionParams): Tension => {
                 tension.cadence += 100;
             }
         } else if (params.selectedCadence == "IAC") {
-            if (beatsUntilLastChordInCadence == 5) {
-                wantedFunction = "not-dominant";
-            }
             if (beatsUntilLastChordInCadence == 4) {
                 wantedFunction = "sub-dominant";
             }
@@ -138,9 +132,6 @@ export const getTension = (values: TensionParams): Tension => {
                 tension.cadence += 100;
             }
         } else if (params.selectedCadence == "HC") {
-            if (beatsUntilLastChordInCadence == 4) {
-                wantedFunction = "not-dominant";
-            }
             if (beatsUntilLastChordInCadence == 3) {
                 wantedFunction = "sub-dominant";
             }
@@ -267,6 +258,7 @@ export const getTension = (values: TensionParams): Tension => {
         [currentScale.notes[4].semitone]: 4,
         [currentScale.notes[5].semitone]: 5,
         [currentScale.notes[6].semitone]: 6,
+        [(currentScale.notes[0].semitone - 1 + 24) % 12]: 6  // Force add leading tone
     }
 
     let possibleToFunctions = {
@@ -321,6 +313,47 @@ export const getTension = (values: TensionParams): Tension => {
         }
     }
 
+    let fromDominantTones = 0;
+    for (const scaleIndex of fromScaleIndexes) {
+        if (([1, 3, 4, 6].includes(scaleIndex))) {
+            fromDominantTones++;
+        }
+        if (scaleIndex == 6) {
+            // Leading tone is a better dominant
+            fromDominantTones += 1.5;
+        }
+        if (scaleIndex == 4) {
+            // degree 6 is a weak dominant
+            fromDominantTones -= 0.5;
+        }
+    }
+    if (!wantedFunction) {
+        let toDominantTones = 0;
+        for (const scaleIndex of toScaleIndexes) {
+            if (([1, 3, 4, 6].includes(scaleIndex))) {
+                toDominantTones++;
+            }
+            if (scaleIndex == 6) {
+                toDominantTones += 1.5;
+            }
+            if (scaleIndex == 4) {
+                toDominantTones -= 0.5;
+            }
+        }
+        if (fromDominantTones > toDominantTones) {
+            tension.keepDominantTones += 5;
+        }
+        if (fromDominantTones > (toDominantTones + 1)) {
+            tension.keepDominantTones += 100;
+        }
+
+        if (beatsUntilLastChordInCadence && beatsUntilLastChordInCadence < 8) {
+            // We should have at least 1 dominant tone by now.
+            if (toDominantTones == 0) {
+                tension.keepDominantTones += 5;
+            }
+        }
+    }
 
     if (wantedFunction) {
         if (wantedFunction == "sub-dominant") {
@@ -335,11 +368,6 @@ export const getTension = (values: TensionParams): Tension => {
         }
         if (wantedFunction == "tonic") {
             if (!possibleToFunctions.tonic) {
-                tension.cadence += 100;
-            }
-        }
-        if (wantedFunction == "not-dominant") {
-            if (possibleToFunctions.dominant) {
                 tension.cadence += 100;
             }
         }
@@ -392,6 +420,7 @@ export const getTension = (values: TensionParams): Tension => {
                 }
                 allowedIndexes = [prevIndex1, (prevIndex2 + 1) % 7, (prevIndex3 + 1) % 7]
                 if (toScaleIndexes.every(index => allowedIndexes.includes(index))) {
+                    tension.chordProgression += -1;  // The best
                     isGood = true;
                     break;
                 }
@@ -402,13 +431,12 @@ export const getTension = (values: TensionParams): Tension => {
                 }
                 allowedIndexes = [(prevIndex1 + 1) % 7, (prevIndex2 + 1) % 7, (prevIndex3 + 1) % 7]
                 if (toScaleIndexes.every(index => allowedIndexes.includes(index))) {
-                    tension.chordProgression += 5;
+                    tension.chordProgression += 1;
                     isGood = true;
                     break;
                 }
                 allowedIndexes = [prevIndex1, prevIndex2, (prevIndex3 + 1) % 7]
                 if (toScaleIndexes.every(index => allowedIndexes.includes(index))) {
-                    tension.fourthDownChordProgression += 100;  // FIXME sometimes ok
                     isGood = true;
                     break;
                 }
@@ -416,7 +444,7 @@ export const getTension = (values: TensionParams): Tension => {
             break;
         }
         if (!isGood) {
-            tension.chordProgression += 100;
+            tension.chordProgression += 3;
         }
     }
 
@@ -546,10 +574,16 @@ export const getTension = (values: TensionParams): Tension => {
     for (let i=0; i<fromGlobalSemitones.length; i++) {
         const interval = Math.abs(fromGlobalSemitones[i] - toGlobalSemitones[i]);
         if (interval >= 3) {
-            tension.melodyJump += 0.2;
+            tension.melodyJump += 0.5;
+        }
+        if (interval >= 5) {
+            tension.melodyJump += 2;
+        }
+        if (interval >= 7) {
+            tension.melodyJump += 2;
         }
         if (interval >= 10) {  // 7th == 10
-            tension.melodyJump += 10;
+            tension.melodyJump += 100;
             continue;
         }
         if (interval == 6 || interval == 8) // tritone (aug 4th) or aug 5th
@@ -643,13 +677,11 @@ export const getTension = (values: TensionParams): Tension => {
                     // Going back down/up...
                     const backInterval = Math.abs(toSemitone - fromSemitone);
                     if (backInterval > 2) {
-                        // Going back too far...
+                        // Going back too much
                         if (interval <= 3) {
-                            tension.melodyJump += 0.5;
-                        } else  if (interval <= 4) {
-                            tension.melodyJump += 4;  // Not as bad
+                            tension.melodyJump += 5;
                         } else {
-                            tension.melodyJump += 100;  // Terrible
+                            tension.melodyJump += 100;
                         }
                     }
                 }
