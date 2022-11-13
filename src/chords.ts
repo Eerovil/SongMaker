@@ -262,6 +262,17 @@ const makeChords = async (mainParams: MainMusicParams, progressCallback: Nullabl
                 divisionBannedNotes[division + BEAT_LENGTH] = divisionBannedNotes[division + BEAT_LENGTH] || [];
                 divisionBannedNotes[division + BEAT_LENGTH].push(newBannedNotes);
                 delete result[division + BEAT_LENGTH];
+                if (divisionBannedNotes[division + BEAT_LENGTH].length > 10) {
+                    // Too many bans, go back further
+                    division -= BEAT_LENGTH
+                    const newBannedNotes = [];
+                    for (const note of result[division + BEAT_LENGTH]) {
+                        newBannedNotes[note.partIndex] = note.note;
+                    }
+                    divisionBannedNotes[division + BEAT_LENGTH] = divisionBannedNotes[division + BEAT_LENGTH] || [];
+                    divisionBannedNotes[division + BEAT_LENGTH].push(newBannedNotes);
+                    delete result[division + BEAT_LENGTH];
+                }
             } else {
                 // We failed right at the start.
                 console.groupEnd();

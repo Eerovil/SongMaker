@@ -26,7 +26,10 @@ export const renderMusic = async (scoreXml: string) => {
   const osmd = (window as any).renderOSMD
   await osmd.load(scoreXml);
   osmd.render();
-  audioPlayer.loadScore(osmd as any);
+  if (audioPlayer.scoreInstruments.length == 0) {
+    audioPlayer.loadScore(osmd as any);
+    registerButtonEvents(audioPlayer);
+  }
 }
 
 
@@ -56,7 +59,6 @@ const loadPlayer = async (scoreXml: string, autoplay: boolean) => {
   audioPlayer.stop();
 
   hideLoadingMessage();
-  registerButtonEvents(audioPlayer);
   setTimeout(() => {
     if (audioPlayer.state === "STOPPED" && autoplay) {
       audioPlayer.play();
