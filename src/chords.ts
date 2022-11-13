@@ -263,7 +263,8 @@ const makeChords = async (mainParams: MainMusicParams, progressCallback: Nullabl
                 divisionBannedNotes[division + BEAT_LENGTH].push(newBannedNotes);
                 delete result[division + BEAT_LENGTH];
                 if (divisionBannedNotes[division + BEAT_LENGTH].length > 10) {
-                    // Too many bans, go back further
+                    // Too many bans, go back further. Remove these bans so they don't hinder later progress.
+                    divisionBannedNotes[division + BEAT_LENGTH] = [];
                     division -= BEAT_LENGTH
                     const newBannedNotes = [];
                     for (const note of result[division + BEAT_LENGTH]) {

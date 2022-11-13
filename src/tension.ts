@@ -395,9 +395,14 @@ export const getTension = (values: TensionParams): Tension => {
                     isGood = true;
                     break;
                 }
+                allowedIndexes = [(prevIndex1 - 1) % 7, (prevIndex2 - 1) % 7, prevIndex3]
+                if (toScaleIndexes.every(index => allowedIndexes.includes(index))) {
+                    isGood = true;
+                    break;
+                }
                 allowedIndexes = [(prevIndex1 + 1) % 7, (prevIndex2 + 1) % 7, (prevIndex3 + 1) % 7]
                 if (toScaleIndexes.every(index => allowedIndexes.includes(index))) {
-                    tension.chordProgression += 1;
+                    tension.chordProgression += 5;
                     isGood = true;
                     break;
                 }
