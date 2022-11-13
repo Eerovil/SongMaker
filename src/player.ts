@@ -53,6 +53,7 @@ const loadPlayer = async (scoreXml: string, autoplay: boolean) => {
   await osmd.load(scoreXml);
   await osmd.render();
   await audioPlayer.loadScore(osmd as any);
+  audioPlayer.stop();
 
   hideLoadingMessage();
   registerButtonEvents(audioPlayer);
