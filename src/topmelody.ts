@@ -1,5 +1,6 @@
 import { Note, Scale } from "musictheoryjs";
-import { BEAT_LENGTH, DivisionedRichnotes, globalSemitone, MainMusicParams, MusicParams, nextGToneInScale, Nullable, semitoneDistance, semitoneScaleIndex, startingNotes } from "./utils";
+import { getTension } from "./tension";
+import { BEAT_LENGTH, DivisionedRichnotes, getRichNote, globalSemitone, MainMusicParams, MusicParams, nextGToneInScale, Nullable, semitoneDistance, semitoneScaleIndex, startingNotes } from "./utils";
 
 
 type NonChordTone = {
@@ -10,7 +11,7 @@ type NonChordTone = {
 }
 
 type NonChordToneParams = {
-    gTone0: number,
+    gTone0: number | null,
     gTone1: number,
     gTone2: number,
     scale: Scale,
@@ -22,13 +23,14 @@ const addNoteBetween = (nac: NonChordTone, division: number, nextDivision: numbe
     const divisionDiff = nextDivision - division;
     const beatRichNote = (divisionedNotes[division] || []).filter(note => note.partIndex == partIndex)[0];
     if (!beatRichNote || !beatRichNote.note) {
-        return;
+        return false;
     }
 
+    // @ts-ignore
     const prevScaleTones = beatRichNote.scale.notes.map(n => n.semitone);
     const nextBeatRichNote = (divisionedNotes[nextDivision] || []).filter(note => note.partIndex == partIndex)[0];
     if (!nextBeatRichNote || !nextBeatRichNote.note) {
-        return;
+        return false;
     }
 
     const newNote = nac.note;
@@ -100,7 +102,7 @@ const addNoteBetween = (nac: NonChordTone, division: number, nextDivision: numbe
 }
 
 
-const passingTone = (values: NonChordToneParams): NonChordTone => {
+const passingTone = (values: NonChordToneParams): NonChordTone | null => {
     const {gTone0, gTone1, gTone2, scale, gToneLimits} = values;
     // Return a new gTone or null, based on whether adding a passing tone is a good idea.
     const distance = Math.abs(gTone1 - gTone2);
@@ -130,7 +132,7 @@ const passingTone = (values: NonChordToneParams): NonChordTone => {
 }
 
 
-const neighborTone = (values: NonChordToneParams): NonChordTone => {
+const neighborTone = (values: NonChordToneParams): NonChordTone | null => {
     const {gTone0, gTone1, gTone2, scale, gToneLimits} = values;
     // Step, then step back. This is on Weak beat
     if (gTone1 != gTone2) {
@@ -158,10 +160,13 @@ const neighborTone = (values: NonChordToneParams): NonChordTone => {
 }
 
 
-const suspension = (values: NonChordToneParams): NonChordTone => {
+const suspension = (values: NonChordToneParams): NonChordTone | null => {
     const {gTone0, gTone1, gTone2, scale, gToneLimits} = values;
     // Stay on previous, then step DOWN into chord tone. This is on Strong beat.
     // Usually dotted!
+    if (!gTone0) {
+        return null;
+    }
     const distance = gTone0 - gTone1;
     if (distance < 1 || distance > 2) {
         // Must be half or whole step down.
@@ -179,7 +184,7 @@ const suspension = (values: NonChordToneParams): NonChordTone => {
 }
 
 
-const retardation = (values: NonChordToneParams): NonChordTone => {
+const retardation = (values: NonChordToneParams): NonChordTone | null => {
     const {gTone0, gTone1, gTone2, scale, gToneLimits} = values;
     // Stay on previous, then step UP into chord tone. This is on Strong beat
     // Usually dotted!
@@ -199,7 +204,7 @@ const retardation = (values: NonChordToneParams): NonChordTone => {
     }), strongBeat: true};}
 
 
-const appogiatura = (values: NonChordToneParams): NonChordTone => {
+const appogiatura = (values: NonChordToneParams): NonChordTone | null => {
     const {gTone0, gTone1, gTone2, scale, gToneLimits} = values;
     // Leap, then step back into Chord tone. This is on Strong beat
     if (!gTone0) {
@@ -229,7 +234,7 @@ const appogiatura = (values: NonChordToneParams): NonChordTone => {
     }), strongBeat: true};
 }
 
-const escapeTone = (values: NonChordToneParams): NonChordTone => {
+const escapeTone = (values: NonChordToneParams): NonChordTone | null => {
     const {gTone0, gTone1, gTone2, scale, gToneLimits} = values;
     // Step away, then Leap in to next Chord tone. This is on Strong beat
     if (!gTone0) {
@@ -259,7 +264,7 @@ const escapeTone = (values: NonChordToneParams): NonChordTone => {
     }), strongBeat: true};
 }
 
-const anticipation = (values: NonChordToneParams): NonChordTone => {
+const anticipation = (values: NonChordToneParams): NonChordTone | null => {
     const {gTone0, gTone1, gTone2, scale, gToneLimits} = values;
     // Step or leap early in to next Chord tone. This is on weak beat.
     const distance = gTone2 - gTone1;
@@ -275,7 +280,7 @@ const anticipation = (values: NonChordToneParams): NonChordTone => {
     }), strongBeat: false};
 }
 
-const neighborGroup = (values: NonChordToneParams): NonChordTone => {
+const neighborGroup = (values: NonChordToneParams): NonChordTone | null => {
     const {gTone0, gTone1, gTone2, scale, gToneLimits} = values;
     // Step away, then leap into the "other possible" neighbor tone. This uses 16ths (two notes).
     // Weak beat
@@ -311,7 +316,7 @@ const neighborGroup = (values: NonChordToneParams): NonChordTone => {
 }
 
 
-const pedalPoint = (values: NonChordToneParams): NonChordTone => {
+const pedalPoint = (values: NonChordToneParams): NonChordTone | null => {
     const {gTone0, gTone1, gTone2, scale, gToneLimits} = values;
     // Replace the entire note with the note that is before it AND after it.
     if (gTone0 != gTone2) {
@@ -331,30 +336,88 @@ const pedalPoint = (values: NonChordToneParams): NonChordTone => {
 
 
 export const buildTopMelody = (divisionedNotes: DivisionedRichnotes, mainParams: MainMusicParams) => {
-    // Convert two 4th notes, if possible, to two 8th notes.
+    // Follow the pre given melody rhythm
+    const melodyRhythmString = mainParams.melodyRhythm;
+    // Figure out what needs to happen each beat to get our melody
+    let rhythmDivision = 0;
+    const rhythmNeededDurations: {[key: number]: number} = {};
+    for (let i=0; i<melodyRhythmString.length; i++) {
+        const rhythm = melodyRhythmString[i];
+        if (rhythm == "W") {
+            rhythmNeededDurations[rhythmDivision] = BEAT_LENGTH * 4;
+            rhythmDivision += BEAT_LENGTH * 4
+            // TODO
+        } else if (rhythm == "H") {
+            rhythmNeededDurations[rhythmDivision] = BEAT_LENGTH * 2;
+            rhythmDivision += BEAT_LENGTH * 2
+            // TODO
+        } else if (rhythm == "Q") {
+            rhythmNeededDurations[rhythmDivision] = BEAT_LENGTH;
+            rhythmDivision += BEAT_LENGTH;
+            continue;  // Nothing to do
+        } else if (rhythm == "E") {
+            // This division needs to be converted to Eighth
+            rhythmNeededDurations[rhythmDivision] = BEAT_LENGTH / 2;
+            rhythmDivision += BEAT_LENGTH / 2;
+        } else if (rhythm == "S") {
+            // This division needs to be converted to Sixteenth
+            rhythmNeededDurations[rhythmDivision] = BEAT_LENGTH / 4;
+            rhythmDivision += BEAT_LENGTH / 4;
+        }
+    }
+
     const lastDivision = BEAT_LENGTH * mainParams.getMaxBeats();
     const firstParams = mainParams.currentCadenceParams(0);
     const {startingGlobalSemitones, semitoneLimits} = startingNotes(firstParams);
 
-    for (let i = 0; i < lastDivision - BEAT_LENGTH; i += BEAT_LENGTH) {
+    for (let division = 0; division < lastDivision - BEAT_LENGTH; division += BEAT_LENGTH) {
         let gToneLimitsForThisBeat = [
             [...semitoneLimits[0]],
             [...semitoneLimits[1]],
             [...semitoneLimits[2]],
             [...semitoneLimits[3]],
         ];
-        const params = mainParams.currentCadenceParams(i);
+        const params = mainParams.currentCadenceParams(division);
+        const cadenceDivision = division - params.cadenceStartDivision;
+        const neededRhythm = rhythmNeededDurations[cadenceDivision] || 100;
 
         const lastBeatInCadence = params.beatsUntilCadenceEnd < 2
         if (lastBeatInCadence) {
             continue;
         }
 
+        const prevNotes: Note[] = [];
+        const thisNotes: Note[] = [];
+        const nextNotes: Note[] = [];
+        let currentScale: Scale;
+
+        for (const richNote of divisionedNotes[division - BEAT_LENGTH] || []) {
+            if (richNote.note) {
+                prevNotes[richNote.partIndex] = richNote.note;
+            }
+        }
+        for (const richNote of divisionedNotes[division] || []) {
+            if (richNote.note) {
+                prevNotes[richNote.partIndex] = richNote.note;
+                if (richNote.scale) {
+                    currentScale = richNote.scale;
+                }
+            }
+        }
+        for (const richNote of divisionedNotes[division + BEAT_LENGTH] || []) {
+            if (richNote.note) {
+                nextNotes[richNote.partIndex] = richNote.note;
+            }
+        }
+
+        // @ts-ignore
+        currentScale = currentScale;
+
         for (let partIndex = 0; partIndex < 4; partIndex++) {
             // Change limits, new notes must also be betweeen the other part notes
             // ( Overlapping )
-            const richNote = divisionedNotes[i].filter(note => note.partIndex == partIndex)[0];
-            const nextRichNote = divisionedNotes[i + BEAT_LENGTH].filter(note => note.partIndex == partIndex)[0];
+            const richNote = getRichNote(divisionedNotes, division, partIndex);
+            const nextRichNote = getRichNote(divisionedNotes, division + BEAT_LENGTH, partIndex);
             if (!richNote || !richNote.note || !nextRichNote || !nextRichNote.note) {
                 continue;
             }
@@ -373,20 +436,44 @@ export const buildTopMelody = (divisionedNotes: DivisionedRichnotes, mainParams:
         }
 
         for (let partIndex = 0; partIndex < 4; partIndex++) {
-            // Is this a good part to add eighths?
-            const richNote = divisionedNotes[i].filter(note => note.partIndex == partIndex)[0];
-            const nextRichNote = divisionedNotes[i + BEAT_LENGTH].filter(note => note.partIndex == partIndex)[0];
+            if (neededRhythm != 2 * BEAT_LENGTH) {
+                // No need for half notes
+                continue;
+            }
+            // Add a tie to the next note
+            const richNote = getRichNote(divisionedNotes, division, partIndex);
+            const nextRichNote = getRichNote(divisionedNotes, division + BEAT_LENGTH, partIndex);
             if (!richNote || !richNote.note || !nextRichNote || !nextRichNote.note) {
                 continue;
             }
-            let prevRichNote = (divisionedNotes[i - BEAT_LENGTH] || []).filter(note => note.partIndex == partIndex)[0];
-            if (!prevRichNote || !prevRichNote.note) {
-                prevRichNote = null;
+            if (globalSemitone(richNote.note) != globalSemitone(nextRichNote.note)) {
+                continue;
             }
+            richNote.tie = "start";
+            nextRichNote.tie = "stop";
+        }
+
+        for (let partIndex = 0; partIndex < 4; partIndex++) {
+            if (neededRhythm !=  BEAT_LENGTH / 2) {
+                // No need for 8ths.
+                continue;
+            }
+            const richNote = getRichNote(divisionedNotes, division, partIndex);
+            const nextRichNote = getRichNote(divisionedNotes, division + BEAT_LENGTH, partIndex);
+            if (!richNote || !richNote.note || !nextRichNote || !nextRichNote.note) {
+                continue;
+            }
+            if (!richNote.scale) {
+                console.error("No scale for richNote", richNote);
+                continue;
+            }
+
+            const prevRichNote = getRichNote(divisionedNotes, division - BEAT_LENGTH, partIndex);
+
             const gTone1 = globalSemitone(richNote.note);
             const gTone2 = globalSemitone(nextRichNote.note);
             let gTone0 = prevRichNote ? globalSemitone(prevRichNote.note) : null;
-            if (gTone0 && prevRichNote.duration != BEAT_LENGTH) {
+            if (gTone0 && prevRichNote && prevRichNote.duration != BEAT_LENGTH) {
                 // FIXME: prevRichNote is not the previous note. We cannot use it to determine the previous note.
                 gTone0 = null;
             }
@@ -397,6 +484,9 @@ export const buildTopMelody = (divisionedNotes: DivisionedRichnotes, mainParams:
                 scale: richNote.scale,
                 gToneLimits: gToneLimitsForThisBeat[partIndex],
             }
+
+            // Try to find a way to ad 8th notes this beat.
+
             const nonChordToneChoiceFuncs: {[key: string]: Function} = {
                 passingTone: () => passingTone(nacParams),
                 neighborTone: () => neighborTone(nacParams),
@@ -408,34 +498,82 @@ export const buildTopMelody = (divisionedNotes: DivisionedRichnotes, mainParams:
                 neighborGroup: () => neighborGroup(nacParams),
                 pedalPoint: () => pedalPoint(nacParams),
             }
-            let nonChordToneChoices: {[key: string]: NonChordTone} = {}
-            for (const key of Object.keys(nonChordToneChoiceFuncs)) {
-                const setting = params.nonChordTones[key];
-                if (!setting || !setting.enabled) {
-                    continue;
-                }
-                const choice = nonChordToneChoiceFuncs[key]();
-                if (choice) {
-                    nonChordToneChoices[key] = choice;
-                }
-            }
 
-            if (partIndex != 3) {
-                nonChordToneChoices.pedalPoint = null;
-            }
-
+            let iterations = 0;
             let nonChordTone = null;
-            for (let key in nonChordToneChoices) {
-                if (nonChordToneChoices[key]) {
-                    nonChordTone = nonChordToneChoices[key];
+            const usedChoices = new Set();
+            while (true) {
+                iterations++;
+                if (iterations > 1000) {
+                    throw new Error("Too many iterations in 8th note generation");
+                }
+
+                let nonChordToneChoices: {[key: string]: NonChordTone} = {}
+                for (const key of Object.keys(nonChordToneChoiceFuncs)) {
+                    const setting = params.nonChordTones[key];
+                    if (!setting || !setting.enabled) {
+                        continue;
+                    }
+                    const choice = nonChordToneChoiceFuncs[key]();
+                    if (choice) {
+                        nonChordToneChoices[key] = choice;
+                    }
+                }
+
+                if (partIndex != 3) {
+                    delete nonChordToneChoices.pedalPoint;
+                }
+
+                let usingKey = null;
+                const availableKeys = Object.keys(nonChordToneChoices).filter(key => !usedChoices.has(key));
+                if (availableKeys.length == 0) {
                     break;
                 }
+                for (let key in nonChordToneChoices) {
+                    if (usedChoices.has(key)) {
+                        continue;
+                    }
+                    if (nonChordToneChoices[key]) {
+                        nonChordTone = nonChordToneChoices[key];
+                        usingKey = key;
+                        break;
+                    }
+                    if (!nonChordTone) {
+                        continue;
+                    }
+                }
+                if (!nonChordTone) {
+                    break;
+                }
+                // We found a possible non chord tone
+                // Now we need to check voice leading from before and after
+                const nonChordToneNotes: Note[] = [...thisNotes];
+
+                if (nonChordTone.strongBeat) {
+                    nonChordToneNotes[partIndex] = nonChordTone.note;
+                }
+                const tensionResult = getTension({
+                    fromNotesOverride: prevNotes,
+                    toNotes: nonChordToneNotes,
+                    currentScale: currentScale,
+                    params: params,
+                })
+                let tension = 0;
+                tension += tensionResult.doubleLeadingTone;
+                tension += tensionResult.parallelFifths;
+                tension += tensionResult.spacingError;
+                if (tension < 10) {
+                    break;
+                }
+                console.log("Tension too high for non chord tone", tension, nonChordTone, tensionResult, usingKey);
+                usedChoices.add(usingKey);
             }
+
             if (!nonChordTone) {
                 continue;
             }
 
-            const result = addNoteBetween(nonChordTone, i, i + BEAT_LENGTH, partIndex, divisionedNotes);
+            const result = addNoteBetween(nonChordTone, division, division + BEAT_LENGTH, partIndex, divisionedNotes);
             if (!result) {
                 continue;
             }

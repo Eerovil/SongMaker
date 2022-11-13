@@ -63,14 +63,24 @@ export class Tension {
 }
 
 
-export const getTension = (values: {
-        divisionedNotes: DivisionedRichnotes, toNotes: Array<Note>, currentScale: Scale,
-        beatsUntilLastChordInCadence: number, params: MusicParams,
-        beatsUntilLastChordInSong: number, inversionName: string, prevInversionName: String,
-        newChord: Chord,
-    }): Tension => {
+export type TensionParams = {
+    divisionedNotes?: DivisionedRichnotes,
+    fromNotesOverride?: Array<Note>,
+    toNotes: Array<Note>,
+    currentScale: Scale,
+    beatsUntilLastChordInCadence?: number,
+    params: MusicParams,
+    beatsUntilLastChordInSong?: number,
+    inversionName?: string,
+    prevInversionName?: String,
+    newChord?: Chord,
+}
+
+
+export const getTension = (values: TensionParams): Tension => {
         const {
             divisionedNotes,
+            fromNotesOverride,
             toNotes,
             newChord,
             currentScale,
@@ -88,69 +98,82 @@ export const getTension = (values: {
     */
     const tension = new Tension();
     let wantedFunction = null;
-    if (params.selectedCadence == "PAC") {
-        if (beatsUntilLastChordInCadence == 5) {
-            wantedFunction = "not-dominant";
-        }
-        if (beatsUntilLastChordInCadence == 4) {
-            wantedFunction = "sub-dominant";
-        }
-        if (beatsUntilLastChordInCadence == 3) {
-            wantedFunction = "dominant";
-        }
-        if (beatsUntilLastChordInCadence < 3) {
-            wantedFunction = "tonic";
-        }
-        if (beatsUntilLastChordInCadence <= 3 && !inversionName.startsWith('root')) {
-            tension.cadence += 100;
-        }
-    } else if (params.selectedCadence == "IAC") {
-        if (beatsUntilLastChordInCadence == 5) {
-            wantedFunction = "not-dominant";
-        }
-        if (beatsUntilLastChordInCadence == 4) {
-            wantedFunction = "sub-dominant";
-        }
-        if (beatsUntilLastChordInCadence == 3) {
-            wantedFunction = "dominant";
-        }
-        if (beatsUntilLastChordInCadence < 3) {
-            wantedFunction = "tonic";
-        }
-        if (beatsUntilLastChordInCadence <= 3 && inversionName.startsWith('root')) {
-            // Not root inversion
-            tension.cadence += 100;
-        }
-    } else if (params.selectedCadence == "HC") {
-        if (beatsUntilLastChordInCadence == 4) {
-            wantedFunction = "not-dominant";
-        }
-        if (beatsUntilLastChordInCadence == 3) {
-            wantedFunction = "sub-dominant";
-        }
-        if (beatsUntilLastChordInCadence < 3) {
-            wantedFunction = "dominant";
+    let tryToGetLeadingToneInPart0 = false;
+    let part0MustBeTonic = false;
+
+    if (beatsUntilLastChordInCadence && inversionName) {
+        if (params.selectedCadence == "PAC") {
+            if (beatsUntilLastChordInCadence == 5) {
+                wantedFunction = "not-dominant";
+            }
+            if (beatsUntilLastChordInCadence == 4) {
+                wantedFunction = "sub-dominant";
+            }
+            if (beatsUntilLastChordInCadence == 3) {
+                wantedFunction = "dominant";
+                tryToGetLeadingToneInPart0 = true;
+            }
+            if (beatsUntilLastChordInCadence < 3) {
+                wantedFunction = "tonic";
+                part0MustBeTonic = true;
+            }
+            if (beatsUntilLastChordInCadence <= 3 && !inversionName.startsWith('root')) {
+                tension.cadence += 100;
+            }
+        } else if (params.selectedCadence == "IAC") {
+            if (beatsUntilLastChordInCadence == 5) {
+                wantedFunction = "not-dominant";
+            }
+            if (beatsUntilLastChordInCadence == 4) {
+                wantedFunction = "sub-dominant";
+            }
+            if (beatsUntilLastChordInCadence == 3) {
+                wantedFunction = "dominant";
+            }
+            if (beatsUntilLastChordInCadence < 3) {
+                wantedFunction = "tonic";
+            }
+            if (beatsUntilLastChordInCadence <= 3 && inversionName.startsWith('root')) {
+                // Not root inversion
+                tension.cadence += 100;
+            }
+        } else if (params.selectedCadence == "HC") {
+            if (beatsUntilLastChordInCadence == 4) {
+                wantedFunction = "not-dominant";
+            }
+            if (beatsUntilLastChordInCadence == 3) {
+                wantedFunction = "sub-dominant";
+            }
+            if (beatsUntilLastChordInCadence < 3) {
+                wantedFunction = "dominant";
+            }
         }
     }
 
     let prevChord;
     let prevPrevChord;
-    const latestDivision = Math.max(...Object.keys(divisionedNotes).map((x) => parseInt(x, 10)));
-    let tmp : Array<Note | null> = [null, null, null, null];
-    for (const richNote of (divisionedNotes[latestDivision] || [])) {
-        tmp[richNote.partIndex] = richNote.note;
-        prevChord = richNote.chord;
-    }
-    const passedFromNotes = [...tmp].filter(Boolean);
-    tmp = [null, null, null, null];
-    for (const richNote of (divisionedNotes[latestDivision - BEAT_LENGTH] || [])) {
-        tmp[richNote.partIndex] = richNote.note;
-        prevPrevChord = richNote.chord;
-    }
-    const prevPassedFromNotes = [...tmp].filter(Boolean);
+    let passedFromNotes: Note[] = [];
+    let prevPassedFromNotes: Note[] = [];
+    if (divisionedNotes) {
+        const latestDivision = Math.max(...Object.keys(divisionedNotes).map((x) => parseInt(x, 10)));
+        let tmp : Array<Note> = [];
+        for (const richNote of (divisionedNotes[latestDivision] || [])) {
+            tmp[richNote.partIndex] = richNote.note;
+            prevChord = richNote.chord;
+        }
+        passedFromNotes = [...tmp].filter(Boolean);
+        tmp = [];
+        for (const richNote of (divisionedNotes[latestDivision - BEAT_LENGTH] || [])) {
+            tmp[richNote.partIndex] = richNote.note;
+            prevPrevChord = richNote.chord;
+        }
+        prevPassedFromNotes = [...tmp].filter(Boolean);
 
-    if (!prevChord) {
-        wantedFunction = "tonic";
+        if (!prevChord) {
+            wantedFunction = "tonic";
+        }
+    } else if (fromNotesOverride) {
+        passedFromNotes = fromNotesOverride;
     }
 
     let allsame = true;
@@ -172,7 +195,7 @@ export const getTension = (values: {
             break;
         }
     }
-    if (prevChord && prevPrevChord && prevChord.toString() == newChord.toString() && prevPrevChord.toString() == prevChord.toString()) {
+    if (prevChord && prevPrevChord && newChord && prevChord.toString() == newChord.toString() && prevPrevChord.toString() == prevChord.toString()) {
         allsame = true;
     }
     if (allsame) {
@@ -194,6 +217,12 @@ export const getTension = (values: {
     let notesNotInScale: Array<number> = []
     let newScale: Nullable<Scale> = null;
     const leadingTone = (currentScale.key - 1 + 24) % 12
+
+    if (tryToGetLeadingToneInPart0 && toGlobalSemitones[0] % 12 != leadingTone) {
+        // in PAC, we want the leading tone in part 0 in the dominant
+        tension.cadence += 5;
+    }
+
     if (currentScale) {
         const scaleSemitones = currentScale.notes.map(note => note.semitone);
         notesNotInScale = toSemitones.filter(semitone => !scaleSemitones.includes(semitone));
@@ -220,7 +249,7 @@ export const getTension = (values: {
         }
     }
 
-    if (inversionName.startsWith('second') || (prevInversionName || "").startsWith('second')) {
+    if (inversionName && inversionName.startsWith('second') || (prevInversionName || "").startsWith('second')) {
         for (let i=0; i<fromGlobalSemitones.length; i++) {
             const fromSemitone = fromGlobalSemitones[i];
             const toSemitone = toGlobalSemitones[i];
@@ -246,6 +275,11 @@ export const getTension = (values: {
         'dominant': true,
     }
     const toScaleIndexes = toNotes.map(note => semitoneScaleIndex[note.semitone]);
+
+    if (part0MustBeTonic && toScaleIndexes[0] != 0) {
+        tension.cadence += 10;
+    }
+
     for (const scaleIndex of toScaleIndexes) {
         if (scaleIndex == undefined) {
             possibleToFunctions.tonic = false;
@@ -428,7 +462,7 @@ export const getTension = (values: {
         if (diff == 0) {
             directionCounts.same += 1;
         }
-        if (diff != 0 && inversionName.startsWith('root')) {
+        if (diff != 0 && (inversionName || '').startsWith('root')) {
             rootBassDirection = diff > 0 ? 'up' : 'down';
         }
     }
@@ -629,8 +663,8 @@ export const getTension = (values: {
             targetNote -= i * 2;
 
             let targetNoteReached = false;
-            for (const division in divisionedNotes) {
-                const notes = divisionedNotes[division];
+            for (const division in (divisionedNotes || {})) {
+                const notes = (divisionedNotes || {})[division];
                 for (const prevNote of notes.filter(richNote => richNote.partIndex == i)) {
                     if (globalSemitone(prevNote.note) == targetNote) {
                         targetNoteReached = true;

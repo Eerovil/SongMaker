@@ -4,6 +4,20 @@ import { Tension } from "./tension";
 
 export const BEAT_LENGTH = 12;
 
+type PickNullable<T> = {
+    [P in keyof T as null extends T[P] ? P : never]: T[P]
+}
+
+type PickNotNullable<T> = {
+    [P in keyof T as null extends T[P] ? never : P]: T[P]
+}
+
+export type OptionalNullable<T> = {
+    [K in keyof PickNullable<T>]?: Exclude<T[K], null>
+} & {
+        [K in keyof PickNotNullable<T>]: T[K]
+    }
+
 
 export const semitoneDistance = (tone1: number, tone2: number) => {
     // distance from 0 to 11 should be 1
@@ -63,7 +77,7 @@ export const nextGToneInScale = (gTone: Semitone, indexDiff: number, scale: Scal
 }
 
 
-export const startingNotes = (params: MusicParams) => {  
+export const startingNotes = (params: MusicParams) => {
     const p1Note = params.parts[0].note || "F4";
     const p2Note = params.parts[1].note || "C4";
     const p3Note = params.parts[2].note || "A3";
@@ -152,26 +166,27 @@ export class Chord {
             semitone = semitoneOrName;
         }
         this.root = parseInt(`${semitone}`);
-        this.chordType = chordType;
-        const template = chordTemplates[chordType];
+        this.chordType = chordType || "?";
+        const template = chordTemplates[this.chordType];
         if (template == undefined) {
             throw "Unknown chord type: " + chordType;
         }
         this.notes = [];
         for (let note of template) {
-            this.notes.push(new Note({semitone: (semitone + note) % 12, octave: 1}));
+            this.notes.push(new Note({ semitone: (semitone + note) % 12, octave: 1 }));
         }
     }
 }
 
 
-export type Nullable<T> = T | null
+export type Nullable<T> = T | null | undefined;
 
 export class MainMusicParams {
-    beatsPerBar?: number = 4;
-    cadenceCount?: number = 4;
+    beatsPerBar: number = 4;
+    cadenceCount: number = 4;
     cadences: Array<MusicParams> = [];
     testMode?: boolean = false;
+    melodyRhythm: string = "";  // hidden from user for now
 
     constructor(params: Partial<MainMusicParams> | undefined = undefined) {
         if (params) {
@@ -179,21 +194,36 @@ export class MainMusicParams {
                 (this as any)[key] = (params as any)[key];
             }
         }
+        this.melodyRhythm = ""
+        for (let i=0; i<20; i++) {
+            const random = Math.random();
+            if (random < 0.2) {
+                this.melodyRhythm += "H";
+                i += 1;
+            } else if (random < 0.7) {
+                this.melodyRhythm += "Q";
+            } else {
+                this.melodyRhythm += "EE";
+            }
+        }
     }
 
     currentCadenceParams(division: number): MusicParams {
         const beat = Math.floor(division / BEAT_LENGTH);
         const bar = Math.floor(beat / this.beatsPerBar);
-        let counter = 0;
+        let counter = 0;  // The beat we're at in the loop
         for (const cadenceParams of this.cadences) {
+            // Loop cadences in orders
             counter += cadenceParams.barsPerCadence;
-            if (bar < counter) {
+            if (bar < counter) {  // We have passed the given division. The previous cadence is the one we want
                 cadenceParams.beatsUntilCadenceEnd = counter * this.beatsPerBar - beat;
                 cadenceParams.beatsUntilSongEnd = this.cadences.reduce((a, b) => a + b.barsPerCadence, 0) * this.beatsPerBar - beat;
                 cadenceParams.beatsPerBar = this.beatsPerBar;
+                cadenceParams.cadenceStartDivision = ((counter - cadenceParams.barsPerCadence) * this.beatsPerBar) * BEAT_LENGTH;
                 return cadenceParams;
             }
         }
+        return this.cadences[0];
     }
 
     getMaxBeats() {
@@ -205,9 +235,10 @@ export class MusicParams {
     beatsUntilCadenceEnd: number = 0;
     beatsUntilSongEnd: number = 0;
     beatsPerBar: number = 4;
+    cadenceStartDivision: number = 0;
 
     baseTension?: number = 0.3;
-    barsPerCadence?: number = 2
+    barsPerCadence: number = 2
     tempo?: number = 40;
     halfNotes?: boolean = true;
     sixteenthNotes?: number = 0.2;
@@ -219,74 +250,76 @@ export class MusicParams {
         note: string,
         volume: string,
     }> = [
-        {
-            voice: "42",
-            note: "C5",
-            volume: "10",
-        },
-        {
-            voice: "42",
-            note: "A4",
-            volume: "5",
-        },
-        {
-            voice: "42",
-            note: "C4",
-            volume: "5",
-        },
-        {
-            voice: "42",
-            note: "E3",
-            volume: "10",
-        }
-    ];
+            {
+                voice: "42",
+                note: "C5",
+                volume: "10",
+            },
+            {
+                voice: "42",
+                note: "A4",
+                volume: "5",
+            },
+            {
+                voice: "42",
+                note: "C4",
+                volume: "5",
+            },
+            {
+                voice: "42",
+                note: "E3",
+                volume: "10",
+            }
+        ];
     beatSettings: Array<{
         tension: number,
     }> = [];
-    chordSettings: {[key: string]: {
-        enabled: boolean,
-        weight: number,
-    }} = {
-        maj: {
-            enabled: true,
-            weight: 0,
-        },
-        min: {
-            enabled: true,
-            weight: 0,
-        },
-        dim: {
-            enabled: true,
-            weight: 0
-        },
-        aug: {
-            enabled: true,
-            weight: 0,
-        },
-        maj7: {
-            enabled: true,
-            weight: 0,
-        },
-        dom7: {
-            enabled: true,
-            weight: 0,
-        },
-    }
+    chordSettings: {
+        [key: string]: {
+            enabled: boolean,
+            weight: number,
+        }
+    } = {
+            maj: {
+                enabled: true,
+                weight: 0,
+            },
+            min: {
+                enabled: true,
+                weight: 0,
+            },
+            dim: {
+                enabled: true,
+                weight: 0
+            },
+            aug: {
+                enabled: true,
+                weight: 0,
+            },
+            maj7: {
+                enabled: true,
+                weight: 0,
+            },
+            dom7: {
+                enabled: true,
+                weight: 0,
+            },
+        }
     scaleSettings: {
         [key: string]: {
             enabled: boolean,
             weight: number
         }
     } = {
-        major: {
-            enabled: true,
-            weight: 0,
-        },
-        minor: {
-            enabled: true,
-            weight: 0,
-        },
-    };
+            major: {
+                enabled: true,
+                weight: 0,
+            },
+            minor: {
+                enabled: true,
+                weight: 0,
+            },
+        };
     selectedCadence: string = "HC";
     nonChordTones: {
         [key: string]: {
@@ -294,43 +327,43 @@ export class MusicParams {
             weight: number,
         }
     } = {
-        passingTone: {
-            enabled: true,
-            weight: 1,
-        },
-        neighborTone: {
-            enabled: false,
-            weight: 0,
-        },
-        suspension: {
-            enabled: true,
-            weight: 1,
-        },
-        retardation: {
-            enabled: true,
-            weight: 1,
-        },
-        appogiatura: {
-            enabled: true,
-            weight: 1,
-        },
-        escapeTone: {
-            enabled: true,
-            weight: 1,
-        },
-        anticipation: {
-            enabled: false,
-            weight: 0,
-        },
-        neighborGroup: {
-            enabled: true,
-            weight: 1,
-        },
-        pedalPoint: {
-            enabled: true,
-            weight: 1,
-        },
-    }
+            passingTone: {
+                enabled: true,
+                weight: 1,
+            },
+            neighborTone: {
+                enabled: false,
+                weight: 0,
+            },
+            suspension: {
+                enabled: true,
+                weight: 1,
+            },
+            retardation: {
+                enabled: true,
+                weight: 1,
+            },
+            appogiatura: {
+                enabled: true,
+                weight: 1,
+            },
+            escapeTone: {
+                enabled: true,
+                weight: 1,
+            },
+            anticipation: {
+                enabled: false,
+                weight: 0,
+            },
+            neighborGroup: {
+                enabled: true,
+                weight: 1,
+            },
+            pedalPoint: {
+                enabled: true,
+                weight: 1,
+            },
+        }
 
 
     constructor(params: Partial<MusicParams> | undefined = undefined) {
@@ -347,7 +380,7 @@ export class MusicParams {
         if (this.beatSettings.length < beatCount) {
             for (let i = this.beatSettings.length; i < beatCount; i++) {
                 this.beatSettings.push({
-                    tension: this.baseTension
+                    tension: this.baseTension || 0.3,
                 });
             }
         } else if (this.beatSettings.length > beatCount) {
@@ -368,7 +401,7 @@ export type RichNote = {
     duration: number,
     freq?: number,
     chord?: Chord,
-    partIndex?: number,
+    partIndex: number,
     scale?: Scale,
     beam?: string,
     tie?: string,
@@ -385,9 +418,11 @@ export const globalSemitone = (note: Note) => {
 }
 
 export const getClosestOctave = (note: Note, targetNote: Nullable<Note> = null, targetSemitone: Nullable<number> = null) => {
-    // 
     let semitone = globalSemitone(note);
-    targetSemitone = targetSemitone || globalSemitone(targetNote);
+    if (!targetNote && !targetSemitone) {
+        throw new Error("No target note or semitone provided");
+    }
+    targetSemitone = targetSemitone || globalSemitone(targetNote as Note);
     console.log("Closest octave: ", semitone, targetSemitone);
     // Using modulo here -> -7 % 12 = -7
     // -13 % 12 = -1
@@ -468,4 +503,15 @@ export const majScaleDifference = (semitone1: number, semitone2: number) => {
         currentVal = [...newCurrentVal] as Array<number>;
     }
     return 12;
+}
+
+export const getRichNote = (divisionedNotes: DivisionedRichnotes, division: number, partIndex: number): RichNote | null => {
+    if (division in divisionedNotes) {
+        for (const note of divisionedNotes[division]) {
+            if (note.partIndex == partIndex) {
+                return note;
+            }
+        }
+    }
+    return null;
 }

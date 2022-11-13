@@ -34,8 +34,8 @@ const makeChords = async (mainParams: MainMusicParams, progressCallback: Nullabl
         let prevResult = result[division - BEAT_LENGTH];
         let prevChord = prevResult ? prevResult[0].chord : null;
         let prevNotes: Note[];
-        let prevInversionName: string;
-        let currentScale: Scale;
+        let prevInversionName: string | undefined;
+        let currentScale: Scale | undefined;
         let bannedNotess = divisionBannedNotes[division];
         if (prevResult) {
             prevNotes = [];
@@ -45,6 +45,8 @@ const makeChords = async (mainParams: MainMusicParams, progressCallback: Nullabl
                 currentScale = richNote.scale;
             }
         }
+        // @ts-expect-error
+        prevNotes = prevNotes;
 
         const params = mainParams.currentCadenceParams(division);
         const beatsUntilLastChordInCadence = params.beatsUntilCadenceEnd;
@@ -53,7 +55,7 @@ const makeChords = async (mainParams: MainMusicParams, progressCallback: Nullabl
         const currentBeat = Math.floor(division / BEAT_LENGTH);
         console.log("beatsUntilLastChordInCadence", beatsUntilLastChordInCadence);
 
-        const randomGenerator = new RandomChordGenerator(params, currentScale)
+        const randomGenerator = new RandomChordGenerator(params)
         let newChord: Nullable<Chord> = null;
 
         let goodChords: RichNote[][] = []
@@ -64,7 +66,7 @@ const makeChords = async (mainParams: MainMusicParams, progressCallback: Nullabl
         let iterations = 0;
         let skipLoop = false;
 
-        if (beatsUntilLastChordInCadence == 1) {
+        if (beatsUntilLastChordInCadence == 1 && prevNotes) {
             // Force same chord twice
             goodChords.splice(0, goodChords.length);
             goodChords.push(prevNotes.map((note, index) => ({
@@ -99,7 +101,7 @@ const makeChords = async (mainParams: MainMusicParams, progressCallback: Nullabl
             })
             if (currentScale && (maxBeats - currentBeat < 3 || beatsUntilLastChordInCadence < 3 || currentBeat < 5)) {
                 // Don't allow other scales than the current one
-                availableScales = availableScales.filter(s => s.scale.equals(currentScale));
+                availableScales = availableScales.filter(s => s.scale.equals(currentScale as Scale));
             }
             if (availableScales.length == 0) {
                 continue;
@@ -155,9 +157,9 @@ const makeChords = async (mainParams: MainMusicParams, progressCallback: Nullabl
                         newChord,
                     });
 
-                    tensionResult.modulation += availableScale.tension / Math.max(0.01, params.modulationWeight);
+                    tensionResult.modulation += availableScale.tension / Math.max(0.01, (params.modulationWeight || 1));
                     if (currentScale && !availableScale.scale.equals(currentScale)) {
-                        tensionResult.modulation += 1 / Math.max(0.01, params.modulationWeight);
+                        tensionResult.modulation += 1 / Math.max(0.01, (params.modulationWeight || 1));
                         if (maxBeats - currentBeat < 3) {
                             // Last 2 bars, don't change scale
                             tensionResult.modulation += 100;
@@ -184,10 +186,10 @@ const makeChords = async (mainParams: MainMusicParams, progressCallback: Nullabl
                     }
 
                     if (tension < 10) {
-                        inversionLogger.parent = null;
+                        inversionLogger.parent = undefined;
                         let thisChordCount = 0;
                         for (const goodChord of goodChords) {
-                            if (goodChord[0].chord.toString() == newChord.toString()) {
+                            if (goodChord[0].chord && goodChord[0].chord.toString() == newChord.toString()) {
                                 thisChordCount++;
                             }
                         }
@@ -197,14 +199,14 @@ const makeChords = async (mainParams: MainMusicParams, progressCallback: Nullabl
                             let worstChordTension = 0;
                             for (let i = 0; i < goodChords.length; i++) {
                                 const goodChord = goodChords[i];
-                                if (goodChord[0].chord.toString() == newChord.toString()) {
-                                    if (goodChord[0].tension.totalTension < worstChordTension) {
+                                if (goodChord[0].chord && goodChord[0].chord.toString() == newChord.toString()) {
+                                    if ((goodChord[0].tension?.totalTension || 999) < worstChordTension) {
                                         worstChord = i;
                                     }
                                 }
                             }
                             if (worstChord != null) {
-                                if (goodChords[worstChord][0].tension.totalTension > tension) {
+                                if ((goodChords[worstChord][0].tension?.totalTension || 999) > tension) {
                                     // Just remove that index, add a new one later
                                     goodChords.splice(worstChord, 1);
                                 }
@@ -223,7 +225,7 @@ const makeChords = async (mainParams: MainMusicParams, progressCallback: Nullabl
                             } as RichNote)
                             ));
                         }
-                    } else if (badChords.length < BAD_CHORD_LIMIT) {
+                    } else if (tensionResult.modulation < 100 && badChords.length < BAD_CHORD_LIMIT) {
                         let chordCountInBadChords = 0;
                         for (const badChord of badChords) {
                             if (badChord.chord == newChord.toString()) {
@@ -272,11 +274,11 @@ const makeChords = async (mainParams: MainMusicParams, progressCallback: Nullabl
         // Choose the best chord from goodChords
         let bestChord = goodChords[0];
         for (const chord of goodChords) {
-            if (chord[0]) {
+            if (chord[0]?.tension != undefined) {
                 chord[0].tension.print(chord[0].chord ? chord[0].chord.toString() : "?Chord?", ": ")
-            }
-            if (chord[0].tension < bestChord[0].tension) {
-                bestChord = chord;
+                if (chord[0].tension < (bestChord[0]?.tension || 999)) {
+                    bestChord = chord;
+                }
             }
         }
 
@@ -314,7 +316,7 @@ export async function makeMusic(params: MainMusicParams, progressCallback: Nulla
     // const divisionedNotes: DivisionedRichnotes = newVoiceLeadingNotes(chords, params);
     buildTopMelody(divisionedNotes, params);
     // addEighthNotes(divisionedNotes, params)
-    addHalfNotes(divisionedNotes, params)
+    // addHalfNotes(divisionedNotes, params)
 
 
     return {
@@ -343,7 +345,7 @@ export function makeMelody(divisionedNotes: DivisionedRichnotes, mainParams: Mai
     // const divisionedNotes: DivisionedRichnotes = newVoiceLeadingNotes(chords, params);
     buildTopMelody(divisionedNotes, mainParams);
     // addEighthNotes(divisionedNotes, params)
-    addHalfNotes(divisionedNotes, mainParams)
+    // addHalfNotes(divisionedNotes, mainParams)
 }
 
 export { buildTables }
