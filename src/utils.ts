@@ -248,27 +248,27 @@ export class MusicParams {
     parts: Array<{
         voice: string,
         note: string,
-        volume: string,
+        volume: number,
     }> = [
             {
                 voice: "42",
                 note: "C5",
-                volume: "10",
+                volume: 10,
             },
             {
                 voice: "42",
                 note: "A4",
-                volume: "5",
+                volume: 7,
             },
             {
                 voice: "42",
                 note: "C4",
-                volume: "5",
+                volume: 7,
             },
             {
                 voice: "42",
                 note: "E3",
-                volume: "10",
+                volume: 10,
             }
         ];
     beatSettings: Array<{
@@ -332,8 +332,8 @@ export class MusicParams {
                 weight: 1,
             },
             neighborTone: {
-                enabled: false,
-                weight: 0,
+                enabled: true,
+                weight: 1,
             },
             suspension: {
                 enabled: true,
@@ -352,8 +352,8 @@ export class MusicParams {
                 weight: 1,
             },
             anticipation: {
-                enabled: false,
-                weight: 0,
+                enabled: true,
+                weight: 1,
             },
             neighborGroup: {
                 enabled: true,

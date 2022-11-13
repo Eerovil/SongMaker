@@ -210,7 +210,7 @@
                         </select>
                     </div>
                     <div class="settings-row">
-                        <input v-model="cadenceParams.parts[0].volume" type="range" min="0.1" max="10" step="1">
+                        <input v-model.number="cadenceParams.parts[0].volume" type="range" min="0.1" max="10" step="1">
                     </div>
                 </div>
                 <div>
@@ -223,7 +223,7 @@
                         </select>
                     </div>
                     <div class="settings-row">
-                        <input v-model="cadenceParams.parts[1].volume" type="range" min="0.1" max="10" step="1">
+                        <input v-model.number="cadenceParams.parts[1].volume" type="range" min="0.1" max="10" step="1">
                     </div>
                 </div>
                 <div>
@@ -236,7 +236,7 @@
                         </select>
                     </div>
                     <div class="settings-row">
-                        <input v-model="cadenceParams.parts[2].volume" type="range" min="0.1" max="10" step="1">
+                        <input v-model.number="cadenceParams.parts[2].volume" type="range" min="0.1" max="10" step="1">
                     </div>
                 </div>
                 <div>
@@ -249,7 +249,7 @@
                         </select>
                     </div>
                     <div class="settings-row">
-                        <input v-model="cadenceParams.parts[3].volume" type="range" min="0.1" max="10" step="1">
+                        <input v-model.number="cadenceParams.parts[3].volume" type="range" min="0.1" max="10" step="1">
                     </div>
                 </div>
             </div>
