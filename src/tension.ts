@@ -630,9 +630,9 @@ export const getTension = (values: TensionParams): Tension => {
                     if (interval <= 3) {
                         tension.melodyJump += 0.5;
                     } else if (interval <= 4) {
-                        tension.melodyJump += 1;  // Not as bad
+                        tension.melodyJump += 4;  // Not as bad
                     } else {
-                        tension.melodyJump += 10;  // Terrible
+                        tension.melodyJump += 100;  // Terrible
                     }
                 } else {
                     // Going back down/up...
@@ -642,9 +642,9 @@ export const getTension = (values: TensionParams): Tension => {
                         if (interval <= 3) {
                             tension.melodyJump += 0.5;
                         } else  if (interval <= 4) {
-                            tension.melodyJump += 1;  // Not as bad
+                            tension.melodyJump += 4;  // Not as bad
                         } else {
-                            tension.melodyJump += 10;  // Terrible
+                            tension.melodyJump += 100;  // Terrible
                         }
                     }
                 }
