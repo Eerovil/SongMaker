@@ -157,9 +157,13 @@ const makeChords = async (mainParams: MainMusicParams, progressCallback: Nullabl
                         newChord,
                     });
 
-                    tensionResult.modulation += availableScale.tension / Math.max(0.01, (params.modulationWeight || 1));
+                    const modulationWeight = parseFloat((`${params.modulationWeight || "1"}`))
+                    tensionResult.modulation += availableScale.tension / Math.max(0.01, modulationWeight);
                     if (currentScale && !availableScale.scale.equals(currentScale)) {
-                        tensionResult.modulation += 1 / Math.max(0.01, (params.modulationWeight || 1));
+                        tensionResult.modulation += 1 / Math.max(0.01, modulationWeight);
+                        if (modulationWeight == 0) {
+                            tensionResult.modulation += 100;
+                        }
                         if (maxBeats - currentBeat < 3) {
                             // Last 2 bars, don't change scale
                             tensionResult.modulation += 100;
