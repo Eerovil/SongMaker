@@ -11,10 +11,6 @@ export const renderMusic = async (scoreXml: string) => {
     return;
   }
   (window as any).scoreXML = scoreXml;
-  if (!(window as any).audioPlayer) {
-    (window as any).audioPlayer = new AudioPlayer();
-  }
-  const audioPlayer = (window as any).audioPlayer;
   let el = document.getElementById("score");
   if (!el) {
     return;
@@ -26,10 +22,6 @@ export const renderMusic = async (scoreXml: string) => {
   const osmd = (window as any).renderOSMD
   await osmd.load(scoreXml);
   osmd.render();
-  if (audioPlayer.scoreInstruments.length == 0) {
-    audioPlayer.loadScore(osmd as any);
-    registerButtonEvents(audioPlayer);
-  }
 }
 
 
@@ -47,9 +39,11 @@ const loadPlayer = async (scoreXml: string, autoplay: boolean) => {
     (window as any).playerOSMD = new OpenSheetMusicDisplay(el);
   }
   const osmd = (window as any).playerOSMD
-  if (!(window as any).audioPlayer) {
-    (window as any).audioPlayer = new AudioPlayer();
+  if ((window as any).audioPlayer) {
+    (window as any).audioPlayer.stop();
+    delete (window as any).audioPlayer;
   }
+  (window as any).audioPlayer = new AudioPlayer();
   const audioPlayer = (window as any).audioPlayer;
   audioPlayer.playbackSettings.masterVolume = 40;
 
@@ -59,6 +53,7 @@ const loadPlayer = async (scoreXml: string, autoplay: boolean) => {
   audioPlayer.stop();
 
   hideLoadingMessage();
+  registerButtonEvents(audioPlayer);
   setTimeout(() => {
     if (audioPlayer.state === "STOPPED" && autoplay) {
       audioPlayer.play();
