@@ -488,14 +488,14 @@ export const buildTopMelody = (divisionedNotes: DivisionedRichnotes, mainParams:
             // Try to find a way to ad 8th notes this beat.
 
             const nonChordToneChoiceFuncs: {[key: string]: Function} = {
+                appogiatura: () => appogiatura(nacParams),
+                neighborGroup: () => neighborGroup(nacParams),
+                suspension: () => suspension(nacParams),
+                escapeTone: () => escapeTone(nacParams),
                 passingTone: () => passingTone(nacParams),
                 neighborTone: () => neighborTone(nacParams),
-                suspension: () => suspension(nacParams),
                 retardation: () => retardation(nacParams),
-                appogiatura: () => appogiatura(nacParams),
-                escapeTone: () => escapeTone(nacParams),
                 anticipation: () => anticipation(nacParams),
-                neighborGroup: () => neighborGroup(nacParams),
                 pedalPoint: () => pedalPoint(nacParams),
             }
 

@@ -251,12 +251,12 @@ export class MusicParams {
         volume: number,
     }> = [
             {
-                voice: "42",
+                voice: "41",
                 note: "C5",
                 volume: 10,
             },
             {
-                voice: "42",
+                voice: "41",
                 note: "A4",
                 volume: 7,
             },
@@ -266,7 +266,7 @@ export class MusicParams {
                 volume: 7,
             },
             {
-                voice: "42",
+                voice: "43",
                 note: "E3",
                 volume: 10,
             }
