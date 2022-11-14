@@ -1,5 +1,6 @@
 import { Note, Scale } from "musictheoryjs";
-import { BEAT_LENGTH, Chord, DivisionedRichnotes, globalSemitone, gToneString, majScaleDifference, MusicParams, Nullable, semitoneDistance } from "./utils";
+import { getForcedMelodyMatch } from "./forcedmelody";
+import { BEAT_LENGTH, Chord, DivisionedRichnotes, globalSemitone, gToneString, MainMusicParams, majScaleDifference, MusicParams, Nullable, semitoneDistance } from "./utils";
 
 
 export class Tension {
@@ -20,7 +21,11 @@ export class Tension {
     voiceDirections: number = 0;
     overlapping: number = 0;
 
+    forcedMelody: number = 0;
+
     totalTension: number = 0;
+
+    comment: string = "";
 
     getTotalTension(values: {params: MusicParams, beatsUntilLastChordInCadence: number}) {
         const {params, beatsUntilLastChordInCadence} = values;
@@ -46,6 +51,8 @@ export class Tension {
         tension += this.voiceDirections;
         tension += this.overlapping;
 
+        tension += this.forcedMelody;
+
         this.totalTension = tension;
         return tension;
     }
@@ -58,7 +65,11 @@ export class Tension {
                 toPrint[key] = (this[key] as unknown as number).toFixed(1);
             }
         }
-        console.log(...args, toPrint)
+        if (this.comment) {
+            console.log(this.comment, ...args, toPrint);
+        } else {
+            console.log(...args, toPrint)
+        }
     }
 }
 
@@ -70,6 +81,7 @@ export type TensionParams = {
     currentScale: Scale,
     beatsUntilLastChordInCadence?: number,
     params: MusicParams,
+    mainParams: MainMusicParams,
     beatsUntilLastChordInSong?: number,
     inversionName?: string,
     prevInversionName?: String,
@@ -89,6 +101,7 @@ export const getTension = (values: TensionParams): Tension => {
             inversionName,
             prevInversionName,
             params,
+            mainParams,
         } = values;
     /*
     *   Get the tension between two chords
@@ -100,6 +113,8 @@ export const getTension = (values: TensionParams): Tension => {
     let wantedFunction = null;
     let tryToGetLeadingToneInPart0 = false;
     let part0MustBeTonic = false;
+
+    getForcedMelodyMatch(tension, values, mainParams);
 
     if (beatsUntilLastChordInCadence && inversionName) {
         if (params.selectedCadence == "PAC") {

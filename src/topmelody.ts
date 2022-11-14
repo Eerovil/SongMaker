@@ -1,6 +1,6 @@
 import { Note, Scale } from "musictheoryjs";
 import { getTension } from "./tension";
-import { BEAT_LENGTH, DivisionedRichnotes, getRichNote, globalSemitone, MainMusicParams, MusicParams, nextGToneInScale, Nullable, semitoneDistance, semitoneScaleIndex, startingNotes } from "./utils";
+import { BEAT_LENGTH, DivisionedRichnotes, getRhythmNeededDurations, getRichNote, globalSemitone, MainMusicParams, MusicParams, nextGToneInScale, Nullable, semitoneDistance, semitoneScaleIndex, startingNotes } from "./utils";
 
 
 type NonChordTone = {
@@ -337,34 +337,7 @@ const pedalPoint = (values: NonChordToneParams): NonChordTone | null => {
 
 export const buildTopMelody = (divisionedNotes: DivisionedRichnotes, mainParams: MainMusicParams) => {
     // Follow the pre given melody rhythm
-    const melodyRhythmString = mainParams.melodyRhythm;
-    // Figure out what needs to happen each beat to get our melody
-    let rhythmDivision = 0;
-    const rhythmNeededDurations: {[key: number]: number} = {};
-    for (let i=0; i<melodyRhythmString.length; i++) {
-        const rhythm = melodyRhythmString[i];
-        if (rhythm == "W") {
-            rhythmNeededDurations[rhythmDivision] = BEAT_LENGTH * 4;
-            rhythmDivision += BEAT_LENGTH * 4
-            // TODO
-        } else if (rhythm == "H") {
-            rhythmNeededDurations[rhythmDivision] = BEAT_LENGTH * 2;
-            rhythmDivision += BEAT_LENGTH * 2
-            // TODO
-        } else if (rhythm == "Q") {
-            rhythmNeededDurations[rhythmDivision] = BEAT_LENGTH;
-            rhythmDivision += BEAT_LENGTH;
-            continue;  // Nothing to do
-        } else if (rhythm == "E") {
-            // This division needs to be converted to Eighth
-            rhythmNeededDurations[rhythmDivision] = BEAT_LENGTH / 2;
-            rhythmDivision += BEAT_LENGTH / 2;
-        } else if (rhythm == "S") {
-            // This division needs to be converted to Sixteenth
-            rhythmNeededDurations[rhythmDivision] = BEAT_LENGTH / 4;
-            rhythmDivision += BEAT_LENGTH / 4;
-        }
-    }
+    const rhythmNeededDurations: { [key: number]: number; } = getRhythmNeededDurations(mainParams);
 
     const lastDivision = BEAT_LENGTH * mainParams.getMaxBeats();
     const firstParams = mainParams.currentCadenceParams(0);
@@ -557,6 +530,7 @@ export const buildTopMelody = (divisionedNotes: DivisionedRichnotes, mainParams:
                     toNotes: nonChordToneNotes,
                     currentScale: currentScale,
                     params: params,
+                    mainParams: mainParams,
                 })
                 let tension = 0;
                 tension += tensionResult.doubleLeadingTone;
@@ -581,4 +555,3 @@ export const buildTopMelody = (divisionedNotes: DivisionedRichnotes, mainParams:
         }
     }
 }
-

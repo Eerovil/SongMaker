@@ -267,7 +267,7 @@
             <button onclick="newMelody()">Aja vain välinuotit</button>
             <button @click="resetParams()">Reset</button>
             <button onclick="download()">Download</button>
-            <button onclick="window.giveUp()">Luovuta generointi</button>
+            <button @click="giveup()">Luovuta generointi</button>
             <button id="btn-play">PLAY</button>
             <button id="btn-pause">PAUSE</button>
             <button id="btn-stop">STOP</button>
@@ -420,6 +420,7 @@ window.midiInstruments = [
 
     //console.log(window.scoreXML)
 
+
     const download = () => {
         const mimeType = "text/xml";
         const filename = "score.xml";
@@ -463,6 +464,11 @@ createApp({
     });
   },
   methods: {
+    giveup() {
+        console.groupEnd()
+        console.log("give up: ", window.giveUp);
+        window.giveUp()
+    },
     saveParams(reload = undefined) {
         window.localStorage.setItem('fulldata', JSON.stringify(this.params));
         if (reload) {

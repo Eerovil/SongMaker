@@ -4,6 +4,7 @@ import { BEAT_LENGTH, DivisionedRichnotes, MainMusicParams, MusicParams } from "
 buildTables()
 
 self.onmessage = (event: { data: { params: string, newMelody: undefined | boolean, giveUp: undefined | boolean } }) => {
+    console.log("Got message", event.data);
     const params = new MainMusicParams(JSON.parse(event.data.params || "{}"));
 
     if (event.data.newMelody) {

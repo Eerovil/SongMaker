@@ -30,6 +30,7 @@ setTimeout(() => {
     worker = new Worker('dist/worker.js');
     worker.postMessage({params: JSON.stringify(params)});
     (window as any).giveUp = () => {
+        console.log("Giving up!")
         worker.postMessage({giveUp: true});
     }
     worker.onmessage = ({ data }) => {
@@ -48,10 +49,10 @@ setTimeout(() => {
                     if (loadingEl) {
                         loadingEl.innerHTML = "";
                     }
-                    audioPlayer.scoreInstruments[0].Voices[0].volume = parseInt(params.cadences[0].parts[0].volume);
-                    audioPlayer.scoreInstruments[1].Voices[0].volume = parseInt(params.cadences[0].parts[1].volume);
-                    audioPlayer.scoreInstruments[2].Voices[0].volume = parseInt(params.cadences[0].parts[2].volume);
-                    audioPlayer.scoreInstruments[3].Voices[0].volume = parseInt(params.cadences[0].parts[3].volume);
+                    audioPlayer.scoreInstruments[0].Voices[0].volume = parseInt(params.cadences[0].parts[0].volume as unknown as string);
+                    audioPlayer.scoreInstruments[1].Voices[0].volume = parseInt(params.cadences[0].parts[1].volume as unknown as string);
+                    audioPlayer.scoreInstruments[2].Voices[0].volume = parseInt(params.cadences[0].parts[2].volume as unknown as string);
+                    audioPlayer.scoreInstruments[3].Voices[0].volume = parseInt(params.cadences[0].parts[3].volume as unknown as string);
                 })
             }
             if (autoplay || (!playerLoading && playerLoadTime.getTime() - (new Date()).getTime() < -1000)) {

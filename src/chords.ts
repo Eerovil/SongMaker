@@ -152,6 +152,7 @@ const makeChords = async (mainParams: MainMusicParams, progressCallback: Nullabl
                         beatsUntilLastChordInCadence,
                         beatsUntilLastChordInSong: maxBeats - currentBeat,
                         params,
+                        mainParams,
                         inversionName: inversionResult.inversionName,
                         prevInversionName,
                         newChord,
@@ -250,6 +251,7 @@ const makeChords = async (mainParams: MainMusicParams, progressCallback: Nullabl
             for (const badChord of badChords) {
                 badChord.tension.print("Bad chord ", badChord.chord);
             }
+            await sleepMS(1);
             // Go back to previous chord, and make it again
             if (division >= BEAT_LENGTH) {
                 division -= BEAT_LENGTH * 2;
@@ -262,7 +264,7 @@ const makeChords = async (mainParams: MainMusicParams, progressCallback: Nullabl
                 divisionBannedNotes[division + BEAT_LENGTH] = divisionBannedNotes[division + BEAT_LENGTH] || [];
                 divisionBannedNotes[division + BEAT_LENGTH].push(newBannedNotes);
                 delete result[division + BEAT_LENGTH];
-                if (divisionBannedNotes[division + BEAT_LENGTH].length > 10) {
+                if (divisionBannedNotes[division + BEAT_LENGTH].length > 10 && result[division]) {
                     // Too many bans, go back further. Remove these bans so they don't hinder later progress.
                     divisionBannedNotes[division + BEAT_LENGTH] = [];
                     division -= BEAT_LENGTH
@@ -282,7 +284,10 @@ const makeChords = async (mainParams: MainMusicParams, progressCallback: Nullabl
             randomGenerator.cleanUp();
             console.groupEnd();
             if (progressCallback) {
-                progressCallback(currentBeat - 1, result);
+                const giveUP = progressCallback(currentBeat - 1, result);
+                if (giveUP) {
+                    return result;
+                }
             }
             continue;
         }
@@ -301,7 +306,9 @@ const makeChords = async (mainParams: MainMusicParams, progressCallback: Nullabl
         result[division] = bestChord;
 
         if (progressCallback) {
-            progressCallback(currentBeat, result);
+            if (progressCallback(currentBeat, result)) {
+                return result;
+            }
         }
 
         randomGenerator.cleanUp();
@@ -313,24 +320,11 @@ const makeChords = async (mainParams: MainMusicParams, progressCallback: Nullabl
 
 export async function makeMusic(params: MainMusicParams, progressCallback: Nullable<Function> = null) {
     let divisionedNotes: DivisionedRichnotes = {};
-    let iterations = 0;
-    while (true) {
-        iterations++;
-        if (iterations > 5) {
-            console.log("Too many iterations, breaking");
-            return {
-                divisionedNotes: {},
-            }
-        }
-        divisionedNotes = await makeChords(params, progressCallback);
-        if (Object.keys(divisionedNotes).length != 0) {
-            break;
-        }
-        await new Promise((resolve) => setTimeout(resolve, 1000))
-    }
+    divisionedNotes = await makeChords(params, progressCallback);
+    await new Promise((resolve) => setTimeout(resolve, 1000))
 
     // const divisionedNotes: DivisionedRichnotes = newVoiceLeadingNotes(chords, params);
-    buildTopMelody(divisionedNotes, params);
+    // buildTopMelody(divisionedNotes, params);
     // addEighthNotes(divisionedNotes, params)
     // addHalfNotes(divisionedNotes, params)
 
