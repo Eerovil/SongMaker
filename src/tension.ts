@@ -1,5 +1,6 @@
 import { Note, Scale } from "musictheoryjs";
-import { getForcedMelodyMatch } from "./forcedmelody";
+import { addForcedMelody } from "./forcedmelody";
+import { NonChordTone } from "./nonchordtones";
 import { BEAT_LENGTH, Chord, DivisionedRichnotes, globalSemitone, gToneString, MainMusicParams, majScaleDifference, MusicParams, Nullable, semitoneDistance } from "./utils";
 
 
@@ -22,6 +23,7 @@ export class Tension {
     overlapping: number = 0;
 
     forcedMelody: number = 0;
+    nac?: NonChordTone;
 
     totalTension: number = 0;
 
@@ -76,6 +78,7 @@ export class Tension {
 
 export type TensionParams = {
     divisionedNotes?: DivisionedRichnotes,
+    beatDivision: number,
     fromNotesOverride?: Array<Note>,
     toNotes: Array<Note>,
     currentScale: Scale,
@@ -113,8 +116,6 @@ export const getTension = (values: TensionParams): Tension => {
     let wantedFunction = null;
     let tryToGetLeadingToneInPart0 = false;
     let part0MustBeTonic = false;
-
-    getForcedMelodyMatch(tension, values, mainParams);
 
     if (beatsUntilLastChordInCadence && inversionName) {
         if (params.selectedCadence == "PAC") {
@@ -164,13 +165,14 @@ export const getTension = (values: TensionParams): Tension => {
         const latestDivision = Math.max(...Object.keys(divisionedNotes).map((x) => parseInt(x, 10)));
         let tmp : Array<Note> = [];
         for (const richNote of (divisionedNotes[latestDivision] || [])) {
-            tmp[richNote.partIndex] = richNote.note;
+            // Use original notes, not the ones that have been turned into NACs
+            tmp[richNote.partIndex] = richNote.originalNote || richNote.note;
             prevChord = richNote.chord;
         }
         passedFromNotes = [...tmp].filter(Boolean);
         tmp = [];
         for (const richNote of (divisionedNotes[latestDivision - BEAT_LENGTH] || [])) {
-            tmp[richNote.partIndex] = richNote.note;
+            tmp[richNote.partIndex] = richNote.originalNote || richNote.note;
             prevPrevChord = richNote.chord;
         }
         prevPassedFromNotes = [...tmp].filter(Boolean);

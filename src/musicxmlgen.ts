@@ -393,6 +393,9 @@ const getScaleSharpCount = (scale: Scale) => {
 const getKeyChange = (currentScale: Scale, richNote: RichNote) => {
   let keyChange: KeyChange | undefined = undefined
   richNote.scale = scaleToScale(richNote.scale);
+  if (richNote.scale == undefined) {
+    return undefined;
+  }
   const prevSharpCount = getScaleSharpCount(currentScale);
   const newSharpCount = getScaleSharpCount(richNote.scale);
   let fifths = 0;
@@ -594,12 +597,14 @@ export function toXml(divisionedNotes: DivisionedRichnotes, mainParams: MainMusi
     if (
       divisionedNotes[division] &&
       divisionedNotes[division][0] &&
-      divisionedNotes[division][0].scale &&
+      divisionedNotes[division][0].scale != undefined &&
+      // @ts-ignore
       !currentScale.equals(divisionedNotes[division][0].scale)
     ) {
       keyChange = getKeyChange(currentScale, divisionedNotes[division][0]);
+      // @ts-ignore
       currentScale = divisionedNotes[division][0].scale;
-      if (keyChange.fifths === 0 && keyChange.cancel === 0) {
+      if (keyChange && keyChange.fifths === 0 && keyChange.cancel === 0) {
         keyChange = undefined;
       }
     }

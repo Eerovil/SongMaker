@@ -227,7 +227,6 @@ export class MainMusicParams {
                 cadenceParams.beatsUntilSongEnd = this.cadences.reduce((a, b) => a + b.barsPerCadence, 0) * this.beatsPerBar - beat;
                 cadenceParams.beatsPerBar = this.beatsPerBar;
                 cadenceParams.cadenceStartDivision = ((counter - cadenceParams.barsPerCadence) * this.beatsPerBar) * BEAT_LENGTH;
-                cadenceParams.mainParams = this;
                 return cadenceParams;
             }
         }
@@ -244,7 +243,6 @@ export class MusicParams {
     beatsUntilSongEnd: number = 0;
     beatsPerBar: number = 4;
     cadenceStartDivision: number = 0;
-    mainParams?: MainMusicParams;
 
     baseTension?: number = 0.3;
     barsPerCadence: number = 2
@@ -407,6 +405,7 @@ export type MusicResult = {
 
 export type RichNote = {
     note: Note,
+    originalNote?: Note,
     duration: number,
     freq?: number,
     chord?: Chord,

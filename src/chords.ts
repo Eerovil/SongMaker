@@ -8,9 +8,10 @@ import { Chord, Nullable, DivisionedRichnotes, RichNote, BEAT_LENGTH, MainMusicP
 import { RandomChordGenerator } from "./randomchords";
 import { getInversions } from "./inversions";
 import { getTension, Tension } from "./tension";
-import { buildTopMelody } from "./topmelody";
+import { addNoteBetween, buildTopMelody } from "./nonchordtones";
 import { addHalfNotes } from "./halfnotes";
 import { getAvailableScales } from "./availablescales";
+import { addForcedMelody, ForcedMelodyResult } from "./forcedmelody";
 import * as time from "./timer"; 
 
 const GOOD_CHORD_LIMIT = 30;
@@ -145,8 +146,9 @@ const makeChords = async (mainParams: MainMusicParams, progressCallback: Nullabl
                     if (goodChords.length >= GOOD_CHORD_LIMIT) {
                         break;
                     }
-                    const tensionResult = getTension({
+                    const tensionParams = {
                         divisionedNotes: result,
+                        beatDivision: division,
                         toNotes: randomNotes,
                         currentScale: availableScale.scale,
                         beatsUntilLastChordInCadence,
@@ -156,7 +158,8 @@ const makeChords = async (mainParams: MainMusicParams, progressCallback: Nullabl
                         inversionName: inversionResult.inversionName,
                         prevInversionName,
                         newChord,
-                    });
+                    }
+                    const tensionResult = getTension(tensionParams);
 
                     const modulationWeight = parseFloat((`${params.modulationWeight || "0"}`))
                     tensionResult.modulation += availableScale.tension / Math.max(0.01, modulationWeight);
@@ -188,6 +191,22 @@ const makeChords = async (mainParams: MainMusicParams, progressCallback: Nullabl
                         if (giveUP) {
                             return result;
                         }
+                    }
+
+                    let melodyResult: ForcedMelodyResult;
+                    if (tension < 10) {
+                        // Is this possible to work with the melody?
+                        // If so, add melody notes and NACs.
+                        melodyResult = addForcedMelody(tensionParams);
+                        tensionResult.forcedMelody += melodyResult.tension;
+                        if (melodyResult.nac) {
+                            tensionResult.nac = melodyResult.nac;
+                        }
+                        tensionResult.comment = melodyResult.comment;
+                        tension = tensionResult.getTotalTension({
+                            params,
+                            beatsUntilLastChordInCadence
+                        });
                     }
 
                     if (tension < 10) {
@@ -264,6 +283,10 @@ const makeChords = async (mainParams: MainMusicParams, progressCallback: Nullabl
                 divisionBannedNotes[division + BEAT_LENGTH] = divisionBannedNotes[division + BEAT_LENGTH] || [];
                 divisionBannedNotes[division + BEAT_LENGTH].push(newBannedNotes);
                 delete result[division + BEAT_LENGTH];
+                // Delete any notes after that also
+                for (let i = division + BEAT_LENGTH; i < maxBeats * BEAT_LENGTH; i += 1) {
+                    delete result[i];
+                }
                 if (divisionBannedNotes[division + BEAT_LENGTH].length > 10 && result[division]) {
                     // Too many bans, go back further. Remove these bans so they don't hinder later progress.
                     divisionBannedNotes[division + BEAT_LENGTH] = [];
@@ -275,6 +298,9 @@ const makeChords = async (mainParams: MainMusicParams, progressCallback: Nullabl
                     divisionBannedNotes[division + BEAT_LENGTH] = divisionBannedNotes[division + BEAT_LENGTH] || [];
                     divisionBannedNotes[division + BEAT_LENGTH].push(newBannedNotes);
                     delete result[division + BEAT_LENGTH];
+                    for (let i = division + BEAT_LENGTH; i < maxBeats * BEAT_LENGTH; i += 1) {
+                        delete result[i];
+                    }
                 }
             } else {
                 // We failed right at the start.
@@ -295,15 +321,19 @@ const makeChords = async (mainParams: MainMusicParams, progressCallback: Nullabl
         // Choose the best chord from goodChords
         let bestChord = goodChords[0];
         for (const chord of goodChords) {
-            if (chord[0]?.tension != undefined) {
-                if (chord[0].tension.totalTension < (bestChord[0]?.tension?.totalTension || 999)) {
+            if (chord[0].tension != undefined) {
+                if (chord[0].tension.totalTension < (bestChord[0].tension?.totalTension || 999)) {
                     bestChord = chord;
                 }
-                chord[0].tension.print(chord[0].chord ? chord[0].chord.toString() : "?Chord?", "best: ", bestChord[0]?.tension?.totalTension || 999, ": ")
+                chord[0].tension.print(chord[0].chord ? chord[0].chord.toString() : "?Chord?", "best tension: ", bestChord[0].tension?.totalTension || "nulll", ": ", bestChord)
             }
         }
 
         result[division] = bestChord;
+        if (bestChord[0]?.tension?.nac) {
+            // Add the required Non Chord Tone
+            addNoteBetween(bestChord[0].tension.nac, division, division + BEAT_LENGTH, 0, result);
+        }
 
         if (progressCallback) {
             if (progressCallback(currentBeat, result)) {

@@ -1,35 +1,45 @@
 import { Note, Scale } from "musictheoryjs";
 import { getTension } from "./tension";
-import { BEAT_LENGTH, DivisionedRichnotes, getRhythmNeededDurations, getRichNote, globalSemitone, MainMusicParams, MusicParams, nextGToneInScale, Nullable, semitoneDistance, semitoneScaleIndex, startingNotes } from "./utils";
+import { BEAT_LENGTH, Chord, DivisionedRichnotes, getRhythmNeededDurations, getRichNote, globalSemitone, MainMusicParams, MusicParams, nextGToneInScale, Nullable, semitoneDistance, semitoneScaleIndex, startingNotes } from "./utils";
 
 
-type NonChordTone = {
+export type NonChordTone = {
     note: Note,
     note2? : Note,  // This makes the notes 16ths
     strongBeat: boolean,
     replacement?: boolean,
 }
 
-type NonChordToneParams = {
+export type NonChordToneParams = {
     gTone0: number | null,
     gTone1: number,
     gTone2: number,
+    wantedTone? : number,
+    strongBeat?: boolean,
+    chord? : Chord,
     scale: Scale,
     gToneLimits: number[],
 }
 
+type SplitMode = "EE" | "SSE" | "ESS" | "SSSS"
 
-const addNoteBetween = (nac: NonChordTone, division: number, nextDivision: number, partIndex: number, divisionedNotes: DivisionedRichnotes): boolean => {
+export type FindNonChordToneParams = {
+    fromGTone: number,
+    thisBeatGTone: number,
+    nextBeatGTone: number,
+    splitMode: SplitMode,
+    wantedGTones: number[],  // Provide gtones for each wanted index of splitmode
+    scale: Scale,
+    gToneLimits: number[],
+    chord?: Chord,
+}
+
+
+export const addNoteBetween = (nac: NonChordTone, division: number, nextDivision: number, partIndex: number, divisionedNotes: DivisionedRichnotes): boolean => {
     const divisionDiff = nextDivision - division;
     const beatRichNote = (divisionedNotes[division] || []).filter(note => note.partIndex == partIndex)[0];
     if (!beatRichNote || !beatRichNote.note) {
-        return false;
-    }
-
-    // @ts-ignore
-    const prevScaleTones = beatRichNote.scale.notes.map(n => n.semitone);
-    const nextBeatRichNote = (divisionedNotes[nextDivision] || []).filter(note => note.partIndex == partIndex)[0];
-    if (!nextBeatRichNote || !nextBeatRichNote.note) {
+        console.log("Faield to add note between", division, nextDivision, partIndex, divisionedNotes);
         return false;
     }
 
@@ -335,6 +345,132 @@ const pedalPoint = (values: NonChordToneParams): NonChordTone | null => {
 }
 
 
+const chordNote = (values: NonChordToneParams): NonChordTone | null => {
+    // Just use a chord tone. Weak OR strong beat
+    const { gTone1, chord } = values;
+    let strongBeat = values.strongBeat;
+    if (!strongBeat) {
+        strongBeat = Math.random() > 0.8;
+    }
+    if (!chord) {
+        return null;
+    }
+    let wantedTone = values.wantedTone;
+    if (!wantedTone) {
+        // Random from chord.notes
+        const note = chord.notes[Math.floor(Math.random() * chord.notes.length)];
+        wantedTone = note.semitone;
+        // Select closest octave to gTone1
+        let iterations = 0;
+        while (Math.abs(wantedTone - gTone1) >= 6) {
+            if (iterations++ > 1000) {
+                throw new Error("Too many iterations");
+            }
+            wantedTone += 12;
+        }
+    }
+    let good = false;
+    for (const note of chord.notes) {
+        if (note.semitone == wantedTone % 12) {
+            good = true;
+            break;
+        }
+    }
+    if (!good) {
+        // WantedTone is not a chord tone
+        return null;
+    }
+
+    return {note: new Note({
+        semitone: wantedTone % 12,
+        octave: Math.floor(wantedTone / 12),
+    }), strongBeat: strongBeat};
+}
+
+const weakBeatChordTone  = (values: NonChordToneParams): NonChordTone | null => {
+    return chordNote({
+        ...values,
+        strongBeat: false,
+    });
+}
+
+const strongBeatChordTone  = (values: NonChordToneParams): NonChordTone | null => {
+    return chordNote({
+        ...values,
+        strongBeat: true,
+    })
+}
+
+
+export const findNACs = (values: FindNonChordToneParams): NonChordTone | null => {
+    const {fromGTone, thisBeatGTone, nextBeatGTone, splitMode, wantedGTones, scale, gToneLimits, chord} = values;
+
+    const strongBeatFuncs: {[key: string]: Function} = {
+        'strongBeatChordTone': strongBeatChordTone,
+        'appogiatura': appogiatura,
+        'escapeTone': escapeTone,
+        'pedalPoint': pedalPoint,
+        'suspension': suspension,
+        'retardation': retardation,
+    }
+
+    const weakBeatFuncs: {[key: string]: Function} = {
+        'weakBeatChordTone': weakBeatChordTone,
+        'anticipation': anticipation,
+        'neighborGroup': neighborGroup,
+        'passingTone': passingTone,
+    }
+
+    if (splitMode == 'EE') {
+        // This case only has 2 choices: strong or weak beat
+        let strongBeat = false;
+        // Find the wanted notes
+        // Check if we need a change on strong beat or on some other beat
+        if (wantedGTones[0] && wantedGTones[0] != thisBeatGTone) {
+            strongBeat = true;
+        }
+        if (strongBeat) {
+            for (const funcName in strongBeatFuncs) {
+                const func = strongBeatFuncs[funcName];
+                const result = func({
+                    gTone0: fromGTone,
+                    gTone1: thisBeatGTone,
+                    gTone2: nextBeatGTone,
+                    wantedTone: wantedGTones[0],
+                    scale,
+                    gToneLimits,
+                    chord,
+                } as NonChordToneParams);
+                if (result) {
+                    if (globalSemitone(result.note) == wantedGTones[0]) {
+                        return result;
+                    }
+                }
+            }
+        } else {
+            for (const funcName in weakBeatFuncs) {
+                const func = weakBeatFuncs[funcName];
+                const result = func({
+                    gTone0: fromGTone,
+                    gTone1: thisBeatGTone,
+                    gTone2: nextBeatGTone,
+                    wantedTone: wantedGTones[1],
+                    scale,
+                    gToneLimits,
+                    chord,
+                } as NonChordToneParams);
+                if (result) {
+                    if (globalSemitone(result.note) == wantedGTones[1]) {
+                        return result;
+                    }
+                }
+            }
+        }
+    }
+    return null;
+}
+
+
 export const buildTopMelody = (divisionedNotes: DivisionedRichnotes, mainParams: MainMusicParams) => {
     // Follow the pre given melody rhythm
     const rhythmNeededDurations: { [key: number]: number; } = getRhythmNeededDurations(mainParams);
@@ -527,6 +663,7 @@ export const buildTopMelody = (divisionedNotes: DivisionedRichnotes, mainParams:
                 }
                 const tensionResult = getTension({
                     fromNotesOverride: prevNotes,
+                    beatDivision: division,
                     toNotes: nonChordToneNotes,
                     currentScale: currentScale,
                     params: params,
