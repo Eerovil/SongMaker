@@ -1,6 +1,6 @@
 import { Note } from "musictheoryjs";
 import { Logger } from "./mylogger";
-import { Chord, globalSemitone, MusicParams, semitoneDistance, startingNotes } from "./utils";
+import { Chord, globalSemitone, gToneString, MusicParams, semitoneDistance, startingNotes } from "./utils";
 
 export type InversionResult = {
     gToneDiffs: Array<Array<number>>,
@@ -57,7 +57,7 @@ export const getInversions = (values: {
 
         // Depending on the inversion and chord type, we're doing different things
 
-        let inversionNames = ["root", "first-root", "first-third", "first-fifth", "second"];
+        let inversionNames = ["root", "root-fifth", "first-root", "first-third", "first-fifth", "second"];
         let combinationCount = 3 * 2 * 1;
         if (chord.notes.length > 3) {
             inversionNames = ["root", "first", "second", "third"];
@@ -85,6 +85,7 @@ export const getInversions = (values: {
             if (skipFifth) {
                 inversionResult.inversionName += "-skipFifth";
             }
+            inversionResult.inversionName += "-" + combinationIndex;
 
             const addPartNote = (partIndex: number, note: Note) => {
                 inversionResult.notes[partIndex] = new Note({
@@ -112,6 +113,8 @@ export const getInversions = (values: {
             if (chord.notes.length == 3) {
                 if (inversion == "root") {
                     leftOverIndexes = [0, 1, 2];  // Double the root
+                } else if (inversion == "root-fifth") {
+                    leftOverIndexes = [1, 2, 2];  // Double the fifth
                 } else if (inversion == "first-root") {
                     // First -> We already have 1
                     leftOverIndexes = [0, 0, 2];  // Double the root
@@ -259,7 +262,7 @@ export const getInversions = (values: {
                                         octave: Math.floor(part3Note / 12),
                                     }),
                                 ],
-                                inversionName: inversionResult.inversionName,
+                                inversionName: inversionResult.inversionName + ` ${part0Octave}${part1Octave}${part2Octave}${part3Octave}` + " " + gToneString(part0Note) + " " + gToneString(part1Note) + " " + gToneString(part2Note) + " " + gToneString(part3Note),
                                 rating: 0,
                             });
                         }
@@ -273,12 +276,12 @@ export const getInversions = (values: {
     logger.print("newVoiceLeadingNotes: ", chord.toString(), " beat: ", beat);
 
     // Randomize order of ret
-    for (let i=0; i<ret.length; i++) {
-        const j = Math.floor(Math.random() * ret.length);
-        const tmp = ret[i];
-        ret[i] = ret[j];
-        ret[j] = tmp;
-    }
+    // for (let i=0; i<ret.length; i++) {
+    //     const j = Math.floor(Math.random() * ret.length);
+    //     const tmp = ret[i];
+    //     ret[i] = ret[j];
+    //     ret[j] = tmp;
+    // }
 
     return ret;
 }

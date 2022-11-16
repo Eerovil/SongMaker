@@ -4,7 +4,7 @@ import {
     Note,
 } from "musictheoryjs";
 import { Logger } from "./mylogger";
-import { Chord, Nullable, DivisionedRichnotes, RichNote, BEAT_LENGTH, MainMusicParams } from "./utils";
+import { Chord, Nullable, DivisionedRichnotes, RichNote, BEAT_LENGTH, MainMusicParams, semitoneScaleIndex } from "./utils";
 import { RandomChordGenerator } from "./randomchords";
 import { getInversions } from "./inversions";
 import { getTension, Tension } from "./tension";
@@ -14,9 +14,10 @@ import { getAvailableScales } from "./availablescales";
 import { addForcedMelody, ForcedMelodyResult } from "./forcedmelody";
 import * as time from "./timer"; 
 
-const GOOD_CHORD_LIMIT = 30;
-const GOOD_CHORDS_PER_CHORD = 10;
-const BAD_CHORD_LIMIT = 20;
+const GOOD_CHORD_LIMIT = 1200;
+const GOOD_CHORDS_PER_CHORD = 50;
+const BAD_CHORD_LIMIT = 500;
+const BAD_CHORDS_PER_CHORD = 20;
 
 
 const sleepMS = async (ms: number): Promise<null> => {
@@ -86,9 +87,25 @@ const makeChords = async (mainParams: MainMusicParams, progressCallback: Nullabl
             iterations++;
             newChord = randomGenerator.getChord();
             const chordLogger = new Logger();
-            if (iterations > 1000 || !newChord) {
+            if (iterations > 100000 || !newChord) {
                 console.log("Too many iterations, going back");
                 break;
+            }
+            if (mainParams.forcedChords) {
+                if (currentBeat == 0) {
+                    if (newChord.notes[0].semitone != 0 || !newChord.toString().includes('maj')) {
+                        // Force C major scale
+                        continue;
+                    }
+                }
+            }
+            if (mainParams.forcedChords && currentScale && newChord) {
+                const forcedChordNum = parseInt(mainParams.forcedChords[currentBeat]);
+                if (!isNaN(forcedChordNum)) {
+                    if (semitoneScaleIndex(currentScale)[newChord.notes[0].semitone] != (forcedChordNum - 1)) {
+                        continue;
+                    }
+                }
             }
             let allInversions;
             let availableScales;
@@ -256,9 +273,9 @@ const makeChords = async (mainParams: MainMusicParams, progressCallback: Nullabl
                                 chordCountInBadChords++;
                             }
                         }
-                        if (chordCountInBadChords < 3) {
+                        if (chordCountInBadChords < BAD_CHORDS_PER_CHORD) {
                             badChords.push({
-                                chord: newChord.toString(),
+                                chord: newChord.toString() + "," + inversionResult.inversionName,
                                 tension: tensionResult
                             });
                         }
@@ -268,7 +285,7 @@ const makeChords = async (mainParams: MainMusicParams, progressCallback: Nullabl
         }  // While end
         if (goodChords.length == 0) {
             for (const badChord of badChords) {
-                badChord.tension.print("Bad chord ", badChord.chord);
+                badChord.tension.print("Bad chord ", badChord.chord, " - ");
             }
             await sleepMS(1);
             // Go back to previous chord, and make it again
@@ -320,12 +337,14 @@ const makeChords = async (mainParams: MainMusicParams, progressCallback: Nullabl
 
         // Choose the best chord from goodChords
         let bestChord = goodChords[0];
+        let bestTension = 999;
         for (const chord of goodChords) {
             if (chord[0].tension != undefined) {
-                if (chord[0].tension.totalTension < (bestChord[0].tension?.totalTension || 999)) {
+                if (chord[0].tension.totalTension < bestTension) {
                     bestChord = chord;
+                    bestTension = chord[0].tension.totalTension;
                 }
-                chord[0].tension.print(chord[0].chord ? chord[0].chord.toString() : "?Chord?", "best tension: ", bestChord[0].tension?.totalTension || "nulll", ": ", bestChord)
+                chord[0].tension.print(chord[0].chord ? chord[0].chord.toString() : "?Chord?", chord[0].inversionName, "best tension: ", bestTension, ": ", bestChord)
             }
         }
 

@@ -142,6 +142,40 @@ const passingTone = (values: NonChordToneParams): NonChordTone | null => {
 }
 
 
+const accentedPassingTone = (values: NonChordToneParams): NonChordTone | null => {
+    // Same as passing tone but on strong beat
+    const {gTone0, gTone1, gTone2, scale, gToneLimits} = values;
+    if (!gTone0) {
+        return null;
+    }
+    const distance = Math.abs(gTone0 - gTone1);
+    if (distance < 3 || distance > 4) {
+        return null;
+    }
+    const scaleTones = scale.notes.map(n => n.semitone);
+    for (let gTone=gTone0; gTone != gTone1; gTone += (gTone0 < gTone1 ? 1 : -1)) {
+        if (gTone == gTone0) {
+            continue;
+        }
+        if (gTone < gToneLimits[0] || gTone > gToneLimits[1]) {
+            continue;
+        }
+        const semitone = gTone % 12;
+        if (scaleTones.includes(semitone)) {
+            return {
+                note: new Note({
+                    semitone: gTone % 12,
+                    octave: Math.floor(gTone / 12),
+                }),
+                strongBeat: true,
+            }
+        }
+    }
+    return null;
+}
+
+
+
 const neighborTone = (values: NonChordToneParams): NonChordTone | null => {
     const {gTone0, gTone1, gTone2, scale, gToneLimits} = values;
     // Step, then step back. This is on Weak beat
@@ -412,6 +446,7 @@ export const findNACs = (values: FindNonChordToneParams): NonChordTone | null =>
         'pedalPoint': pedalPoint,
         'suspension': suspension,
         'retardation': retardation,
+        'accentedPassingTone': accentedPassingTone,
     }
 
     const weakBeatFuncs: {[key: string]: Function} = {

@@ -17,6 +17,7 @@ export const addForcedMelody = (values: TensionParams): ForcedMelodyResult => {
     
     */
     const { toNotes, currentScale, params, mainParams, beatDivision } = values;
+    const {startingGlobalSemitones, semitoneLimits} = startingNotes(params);
     const chord = values.newChord;
     const divisionedNotes = values.divisionedNotes || {};
     const maxDivision = mainParams.getMaxBeats() * BEAT_LENGTH;
@@ -84,7 +85,7 @@ export const addForcedMelody = (values: TensionParams): ForcedMelodyResult => {
 
     let prevPart1RichNote;
     for (let i = currentDivision - 1; i >= 0; i--) {
-        prevRichNote = (divisionedNotes[i] || []).filter(richNote => richNote.partIndex == 1)[0];
+        prevPart1RichNote = (divisionedNotes[i] || []).filter(richNote => richNote.partIndex == 1)[0];
         if (prevPart1RichNote) {
             break;
         }
@@ -98,16 +99,16 @@ export const addForcedMelody = (values: TensionParams): ForcedMelodyResult => {
 
     let closestCorrectGTone = newMelodySemitone;
     let iterations = 0;
-    while (Math.abs(closestCorrectGTone - closestCorrectGToneBasedOn) > 6) {
+    while (Math.abs(closestCorrectGTone - closestCorrectGToneBasedOn) > 6 && closestCorrectGTone <= semitoneLimits[0][1]) {
         iterations++; if (iterations > 100) { debugger;  throw new Error("Too many iterations"); }
         closestCorrectGTone += 12 * Math.sign(closestCorrectGToneBasedOn - closestCorrectGTone);
     }
 
     let nextCorrectGtone;
     if (nextMelodyToneAndDuration) {
-        nextCorrectGtone = globalSemitone(currentScale.notes[nextMelodyToneAndDuration.tone]);
+        nextCorrectGtone = globalSemitone(currentScale.notes[nextMelodyToneAndDuration.tone]) % 12;
         iterations = 0;
-        while (Math.abs(nextCorrectGtone - closestCorrectGTone) > 6) {
+        while (Math.abs(nextCorrectGtone - closestCorrectGTone) > 6 && nextCorrectGtone <= semitoneLimits[0][1]) {
             iterations++; if (iterations > 100) { debugger; throw new Error("Too many iterations"); }
             nextCorrectGtone += 12 * Math.sign(closestCorrectGTone - nextCorrectGtone);
         }
@@ -124,9 +125,9 @@ export const addForcedMelody = (values: TensionParams): ForcedMelodyResult => {
     }
     let nextBeatCorrectGTone;
     if (nextBeatMelodyToneAndDuration) {
-        nextBeatCorrectGTone = globalSemitone(currentScale.notes[nextBeatMelodyToneAndDuration.tone]);
+        nextBeatCorrectGTone = globalSemitone(currentScale.notes[nextBeatMelodyToneAndDuration.tone]) % 12;
         iterations = 0;
-        while (Math.abs(nextBeatCorrectGTone - nextCorrectGtone) > 6) {
+        while (Math.abs(nextBeatCorrectGTone - nextCorrectGtone) > 6 && nextBeatCorrectGTone <= semitoneLimits[0][1]) {
             if (iterations++ > 100) { throw new Error("Too many iterations"); }
             nextBeatCorrectGTone += 12 * Math.sign(nextCorrectGtone - nextBeatCorrectGTone);
         }
@@ -178,7 +179,7 @@ export const addForcedMelody = (values: TensionParams): ForcedMelodyResult => {
         if (newMelodyToneAndDuration.duration == BEAT_LENGTH / 2) {
             nacParams.wantedGTones[1] = nextCorrectGtone;
             if (toGlobalSemitone != nextCorrectGtone) {
-                tension.comment = "InCorrect 8th/8th note";
+                tension.comment = `InCorrect 8th/8th note, ${gToneString(toGlobalSemitone)} != ${gToneString(nextCorrectGtone)}`;
                 tension.tension += 100;
                 return tension;
             }
@@ -186,14 +187,14 @@ export const addForcedMelody = (values: TensionParams): ForcedMelodyResult => {
         nacParams.splitMode = "EE"
         const nac = findNACs(nacParams as FindNonChordToneParams);
         if (!nac) {
-            tension.comment = "No NAC found for quarter note";
+            tension.comment = `No NAC found: wantedTones: ${(nacParams.wantedGTones as number[]).map(tone => gToneString(tone))}` + `${gToneString(nacParams.thisBeatGTone)}, ${gToneString(nextCorrectGtone)}, ${gToneString(nacParams.nextBeatGTone)}`;
             tension.tension += 100;
             return tension;
         }
         const newNoteGTone = globalSemitone(nac.note);
         // Great... We can add a correct 8th on the strong beat!
         // Add it
-        tension.comment = `Adding NAC on strong beat: ${gToneString(globalSemitone(nac.note))} to division ${currentDivision}, wantedGtones: ${nacParams.wantedGTones.map(gToneString)}`;
+        // tension.comment = `Adding NAC on strong beat: ${gToneString(globalSemitone(nac.note))} to division ${currentDivision}, wantedGtones: ${nacParams.wantedGTones.map(gToneString)}`;
         tension.nac = nac;
         tension.tension += 5; // Not that great, but it's better than nothing.
     } else if (newMelodyToneAndDuration.duration == BEAT_LENGTH / 2 && nextMelodyToneAndDuration.duration == BEAT_LENGTH / 2) {
@@ -211,7 +212,7 @@ export const addForcedMelody = (values: TensionParams): ForcedMelodyResult => {
             const newNoteGTone = globalSemitone(nac.note);
             // Great... We can add a correct 8th on the strong beat!
             // Add it
-            tension.comment = `Adding weak EE NAC ${gToneString(globalSemitone(nac.note))} to division ${currentDivision}, wantedGtones: ${nacParams.wantedGTones.map(gToneString)}`;
+            // tension.comment = `Adding weak EE NAC ${gToneString(globalSemitone(nac.note))} to division ${currentDivision}, wantedGtones: ${nacParams.wantedGTones.map(gToneString)}`;
             tension.nac = nac;
             // This is absolutely perfect, both notes are correct. (no tension!)
         } else {

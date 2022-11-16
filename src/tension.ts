@@ -37,14 +37,14 @@ export class Tension {
         tension += this.allNotesSame;
         // tension += this.chordProgression * 0.5;
         tension += this.keepDominantTones;
-        tension += this.parallelFifths;
+        tension += this.parallelFifths * 100;
         tension += this.spacingError;
         tension += this.cadence;
         tension += this.tensioningInterval;
         tension += this.secondInversion;
         tension += this.doubleLeadingTone;
         tension += this.leadingToneUp;
-        if (beatsUntilLastChordInCadence > 2) {
+        if (beatsUntilLastChordInCadence > 4) {
             tension += this.melodyTarget;
             tension += this.melodyJump;
         } else {
@@ -105,6 +105,7 @@ export const getTension = (values: TensionParams): Tension => {
             prevInversionName,
             params,
             mainParams,
+            beatDivision,
         } = values;
     /*
     *   Get the tension between two chords
@@ -119,7 +120,7 @@ export const getTension = (values: TensionParams): Tension => {
 
     if (beatsUntilLastChordInCadence && inversionName) {
         if (params.selectedCadence == "PAC") {
-            if (beatsUntilLastChordInCadence == 4) {
+            if (beatsUntilLastChordInCadence <= 5) {
                 wantedFunction = "sub-dominant";
             }
             if (beatsUntilLastChordInCadence == 3) {
@@ -131,10 +132,11 @@ export const getTension = (values: TensionParams): Tension => {
                 part0MustBeTonic = true;
             }
             if (beatsUntilLastChordInCadence <= 3 && !inversionName.startsWith('root')) {
+                tension.comment += "cadence PAC: NOT root inversion! ";
                 tension.cadence += 100;
             }
         } else if (params.selectedCadence == "IAC") {
-            if (beatsUntilLastChordInCadence == 4) {
+            if (beatsUntilLastChordInCadence <= 5) {
                 wantedFunction = "sub-dominant";
             }
             if (beatsUntilLastChordInCadence == 3) {
@@ -145,10 +147,11 @@ export const getTension = (values: TensionParams): Tension => {
             }
             if (beatsUntilLastChordInCadence <= 3 && inversionName.startsWith('root')) {
                 // Not root inversion
+                tension.comment += "cadence IAC: root inversion! ";
                 tension.cadence += 100;
             }
         } else if (params.selectedCadence == "HC") {
-            if (beatsUntilLastChordInCadence == 3) {
+            if (beatsUntilLastChordInCadence <= 4) {
                 wantedFunction = "sub-dominant";
             }
             if (beatsUntilLastChordInCadence < 3) {
@@ -161,8 +164,9 @@ export const getTension = (values: TensionParams): Tension => {
     let prevPrevChord;
     let passedFromNotes: Note[] = [];
     let prevPassedFromNotes: Note[] = [];
+    let latestNotes: Note[] = [];
     if (divisionedNotes) {
-        const latestDivision = Math.max(...Object.keys(divisionedNotes).map((x) => parseInt(x, 10)));
+        const latestDivision = beatDivision - BEAT_LENGTH;
         let tmp : Array<Note> = [];
         for (const richNote of (divisionedNotes[latestDivision] || [])) {
             // Use original notes, not the ones that have been turned into NACs
@@ -176,6 +180,18 @@ export const getTension = (values: TensionParams): Tension => {
             prevPrevChord = richNote.chord;
         }
         prevPassedFromNotes = [...tmp].filter(Boolean);
+
+        for (let i=beatDivision; i>=0; i--) {
+            for (const richNote of (divisionedNotes[i] || [])) {
+                if (latestNotes[richNote.partIndex]) {
+                    continue;
+                }
+                latestNotes[richNote.partIndex] = richNote.originalNote || richNote.note;
+            }
+            if (latestNotes.every(Boolean)) {
+                break;
+            }
+        }
 
         if (!prevChord) {
             wantedFunction = "tonic";
@@ -267,14 +283,18 @@ export const getTension = (values: TensionParams): Tension => {
         }
     }
 
+    if (inversionName && inversionName.startsWith('root')) {
+        tension.secondInversion -= 0.1;  // Root inversions are great
+    }
+
     const semitoneScaleIndex: { [key: number]: number } = {
-        [currentScale.notes[0].semitone]: 0,
-        [currentScale.notes[1].semitone]: 1,
-        [currentScale.notes[2].semitone]: 2,
-        [currentScale.notes[3].semitone]: 3,
-        [currentScale.notes[4].semitone]: 4,
-        [currentScale.notes[5].semitone]: 5,
-        [currentScale.notes[6].semitone]: 6,
+        [currentScale.notes[0].semitone]: 0,  // C
+        [currentScale.notes[1].semitone]: 1,  // D
+        [currentScale.notes[2].semitone]: 2,  // E
+        [currentScale.notes[3].semitone]: 3,  // F
+        [currentScale.notes[4].semitone]: 4,  // G
+        [currentScale.notes[5].semitone]: 5,  // A
+        [currentScale.notes[6].semitone]: 6,  // H
         [(currentScale.notes[0].semitone - 1 + 24) % 12]: 6  // Force add leading tone
     }
 
@@ -332,7 +352,7 @@ export const getTension = (values: TensionParams): Tension => {
 
     let fromDominantTones = 0;
     for (const scaleIndex of fromScaleIndexes) {
-        if (([1, 3, 4, 6].includes(scaleIndex))) {
+        if (([1, 3, 5, 6].includes(scaleIndex))) {
             fromDominantTones++;
         }
         if (scaleIndex == 6) {
@@ -347,7 +367,7 @@ export const getTension = (values: TensionParams): Tension => {
     if (!wantedFunction) {
         let toDominantTones = 0;
         for (const scaleIndex of toScaleIndexes) {
-            if (([1, 3, 4, 6].includes(scaleIndex))) {
+            if (([1, 3, 5, 6].includes(scaleIndex))) {
                 toDominantTones++;
             }
             if (scaleIndex == 6) {
@@ -364,27 +384,34 @@ export const getTension = (values: TensionParams): Tension => {
             tension.keepDominantTones += 100;
         }
 
-        if (beatsUntilLastChordInCadence && beatsUntilLastChordInCadence < 8) {
-            // We should have at least 1 dominant tone by now.
-            if (toDominantTones == 0) {
-                tension.keepDominantTones += 5;
-            }
-        }
+        // if (beatsUntilLastChordInCadence && beatsUntilLastChordInCadence < 8) {
+        //     // We should have at least 1 dominant tone by now.
+        //     if (toDominantTones == 0) {
+        //         tension.keepDominantTones += 5;
+        //     }
+        // }
     }
 
     if (wantedFunction) {
         if (wantedFunction == "sub-dominant") {
             if (!possibleToFunctions["sub-dominant"]) {// && !possibleToFunctions.dominant) {
-                tension.cadence += 100;
+                if (!possibleToFunctions["dominant"]) {
+                    tension.comment += `Wanted ${wantedFunction}`
+                    tension.cadence += 100;
+                } else {
+                    tension.cadence += 5;  // Dominant is
+                }
             }
         }
         if (wantedFunction == "dominant") {
             if (!possibleToFunctions.dominant) {
+                tension.comment += `Wanted ${wantedFunction}`
                 tension.cadence += 100;
             }
         }
         if (wantedFunction == "tonic") {
             if (!possibleToFunctions.tonic) {
+                tension.comment += `Wanted ${wantedFunction}`
                 tension.cadence += 100;
             }
         }
@@ -531,7 +558,7 @@ export const getTension = (values: TensionParams): Tension => {
         tension.voiceDirections += 3;
     }
     if (partDirection[0] == partDirection[3] && partDirection[0] != "same") {
-        tension.voiceDirections += 10;
+        tension.voiceDirections += 5;
         // root and sopranos moving in same direction
     }
 
@@ -539,6 +566,7 @@ export const getTension = (values: TensionParams): Tension => {
     for (let i=0; i<toGlobalSemitones.length; i++) {
         for (let j=i+1; j<toGlobalSemitones.length; j++) {
             if (fromGlobalSemitones[i] == toGlobalSemitones[i] && fromGlobalSemitones[j] == toGlobalSemitones[j]) {
+                // Part i and j are staying same
                 continue;
             }
             const interval = Math.abs(toGlobalSemitones[i] - toGlobalSemitones[j]);
@@ -550,15 +578,15 @@ export const getTension = (values: TensionParams): Tension => {
                     continue;
                 }
                 // Check if the interval is hidden
-                const partIDirection = fromGlobalSemitones[i] - toGlobalSemitones[i];
-                const partJDirection = fromGlobalSemitones[j] - toGlobalSemitones[j];
-                if (Math.abs(partJDirection) > 2) {
-                    // Upper part is making a jump
-                    if (partIDirection < 0 && partJDirection < 0 || partIDirection > 0 && partJDirection > 0) {
-                        tension.parallelFifths += 10;
-                        continue;
-                    }
-                }
+                // const partIDirection = toGlobalSemitones[i] - fromGlobalSemitones[i];
+                // const partJDirection = toGlobalSemitones[j] - fromGlobalSemitones[j];
+                // if (Math.abs(partIDirection) > 2) {
+                //     // Upper part is making a jump
+                //     if (partJDirection < 0 && partIDirection < 0 || partJDirection > 0 && partIDirection > 0) {
+                //         tension.parallelFifths += 11;
+                //         continue;
+                //     }
+                // }
             }
         }
     }
@@ -568,21 +596,25 @@ export const getTension = (values: TensionParams): Tension => {
     const part1ToPart2 = Math.abs(toGlobalSemitones[1] - toGlobalSemitones[2]);
     const part2ToPart3 = Math.abs(toGlobalSemitones[2] - toGlobalSemitones[3]);
     if (part1ToPart2 > 12 || part0ToPart1 > 12 || part2ToPart3 > (12 + 7)) {
-        tension.spacingError += 10;
+        tension.spacingError += 5;
     }
 
     // Overlapping error
     for (let i=0; i<fromGlobalSemitones.length; i++) {
-        const fromGlobalSemitone = fromGlobalSemitones[i];
-        const upperPartToGlobalSemitone = toGlobalSemitones[i-1];
-        const lowerPartToGlobalSemitone = toGlobalSemitones[i+1];
-        if (upperPartToGlobalSemitone != undefined && fromGlobalSemitone > upperPartToGlobalSemitone) {
-            // Upper part is moving lower than where lower part used to be
-            tension.overlapping += 10;
+        const lowerFromGTone = fromGlobalSemitones[i + 1];
+        const lowerToGTone = toGlobalSemitones[i + 1];
+        const upperFromGTone = fromGlobalSemitones[i - 1];
+        const upperToGTone = toGlobalSemitones[i - 1];
+        const toGlobalSemitone = toGlobalSemitones[i];
+        if (upperToGTone || upperFromGTone) {
+            if (toGlobalSemitone > Math.min(upperToGTone || 0, upperFromGTone || 0)) {
+                tension.overlapping += 10;
+            }
         }
-        if (lowerPartToGlobalSemitone != undefined && fromGlobalSemitone < lowerPartToGlobalSemitone) {
-            // Lower part is moving higher than where upper part used to be
-            tension.overlapping += 10;
+        if (lowerToGTone || lowerFromGTone) {
+            if (toGlobalSemitone < Math.max(lowerToGTone || 0, lowerFromGTone || 0)) {
+                tension.overlapping += 10;
+            }
         }
     }
 
@@ -633,8 +665,8 @@ export const getTension = (values: TensionParams): Tension => {
     // 12 oktaavi
 
     // Was there a jump before?
-    if (prevPassedFromNotes && prevPassedFromNotes.length == 4) {
-        const prevFromGlobalSemitones = prevPassedFromNotes.map((n) => globalSemitone(n));
+    if (latestNotes && latestNotes.length == 4) {
+        const prevFromGlobalSemitones = latestNotes.map((n) => globalSemitone(n));
         for (let i=0; i<fromGlobalSemitones.length; i++) {
             const interval = Math.abs(prevFromGlobalSemitones[i] - fromGlobalSemitones[i]);
             if (interval >= 3) {

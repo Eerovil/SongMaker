@@ -91,7 +91,7 @@ export const startingNotes = (params: MusicParams) => {
     ]
 
     const semitoneLimits = [
-        [startingGlobalSemitones[0] + -12, startingGlobalSemitones[0] + 12 - 5],
+        [startingGlobalSemitones[0] + -12, startingGlobalSemitones[0] + 12],
         [startingGlobalSemitones[1] + -12, startingGlobalSemitones[1] + 12 - 5],
         [startingGlobalSemitones[2] + -12, startingGlobalSemitones[2] + 12 - 5],
         [startingGlobalSemitones[3] + -12, startingGlobalSemitones[3] + 12 - 5],
@@ -103,11 +103,24 @@ export const startingNotes = (params: MusicParams) => {
 }
 
 
+const mySemitoneStrings: {[key: number]: string} = {
+    0: "C",
+    1: "C#",
+    2: "D",
+    3: "D#",
+    4: "E",
+    5: "F",
+    6: "F#",
+    7: "G",
+    8: "G#",
+    9: "A",
+    10: "A#",
+    11: "B",
+}
+
+
 export const gToneString = (gTone: number): string => {
-    return new Note({
-        semitone: gTone % 12,
-        octave: Math.floor(gTone / 12),
-    }).toString()
+    return `${mySemitoneStrings[gTone % 12]}${Math.floor(gTone / 12)}`;
 }
 
 
@@ -187,7 +200,8 @@ export class MainMusicParams {
     cadences: Array<MusicParams> = [];
     testMode?: boolean = false;
     melodyRhythm: string = "";  // hidden from user for now
-    forcedMelody: string = "";  // hidden from user for now
+    forcedMelody: number[];  // hidden from user for now
+    forcedChords: string = "";
 
     constructor(params: Partial<MainMusicParams> | undefined = undefined) {
         if (params) {
@@ -196,23 +210,52 @@ export class MainMusicParams {
             }
         }
         this.melodyRhythm = ""
-        // for (let i=0; i<20; i++) {
-        //     const random = Math.random();
-        //     if (random < 0.2) {
-        //         this.melodyRhythm += "H";
-        //         i += 1;
-        //     } else if (random < 0.7) {
-        //         this.melodyRhythm += "Q";
-        //     } else {
-        //         this.melodyRhythm += "EE";
-        //     }
-        // }
-        this.melodyRhythm = "QEEEEQEEEEQEE"
+        for (let i=0; i<20; i++) {
+            const random = Math.random();
+            if (random < 0.2) {
+                this.melodyRhythm += "H";
+                i += 1;
+            } else if (random < 0.7) {
+                this.melodyRhythm += "Q";
+            } else {
+                this.melodyRhythm += "EE";
+            }
+        }
+        // this.melodyRhythm = "QQQQQQQQQQQQQQQQQQQQ"
         //                   12 3 41 2 34 two bars
 
         // Do Re Mi Fa So La Ti Do
-        this.forcedMelody = "DTLSFMFSLTDFF";
+        // this.forcedMelody = "RRRRRRRRRRRRRRRRRRRR";
+        let melody = [0];
+        for (let i=0; i<20; i++) {
+            const upOrDown = Math.random() < 0.5 ? -1 : 1;
+            const prevMelody = melody[melody.length - 1];
+            melody.push(prevMelody + (1 * upOrDown));
+        }
+        this.forcedMelody = melody.map(m => (m + 7 * 100) % 7);
 
+        // Example melody
+        // C maj - C
+        //         D pt
+        // C maj   E
+        //         F pt
+        // A min   G pt
+        //         A
+        // A min   B pt
+        //         C
+        // F maj   B pt
+        //         A
+        // F maj   G pt
+        //         F
+        // G maj   E pt
+        //         D
+        // G maj   C pt
+        //         D
+        // C maj   E
+        //         F pt
+        // C maj   G
+        //         A pt
+        // this.forcedChords = "11664455116655111166445511665511"
     }
 
     currentCadenceParams(division: number): MusicParams {
@@ -569,25 +612,16 @@ export type MelodyNeededTone = {
 
 export function getMelodyNeededTones(mainParams: MainMusicParams): MelodyNeededTone {
     const rhythmNeededDurations = getRhythmNeededDurations(mainParams);
-    const forcedMelodyString = mainParams.forcedMelody;
+    const forcedMelodyArray = mainParams.forcedMelody;
     const ret: MelodyNeededTone = {};
     // Figure out what needs to happen each beat to get our melody
     let counter = -1;
-    const tones: {[key: string]: number} = {
-        "D": 0,
-        "R": 1,
-        "M": 2,
-        "F": 3,
-        "S": 4,
-        "L": 5,
-        "T": 6,
-    }
     for (const division in rhythmNeededDurations) {
         counter++;
         const divisionNum = parseInt(division);
         ret[divisionNum] = {
             "duration": rhythmNeededDurations[divisionNum],
-            "tone": tones[forcedMelodyString[counter]],
+            "tone": forcedMelodyArray[counter],
         }
     }
     return ret;
