@@ -15,19 +15,19 @@ export class MainMusicParams {
                 (this as any)[key] = (params as any)[key];
             }
         }
-        this.melodyRhythm = ""
-        for (let i=0; i<20; i++) {
-            const random = Math.random();
-            if (random < 0.2) {
-                this.melodyRhythm += "H";
-                i += 1;
-            } else if (random < 0.7) {
-                this.melodyRhythm += "Q";
-            } else {
-                this.melodyRhythm += "EE";
-            }
-        }
-        // this.melodyRhythm = "QQQQQQQQQQQQQQQQQQQQ"
+        this.melodyRhythm = "QQQQQQQQQQQQQQQQQQQQQQ"
+        // for (let i=0; i<20; i++) {
+        //     const random = Math.random();
+        //     if (random < 0.2) {
+        //         this.melodyRhythm += "H";
+        //         i += 1;
+        //     } else if (random < 0.7) {
+        //         this.melodyRhythm += "Q";
+        //     } else {
+        //         this.melodyRhythm += "EE";
+        //     }
+        // }
+        this.forcedMelody = [0, 1, 2, 0, 1, 2 ]
         //                   12 3 41 2 34 two bars
 
         // Do Re Mi Fa So La Ti Do

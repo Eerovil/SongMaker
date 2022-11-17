@@ -49,7 +49,7 @@ export const addForcedMelody = (values: TensionParams): ForcedMelodyResult => {
             }
         }
     }
-    if (!newMelodyToneAndDuration) {
+    if (!newMelodyToneAndDuration || newMelodyToneAndDuration.tone == undefined) {
         // No melody found at all. Give up.
         tension.comment = "No melody found at all. Give up.";
         return tension;
@@ -67,6 +67,12 @@ export const addForcedMelody = (values: TensionParams): ForcedMelodyResult => {
             nextMelodyToneDivision = i;
             break;
         }
+    }
+
+    if (!nextMelodyToneAndDuration || nextMelodyToneAndDuration.tone == undefined) {
+        // No melody found at all. Give up.
+        tension.comment = "No melody found at all. Give up.";
+        return tension;
     }
 
     // Let's not care that much if the weak beat note is not correct. It just adds tension to the result.
