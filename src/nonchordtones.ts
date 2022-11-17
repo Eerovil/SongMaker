@@ -1,6 +1,7 @@
 import { Note, Scale } from "musictheoryjs";
-import { getTension } from "./tension";
-import { BEAT_LENGTH, Chord, DivisionedRichnotes, getRhythmNeededDurations, getRichNote, globalSemitone, MainMusicParams, MusicParams, nextGToneInScale, Nullable, semitoneDistance, semitoneScaleIndex, startingNotes } from "./utils";
+import { MainMusicParams } from "./params";
+import { getTension, Tension } from "./tension";
+import { BEAT_LENGTH, Chord, DivisionedRichnotes, getRhythmNeededDurations, getRichNote, globalSemitone, nextGToneInScale, Nullable, semitoneDistance, semitoneScaleIndex, startingNotes } from "./utils";
 
 
 export type NonChordTone = {
@@ -477,7 +478,7 @@ export const findNACs = (values: FindNonChordToneParams): NonChordTone | null =>
                     chord,
                 } as NonChordToneParams);
                 if (result) {
-                    if (globalSemitone(result.note) == wantedGTones[0]) {
+                    if (!wantedGTones[0] || globalSemitone(result.note) == wantedGTones[0]) {
                         return result;
                     }
                 }
@@ -495,7 +496,7 @@ export const findNACs = (values: FindNonChordToneParams): NonChordTone | null =>
                     chord,
                 } as NonChordToneParams);
                 if (result) {
-                    if (globalSemitone(result.note) == wantedGTones[1]) {
+                    if (!wantedGTones[1] || globalSemitone(result.note) == wantedGTones[1]) {
                         return result;
                     }
                 }
@@ -696,7 +697,8 @@ export const buildTopMelody = (divisionedNotes: DivisionedRichnotes, mainParams:
                 if (nonChordTone.strongBeat) {
                     nonChordToneNotes[partIndex] = nonChordTone.note;
                 }
-                const tensionResult = getTension({
+                const tensionResult = new Tension();
+                getTension(tensionResult, {
                     fromNotesOverride: prevNotes,
                     beatDivision: division,
                     toNotes: nonChordToneNotes,

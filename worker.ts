@@ -1,5 +1,6 @@
 import { makeMusic, buildTables, makeMelody } from "./src/chords"
-import { BEAT_LENGTH, DivisionedRichnotes, MainMusicParams, MusicParams } from "./src/utils";
+import { MainMusicParams } from "./src/params";
+import { BEAT_LENGTH, DivisionedRichnotes } from "./src/utils";
 
 buildTables()
 

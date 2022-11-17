@@ -1,7 +1,8 @@
 import { Note, Scale } from "musictheoryjs";
 import { addForcedMelody } from "./forcedmelody";
 import { NonChordTone } from "./nonchordtones";
-import { BEAT_LENGTH, Chord, DivisionedRichnotes, globalSemitone, gToneString, MainMusicParams, majScaleDifference, MusicParams, Nullable, semitoneDistance } from "./utils";
+import { MainMusicParams, MusicParams } from "./params";
+import { BEAT_LENGTH, Chord, DivisionedRichnotes, globalSemitone, gToneString, majScaleDifference, Nullable, semitoneDistance } from "./utils";
 
 
 export class Tension {
@@ -35,7 +36,7 @@ export class Tension {
         tension += this.notInScale * 100;
         tension += this.modulation;
         tension += this.allNotesSame;
-        // tension += this.chordProgression * 0.5;
+        tension += this.chordProgression;
         tension += this.keepDominantTones;
         tension += this.parallelFifths * 100;
         tension += this.spacingError;
@@ -92,7 +93,7 @@ export type TensionParams = {
 }
 
 
-export const getTension = (values: TensionParams): Tension => {
+export const getTension = (tension: Tension, values: TensionParams): Tension => {
         const {
             divisionedNotes,
             fromNotesOverride,
@@ -113,52 +114,6 @@ export const getTension = (values: TensionParams): Tension => {
     *   @param toChord: Chord
     *   @return: tension value between -1 and 1
     */
-    const tension = new Tension();
-    let wantedFunction = null;
-    let tryToGetLeadingToneInPart0 = false;
-    let part0MustBeTonic = false;
-
-    if (beatsUntilLastChordInCadence && inversionName) {
-        if (params.selectedCadence == "PAC") {
-            if (beatsUntilLastChordInCadence <= 5) {
-                wantedFunction = "sub-dominant";
-            }
-            if (beatsUntilLastChordInCadence == 3) {
-                wantedFunction = "dominant";
-                tryToGetLeadingToneInPart0 = true;
-            }
-            if (beatsUntilLastChordInCadence < 3) {
-                wantedFunction = "tonic";
-                part0MustBeTonic = true;
-            }
-            if (beatsUntilLastChordInCadence <= 3 && !inversionName.startsWith('root')) {
-                tension.comment += "cadence PAC: NOT root inversion! ";
-                tension.cadence += 100;
-            }
-        } else if (params.selectedCadence == "IAC") {
-            if (beatsUntilLastChordInCadence <= 5) {
-                wantedFunction = "sub-dominant";
-            }
-            if (beatsUntilLastChordInCadence == 3) {
-                wantedFunction = "dominant";
-            }
-            if (beatsUntilLastChordInCadence < 3) {
-                wantedFunction = "tonic";
-            }
-            if (beatsUntilLastChordInCadence <= 3 && inversionName.startsWith('root')) {
-                // Not root inversion
-                tension.comment += "cadence IAC: root inversion! ";
-                tension.cadence += 100;
-            }
-        } else if (params.selectedCadence == "HC") {
-            if (beatsUntilLastChordInCadence <= 4) {
-                wantedFunction = "sub-dominant";
-            }
-            if (beatsUntilLastChordInCadence < 3) {
-                wantedFunction = "dominant";
-            }
-        }
-    }
 
     let prevChord;
     let prevPrevChord;
@@ -191,10 +146,6 @@ export const getTension = (values: TensionParams): Tension => {
             if (latestNotes.every(Boolean)) {
                 break;
             }
-        }
-
-        if (!prevChord) {
-            wantedFunction = "tonic";
         }
     } else if (fromNotesOverride) {
         passedFromNotes = fromNotesOverride;
@@ -241,11 +192,6 @@ export const getTension = (values: TensionParams): Tension => {
     let notesNotInScale: Array<number> = []
     let newScale: Nullable<Scale> = null;
     const leadingTone = (currentScale.key - 1 + 24) % 12
-
-    if (tryToGetLeadingToneInPart0 && toGlobalSemitones[0] % 12 != leadingTone) {
-        // in PAC, we want the leading tone in part 0 in the dominant
-        tension.cadence += 5;
-    }
 
     if (currentScale) {
         const scaleSemitones = currentScale.notes.map(note => note.semitone);
@@ -296,200 +242,6 @@ export const getTension = (values: TensionParams): Tension => {
         [currentScale.notes[5].semitone]: 5,  // A
         [currentScale.notes[6].semitone]: 6,  // H
         [(currentScale.notes[0].semitone - 1 + 24) % 12]: 6  // Force add leading tone
-    }
-
-    let possibleToFunctions = {
-        'tonic': true,
-        'sub-dominant': true,
-        'dominant': true,
-    }
-    const toScaleIndexes = toNotes.map(note => semitoneScaleIndex[note.semitone]);
-
-    if (part0MustBeTonic && toScaleIndexes[0] != 0) {
-        tension.cadence += 10;
-    }
-
-    for (const scaleIndex of toScaleIndexes) {
-        if (scaleIndex == undefined) {
-            possibleToFunctions.tonic = false;
-            possibleToFunctions['sub-dominant'] = false;
-            possibleToFunctions.dominant = false;
-            break;
-        }
-        if (![0, 1, 3, 5].includes(scaleIndex)) {
-            possibleToFunctions["sub-dominant"] = false;
-        }
-        if (![1, 3, 4, 6].includes(scaleIndex)) {
-            possibleToFunctions.dominant = false;
-        }
-        if (![0, 2, 4].includes(scaleIndex)) {
-            possibleToFunctions.tonic = false;
-        }
-    }
-    let possibleFromFunctions = {
-        'tonic': true,
-        'sub-dominant': true,
-        'dominant': true,
-    }
-    const fromScaleIndexes = fromNotes.map(note => semitoneScaleIndex[note.semitone]);
-    for (const scaleIndex of fromScaleIndexes) {
-        if (scaleIndex == undefined) {
-            possibleFromFunctions.tonic = false;
-            possibleFromFunctions['sub-dominant'] = false;
-            possibleFromFunctions.dominant = false;
-            break;
-        }
-        if (!([0, 1, 3, 5].includes(scaleIndex))) {
-            possibleFromFunctions["sub-dominant"] = false;
-        }
-        if (!([1, 3, 4, 6].includes(scaleIndex))) {
-            possibleFromFunctions.dominant = false;
-        }
-        if (!([0, 2, 4].includes(scaleIndex))) {
-            possibleFromFunctions.tonic = false;
-        }
-    }
-
-    let fromDominantTones = 0;
-    for (const scaleIndex of fromScaleIndexes) {
-        if (([1, 3, 5, 6].includes(scaleIndex))) {
-            fromDominantTones++;
-        }
-        if (scaleIndex == 6) {
-            // Leading tone is a better dominant
-            fromDominantTones += 1.5;
-        }
-        if (scaleIndex == 4) {
-            // degree 6 is a weak dominant
-            fromDominantTones -= 0.5;
-        }
-    }
-    if (!wantedFunction) {
-        let toDominantTones = 0;
-        for (const scaleIndex of toScaleIndexes) {
-            if (([1, 3, 5, 6].includes(scaleIndex))) {
-                toDominantTones++;
-            }
-            if (scaleIndex == 6) {
-                toDominantTones += 1.5;
-            }
-            if (scaleIndex == 4) {
-                toDominantTones -= 0.5;
-            }
-        }
-        if (fromDominantTones > toDominantTones) {
-            tension.keepDominantTones += 5;
-        }
-        if (fromDominantTones > (toDominantTones + 1)) {
-            tension.keepDominantTones += 100;
-        }
-
-        // if (beatsUntilLastChordInCadence && beatsUntilLastChordInCadence < 8) {
-        //     // We should have at least 1 dominant tone by now.
-        //     if (toDominantTones == 0) {
-        //         tension.keepDominantTones += 5;
-        //     }
-        // }
-    }
-
-    if (wantedFunction) {
-        if (wantedFunction == "sub-dominant") {
-            if (!possibleToFunctions["sub-dominant"]) {// && !possibleToFunctions.dominant) {
-                if (!possibleToFunctions["dominant"]) {
-                    tension.comment += `Wanted ${wantedFunction}`
-                    tension.cadence += 100;
-                } else {
-                    tension.cadence += 5;  // Dominant is
-                }
-            }
-        }
-        if (wantedFunction == "dominant") {
-            if (!possibleToFunctions.dominant) {
-                tension.comment += `Wanted ${wantedFunction}`
-                tension.cadence += 100;
-            }
-        }
-        if (wantedFunction == "tonic") {
-            if (!possibleToFunctions.tonic) {
-                tension.comment += `Wanted ${wantedFunction}`
-                tension.cadence += 100;
-            }
-        }
-    }
-
-    if (possibleFromFunctions.tonic == false && wantedFunction != "tonic" && prevChord) {
-        let prevIndex1 = semitoneScaleIndex[prevChord.notes[0].semitone];
-        let prevIndex2 = semitoneScaleIndex[prevChord.notes[1].semitone];
-        let prevIndex3 = semitoneScaleIndex[prevChord.notes[2].semitone];
-        let prevIndex4 = semitoneScaleIndex[(prevChord.notes[3] || {}).semitone];
-
-        // Choices: 4 moves up, 3 and 4 move up, 2, 3, and 4 move up, 1, 2, 3, and 4 move up
-        // Check all
-        let isGood = false;
-        while (isGood == false) {
-            const toScaleIndexes = toSemitones.map(semitone => semitoneScaleIndex[semitone]);
-            let allowedIndexes: number[];
-            if (prevIndex4) {
-                allowedIndexes = [prevIndex1, prevIndex2, prevIndex3, prevIndex4]
-                if (toScaleIndexes.every(index => allowedIndexes.includes(index))) {
-                    tension.chordProgression += 1;
-                    isGood = true;
-                    break;
-                }
-                allowedIndexes = [prevIndex1, (prevIndex2 + 1) % 7, (prevIndex3 + 1) % 7, (prevIndex4 + 1) % 7]
-                if (toScaleIndexes.every(index => allowedIndexes.includes(index))) {
-                    isGood = true;
-                    break;
-                }
-                allowedIndexes = [(prevIndex1 + 1) % 7, (prevIndex2 + 1) % 7, (prevIndex3 + 1) % 7, (prevIndex4 + 1) % 7]
-                if (toScaleIndexes.every(index => allowedIndexes.includes(index))) {
-                    isGood = true;
-                    break;
-                }
-                allowedIndexes = [prevIndex1, prevIndex2, (prevIndex3 + 1) % 7, (prevIndex4 + 1) % 7]
-                if (toScaleIndexes.every(index => allowedIndexes.includes(index))) {
-                    isGood = true;
-                    break;
-                }
-                allowedIndexes = [prevIndex1, prevIndex2, prevIndex3, (prevIndex4 + 1) % 7]
-                if (toScaleIndexes.every(index => allowedIndexes.includes(index))) {
-                    isGood = true;
-                    break;
-                }
-            } else {
-                allowedIndexes = [prevIndex1, prevIndex2, prevIndex3]
-                if (toScaleIndexes.every(index => allowedIndexes.includes(index))) {
-                    isGood = true;
-                    break;
-                }
-                allowedIndexes = [prevIndex1, (prevIndex2 + 1) % 7, (prevIndex3 + 1) % 7]
-                if (toScaleIndexes.every(index => allowedIndexes.includes(index))) {
-                    tension.chordProgression += -1;  // The best
-                    isGood = true;
-                    break;
-                }
-                allowedIndexes = [(prevIndex1 - 1) % 7, (prevIndex2 - 1) % 7, prevIndex3]
-                if (toScaleIndexes.every(index => allowedIndexes.includes(index))) {
-                    isGood = true;
-                    break;
-                }
-                allowedIndexes = [(prevIndex1 + 1) % 7, (prevIndex2 + 1) % 7, (prevIndex3 + 1) % 7]
-                if (toScaleIndexes.every(index => allowedIndexes.includes(index))) {
-                    tension.chordProgression += 1;
-                    isGood = true;
-                    break;
-                }
-                allowedIndexes = [prevIndex1, prevIndex2, (prevIndex3 + 1) % 7]
-                if (toScaleIndexes.every(index => allowedIndexes.includes(index))) {
-                    isGood = true;
-                    break;
-                }
-            }
-            break;
-        }
-        if (!isGood) {
-            tension.chordProgression += 3;
-        }
     }
 
     const leadingToneSemitone = currentScale.notes[0].semitone + 11;

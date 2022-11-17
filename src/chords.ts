@@ -4,7 +4,7 @@ import {
     Note,
 } from "musictheoryjs";
 import { Logger } from "./mylogger";
-import { Chord, Nullable, DivisionedRichnotes, RichNote, BEAT_LENGTH, MainMusicParams, semitoneScaleIndex } from "./utils";
+import { Chord, Nullable, DivisionedRichnotes, RichNote, BEAT_LENGTH, semitoneScaleIndex } from "./utils";
 import { RandomChordGenerator } from "./randomchords";
 import { getInversions } from "./inversions";
 import { getTension, Tension } from "./tension";
@@ -13,9 +13,11 @@ import { addHalfNotes } from "./halfnotes";
 import { getAvailableScales } from "./availablescales";
 import { addForcedMelody, ForcedMelodyResult } from "./forcedmelody";
 import * as time from "./timer"; 
+import { chordProgressionTension } from "./chordprogression";
+import { MainMusicParams } from "./params";
 
-const GOOD_CHORD_LIMIT = 1200;
-const GOOD_CHORDS_PER_CHORD = 50;
+const GOOD_CHORD_LIMIT = 200;
+const GOOD_CHORDS_PER_CHORD = 10;
 const BAD_CHORD_LIMIT = 500;
 const BAD_CHORDS_PER_CHORD = 20;
 
@@ -83,7 +85,7 @@ const makeChords = async (mainParams: MainMusicParams, progressCallback: Nullabl
             skipLoop = true;
         }
 
-        while (!skipLoop && goodChords.length < GOOD_CHORD_LIMIT) {
+        while (!skipLoop && goodChords.length < (currentBeat != 0 ? GOOD_CHORD_LIMIT : 5)) {
             iterations++;
             newChord = randomGenerator.getChord();
             const chordLogger = new Logger();
@@ -176,7 +178,15 @@ const makeChords = async (mainParams: MainMusicParams, progressCallback: Nullabl
                         prevInversionName,
                         newChord,
                     }
-                    const tensionResult = getTension(tensionParams);
+
+                    const tensionResult = new Tension();
+                    chordProgressionTension(tensionResult, tensionParams);
+                    if (tensionResult.getTotalTension({
+                            params,
+                            beatsUntilLastChordInCadence
+                    }) < 10) {
+                        getTension(tensionResult, tensionParams);
+                    }
 
                     const modulationWeight = parseFloat((`${params.modulationWeight || "0"}`))
                     tensionResult.modulation += availableScale.tension / Math.max(0.01, modulationWeight);
@@ -402,7 +412,7 @@ export function makeMelody(divisionedNotes: DivisionedRichnotes, mainParams: Mai
     }
 
     // const divisionedNotes: DivisionedRichnotes = newVoiceLeadingNotes(chords, params);
-    buildTopMelody(divisionedNotes, mainParams);
+    // buildTopMelody(divisionedNotes, mainParams);
     // addEighthNotes(divisionedNotes, params)
     // addHalfNotes(divisionedNotes, mainParams)
 }

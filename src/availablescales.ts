@@ -1,6 +1,7 @@
 import { Note, Scale, ScaleTemplates } from "musictheoryjs"
 import { Logger } from "./mylogger";
-import { BEAT_LENGTH, DivisionedRichnotes, MusicParams } from "./utils"
+import { MusicParams } from "./params";
+import { BEAT_LENGTH, DivisionedRichnotes } from "./utils"
 
 
 type LightScale = {

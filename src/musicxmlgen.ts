@@ -1,7 +1,8 @@
 import { Note, Scale, ScaleTemplates } from 'musictheoryjs';
 
 import builder from 'xmlbuilder';
-import { Chord, DivisionedRichnotes, globalSemitone, MainMusicParams, MusicParams, RichNote } from './utils';
+import { MainMusicParams, MusicParams } from './params';
+import { Chord, DivisionedRichnotes, globalSemitone, RichNote } from './utils';
 
 const BEAT_LENGTH = 12
 

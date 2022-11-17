@@ -1,6 +1,7 @@
 import { Note } from "musictheoryjs";
 import { Logger } from "./mylogger";
-import { Chord, globalSemitone, gToneString, MusicParams, semitoneDistance, startingNotes } from "./utils";
+import { MusicParams } from "./params";
+import { Chord, globalSemitone, gToneString, semitoneDistance, startingNotes } from "./utils";
 
 export type InversionResult = {
     gToneDiffs: Array<Array<number>>,
@@ -276,12 +277,12 @@ export const getInversions = (values: {
     logger.print("newVoiceLeadingNotes: ", chord.toString(), " beat: ", beat);
 
     // Randomize order of ret
-    // for (let i=0; i<ret.length; i++) {
-    //     const j = Math.floor(Math.random() * ret.length);
-    //     const tmp = ret[i];
-    //     ret[i] = ret[j];
-    //     ret[j] = tmp;
-    // }
+    for (let i=0; i<ret.length; i++) {
+        const j = Math.floor(Math.random() * ret.length);
+        const tmp = ret[i];
+        ret[i] = ret[j];
+        ret[j] = tmp;
+    }
 
     return ret;
 }

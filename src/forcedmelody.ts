@@ -1,7 +1,7 @@
 import { Note, Scale } from "musictheoryjs";
 import { addNoteBetween, findNACs, FindNonChordToneParams, NonChordTone } from "./nonchordtones";
 import { getTension, Tension, TensionParams } from "./tension";
-import { BEAT_LENGTH, Chord, DivisionedRichnotes, getMelodyNeededTones, getRichNote, globalSemitone, gToneString, MainMusicParams, MusicParams, nextGToneInScale, Nullable, semitoneDistance, semitoneScaleIndex, startingNotes } from "./utils";
+import { BEAT_LENGTH, Chord, DivisionedRichnotes, getMelodyNeededTones, getRichNote, globalSemitone, gToneString, nextGToneInScale, Nullable, semitoneDistance, semitoneScaleIndex, startingNotes } from "./utils";
 
 
 export type ForcedMelodyResult = {
@@ -28,6 +28,10 @@ export const addForcedMelody = (values: TensionParams): ForcedMelodyResult => {
     }
 
     const melodyTonesAndDurations = getMelodyNeededTones(mainParams);
+    const melodyExists = (mainParams.forcedMelody || []).length > 0;
+    if (!melodyExists) {
+        return tension;
+    }
 
     const currentDivision = beatDivision;
     const cadenceDivision = currentDivision - params.cadenceStartDivision;
@@ -37,7 +41,7 @@ export const addForcedMelody = (values: TensionParams): ForcedMelodyResult => {
     let newMelodyToneDivision = cadenceDivision;
     if (!newMelodyToneAndDuration) {
         // No melody tone for this division, the previous tone must be lengthy. Use it.
-        for (let i = cadenceDivision - 1; i >= 0; i--) {
+        for (let i = cadenceDivision - 1; i >= cadenceDivision - BEAT_LENGTH * 2; i--) {
             newMelodyToneAndDuration = melodyTonesAndDurations[i];
             if (newMelodyToneAndDuration) {
                 newMelodyToneDivision = i;

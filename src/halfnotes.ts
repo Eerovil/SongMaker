@@ -1,4 +1,5 @@
-import { BEAT_LENGTH, DivisionedRichnotes, MainMusicParams } from "./utils";
+import { MainMusicParams } from "./params";
+import { BEAT_LENGTH, DivisionedRichnotes } from "./utils";
 
 export const addHalfNotes = (divisionedNotes: DivisionedRichnotes, mainParams: MainMusicParams) => {
 

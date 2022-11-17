@@ -1,5 +1,6 @@
 import { Scale } from "musictheoryjs";
-import { Chord, chordTemplates, MusicParams } from "./utils";
+import { MusicParams } from "./params";
+import { Chord, chordTemplates } from "./utils";
 
 export class RandomChordGenerator {
     private chordTypes: string[];

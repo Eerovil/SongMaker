@@ -2,7 +2,7 @@ import PlaybackEngine from "osmd-audio-player";
 import { buildTables } from "./src/chords"
 import { toXml } from "./src/musicxmlgen";
 import { loadPlayer, renderMusic } from "./src/player"
-import { MainMusicParams, MusicParams } from "./src/utils";
+import { MainMusicParams, MusicParams } from "./src/params";
 
 
 buildTables()
