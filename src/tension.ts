@@ -490,7 +490,7 @@ export const getTension = (tension: Tension, values: TensionParams): Tension => 
         }
 
         const prevPassedFromGTones = prevPassedFromNotes ? prevPassedFromNotes.map((n) => globalSemitone(n)) : [];
-        for (let i=0; i<1; i++) {
+        for (let i=0; i<4; i++) {
             const gTonesForThisPart = [];
             if (prevPassedFromGTones[i]) {
                 gTonesForThisPart.push(prevPassedFromGTones[i]);
@@ -514,47 +514,58 @@ export const getTension = (tension: Tension, values: TensionParams): Tension => 
             const finalDirection = gTonesForThisPart[gTonesForThisPart.length - 1] - gTonesForThisPart[gTonesForThisPart.length - 2];
             tension.comment = "finalDirection: " + finalDirection + ", globalDirection: " + globalDirection + ", generalDirection: " + generalDirection;
 
-            if (finalDirection == 0) {
-                tension.melodyTarget += 0.5;
+            if (gTonesForThisPart[gTonesForThisPart.length - 1] != gTonesForThisPart[gTonesForThisPart.length - 2] && gTonesForThisPart[gTonesForThisPart.length - 1] == gTonesForThisPart[gTonesForThisPart.length - 3]) {
+                // We're going to the same note as before. That's bad.
+                // Zig zagging
+                tension.melodyTarget += 2;
             }
 
-            const semitoneLimit = startingNotes(params).semitoneLimits[i];
-
-            let targetNote = semitoneLimit[1] - 4;
-            targetNote -= i * 2;
-
-            let targetNoteReached = false;
-            const authenticCadenceStartDivision = params.authenticCadenceStartDivision;
-            for (let div=beatDivision; div>authenticCadenceStartDivision; div--) {
-                const notes = (divisionedNotes || {})[div] || [];
-                for (const prevNote of notes.filter(richNote => richNote.partIndex == i)) {
-                    if (globalSemitone(prevNote.note) == targetNote) {
-                        targetNoteReached = true;
+            if (i == 0) {
+                if (finalDirection == 0) {
+                    tension.melodyTarget += 2;
+                    if (globalDirection == 0) {
+                        tension.melodyTarget += 2;
                     }
                 }
+    
+                const semitoneLimit = startingNotes(params).semitoneLimits[i];
+
+                let targetNote = semitoneLimit[1] - 4;
+                targetNote -= i * 2;
+
+                let targetNoteReached = false;
+                const authenticCadenceStartDivision = params.authenticCadenceStartDivision;
+                for (let div=beatDivision; div>authenticCadenceStartDivision; div--) {
+                    const notes = (divisionedNotes || {})[div] || [];
+                    for (const prevNote of notes.filter(richNote => richNote.partIndex == i)) {
+                        if (globalSemitone(prevNote.note) == targetNote) {
+                            targetNoteReached = true;
+                        }
+                    }
+                }
+
+                if (targetNoteReached) {
+                    tension.comment = "Target note reached ";
+                    if (Math.abs(toGlobalSemitones[i] - targetNote) <= 2) {
+                        // We're close to the target note, let's NOT go up
+                        if (finalDirection > 0) {
+                            tension.melodyTarget += 10;
+                        }
+                    }
+                    if (Math.abs(toGlobalSemitones[i] - targetNote) <= 8) {
+                        // We're close to the target note, let's NOT a lot up
+                        if (generalDirection >= 0) {
+                            tension.melodyTarget += generalDirection;
+                        }
+                    }
+                } else {
+                    if (globalDirection <= 0 && finalDirection <= 0) {
+                        // We're goin down, not good
+                        tension.melodyTarget += -1 * globalDirection
+                    }
+                }
+                break;
             }
-
-            if (targetNoteReached) {
-                tension.comment = "Target note reached ";
-                if (Math.abs(toGlobalSemitones[i] - targetNote) <= 2) {
-                    // We're close to the target note, let's NOT go up
-                    if (finalDirection > 0) {
-                        tension.melodyTarget += 10;
-                    }
-                }
-                if (Math.abs(toGlobalSemitones[i] - targetNote) <= 8) {
-                    // We're close to the target note, let's NOT a lot up
-                    if (generalDirection > 0) {
-                        tension.melodyTarget += generalDirection;
-                    }
-                }
-            } else {
-                if (globalDirection < 0 && finalDirection < 0) {
-                    // We're goin down, not good
-                    tension.melodyTarget += -1 * globalDirection
-                }
-            }
-            break;
         }
     }
     return tension;
