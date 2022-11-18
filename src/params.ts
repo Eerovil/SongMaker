@@ -15,7 +15,8 @@ export class MainMusicParams {
                 (this as any)[key] = (params as any)[key];
             }
         }
-        this.melodyRhythm = "QQQQQQQQQQQQQQQQQQQQQQ"
+        // this.melodyRhythm = "QQQQQQQQQQQQQQQQQQQQQQ"
+        this.melodyRhythm = "";
         // for (let i=0; i<20; i++) {
         //     const random = Math.random();
         //     if (random < 0.2) {
@@ -27,11 +28,12 @@ export class MainMusicParams {
         //         this.melodyRhythm += "EE";
         //     }
         // }
-        this.forcedMelody = [0, 1, 2, 0, 1, 2 ]
+        // this.forcedMelody = [0, 1, 2, 3, 3, 3 ]
         //                   12 3 41 2 34 two bars
 
         // Do Re Mi Fa So La Ti Do
         // this.forcedMelody = "RRRRRRRRRRRRRRRRRRRR";
+        this.forcedMelody = [];
         // let melody = [0];
         // for (let i=0; i<20; i++) {
         //     const upOrDown = Math.random() < 0.5 ? -1 : 1;
@@ -68,14 +70,24 @@ export class MainMusicParams {
         const beat = Math.floor(division / BEAT_LENGTH);
         const bar = Math.floor(beat / this.beatsPerBar);
         let counter = 0;  // The beat we're at in the loop
+        let authenticCadenceStartBar = 0;
         for (const cadenceParams of this.cadences) {
             // Loop cadences in orders
             counter += cadenceParams.barsPerCadence;
+            if (["PAC", "IAC"].includes(cadenceParams.selectedCadence)) {
+                authenticCadenceStartBar = counter;
+            }
             if (bar < counter) {  // We have passed the given division. The previous cadence is the one we want
                 cadenceParams.beatsUntilCadenceEnd = counter * this.beatsPerBar - beat;
+                if (["PAC", "IAC"].includes(cadenceParams.selectedCadence)) {
+                    cadenceParams.beatsUntilAuthenticCadenceEnd = cadenceParams.beatsUntilCadenceEnd;
+                } else {
+                    cadenceParams.beatsUntilAuthenticCadenceEnd = 999;
+                }
                 cadenceParams.beatsUntilSongEnd = this.cadences.reduce((a, b) => a + b.barsPerCadence, 0) * this.beatsPerBar - beat;
                 cadenceParams.beatsPerBar = this.beatsPerBar;
                 cadenceParams.cadenceStartDivision = ((counter - cadenceParams.barsPerCadence) * this.beatsPerBar) * BEAT_LENGTH;
+                cadenceParams.authenticCadenceStartDivision = authenticCadenceStartBar * this.beatsPerBar * BEAT_LENGTH;
                 return cadenceParams;
             }
         }
@@ -89,9 +101,11 @@ export class MainMusicParams {
 
 export class MusicParams {
     beatsUntilCadenceEnd: number = 0;
+    beatsUntilAuthenticCadenceEnd: number = 0;
     beatsUntilSongEnd: number = 0;
     beatsPerBar: number = 4;
     cadenceStartDivision: number = 0;
+    authenticCadenceStartDivision: number = 0;
 
     baseTension?: number = 0.3;
     barsPerCadence: number = 2

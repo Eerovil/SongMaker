@@ -523,7 +523,7 @@ export const buildTopMelody = (divisionedNotes: DivisionedRichnotes, mainParams:
             [...semitoneLimits[3]],
         ];
         const params = mainParams.currentCadenceParams(division);
-        const cadenceDivision = division - params.cadenceStartDivision;
+        const cadenceDivision = division - params.authenticCadenceStartDivision;
         const neededRhythm = rhythmNeededDurations[cadenceDivision] || 100;
 
         const lastBeatInCadence = params.beatsUntilCadenceEnd < 2

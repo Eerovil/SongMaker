@@ -86,10 +86,10 @@ export const chordProgressionTension = (tension: Tension, values: TensionParams)
                 tension.cadence += 100;
             }
         } else if (params.selectedCadence == "HC") {
-            if (beatsUntilLastChordInCadence <= 4) {
+            if (beatsUntilLastChordInCadence <= 3) {
                 wantedFunction = "sub-dominant";
             }
-            if (beatsUntilLastChordInCadence < 3) {
+            if (beatsUntilLastChordInCadence < 2) {
                 wantedFunction = "dominant";
             }
         }

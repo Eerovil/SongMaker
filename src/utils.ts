@@ -92,7 +92,7 @@ export const startingNotes = (params: MusicParams) => {
     ]
 
     const semitoneLimits = [
-        [startingGlobalSemitones[0] + -12, startingGlobalSemitones[0] + 12],
+        [startingGlobalSemitones[0] + -12, startingGlobalSemitones[0] + 12 - 5],
         [startingGlobalSemitones[1] + -12, startingGlobalSemitones[1] + 12 - 5],
         [startingGlobalSemitones[2] + -12, startingGlobalSemitones[2] + 12 - 5],
         [startingGlobalSemitones[3] + -12, startingGlobalSemitones[3] + 12 - 5],

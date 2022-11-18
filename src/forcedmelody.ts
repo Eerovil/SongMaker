@@ -232,9 +232,7 @@ export const addForcedMelody = (values: TensionParams): ForcedMelodyResult => {
             return tension;
 
         }
-    }
-    
-    else {
+    } else {
         tension.comment = `${newMelodyToneAndDuration.duration} != ${BEAT_LENGTH}`;
     }
     

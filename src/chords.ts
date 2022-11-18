@@ -28,6 +28,12 @@ const sleepMS = async (ms: number): Promise<null> => {
 
 const makeChords = async (mainParams: MainMusicParams, progressCallback: Nullable<Function> = null): Promise<DivisionedRichnotes> => {
     // generate a progression
+    // This is the main function that generates the entire song.
+    // The basic idea is that 
+
+    // Until the first IAC or PAC, melody and rhytm is random. (Though each cadence has it's own melodic high point.)
+
+    // This melody and rhytm is partially saved and repeated in the next cadences.
     const maxBeats = mainParams.getMaxBeats();
 
     let result: DivisionedRichnotes = {};
@@ -55,6 +61,7 @@ const makeChords = async (mainParams: MainMusicParams, progressCallback: Nullabl
         const params = mainParams.currentCadenceParams(division);
         const beatsUntilLastChordInCadence = params.beatsUntilCadenceEnd;
 
+
         console.groupCollapsed("division", division, prevChord ? prevChord.toString() : "null", " scale ", currentScale ? currentScale.toString() : "null");
         const currentBeat = Math.floor(division / BEAT_LENGTH);
         console.log("beatsUntilLastChordInCadence", beatsUntilLastChordInCadence);
@@ -70,7 +77,7 @@ const makeChords = async (mainParams: MainMusicParams, progressCallback: Nullabl
         let iterations = 0;
         let skipLoop = false;
 
-        if (beatsUntilLastChordInCadence == 1 && prevNotes) {
+        if (params.beatsUntilAuthenticCadenceEnd == 1 && prevNotes) {
             // Force same chord twice
             goodChords.splice(0, goodChords.length);
             goodChords.push(prevNotes.map((note, index) => ({
@@ -229,7 +236,9 @@ const makeChords = async (mainParams: MainMusicParams, progressCallback: Nullabl
                         if (melodyResult.nac) {
                             tensionResult.nac = melodyResult.nac;
                         }
-                        tensionResult.comment = melodyResult.comment;
+                        if (melodyResult.comment) {
+                            tensionResult.comment = melodyResult.comment;
+                        }
                         tension = tensionResult.getTotalTension({
                             params,
                             beatsUntilLastChordInCadence
@@ -276,7 +285,7 @@ const makeChords = async (mainParams: MainMusicParams, progressCallback: Nullabl
                             } as RichNote)
                             ));
                         }
-                    } else if (tensionResult.modulation < 100 && badChords.length < BAD_CHORD_LIMIT) {
+                    } else if (tensionResult.totalTension < 100 && badChords.length < BAD_CHORD_LIMIT) {
                         let chordCountInBadChords = 0;
                         for (const badChord of badChords) {
                             if (badChord.chord == newChord.toString()) {
