@@ -143,6 +143,7 @@ export const chordTemplates: { [key: string]: Array<number> } = {
     maj: [0, 4, 7],
     min: [0, 3, 7],
     dim: [0, 3, 6],
+    dim7: [0, 3, 6, 10],
     aug: [0, 4, 8],
     maj7: [0, 4, 7, 11],
     min7: [0, 3, 7, 10],

@@ -187,6 +187,7 @@ const makeChords = async (mainParams: MainMusicParams, progressCallback: Nullabl
                     }
 
                     const tensionResult = new Tension();
+                    tensionResult.inversionTension = inversionResult.rating;
                     chordProgressionTension(tensionResult, tensionParams);
                     if (tensionResult.getTotalTension({
                             params,
@@ -392,7 +393,7 @@ export async function makeMusic(params: MainMusicParams, progressCallback: Nulla
     await new Promise((resolve) => setTimeout(resolve, 1000))
 
     // const divisionedNotes: DivisionedRichnotes = newVoiceLeadingNotes(chords, params);
-    // buildTopMelody(divisionedNotes, params);
+    buildTopMelody(divisionedNotes, params);
     // addEighthNotes(divisionedNotes, params)
     // addHalfNotes(divisionedNotes, params)
 

@@ -179,16 +179,20 @@
                     <input v-model="cadenceParams.chordSettings.dim.weight" @change="chordSettingsUpdate(cadenceParams.chordSettings.dim)" type="range" min="-1" max="0" step="0.1">
                 </div>
                 <div class="settings-row">
-                    <label for="`${index}-chord-aug`">Aug</label>
-                    <input v-model="cadenceParams.chordSettings.aug.weight" @change="chordSettingsUpdate(cadenceParams.chordSettings.aug)" type="range" min="-1" max="0" step="0.1">
+                    <label for="`${index}-chord-dim7`">dim7</label>
+                    <input v-model="cadenceParams.chordSettings.dim7.weight" @change="chordSettingsUpdate(cadenceParams.chordSettings.dim7)" type="range" min="-1" max="0" step="0.1">
                 </div>
                 <div class="settings-row">
-                    <label for="`${index}-chord-dom7`">Dom7</label>
+                    <label for="`${index}-chord-dom7`">7</label>
                     <input v-model="cadenceParams.chordSettings.dom7.weight" @change="chordSettingsUpdate(cadenceParams.chordSettings.dom7)" type="range" min="-1" max="0" step="0.1">
                 </div>
                 <div class="settings-row">
                     <label for="`${index}-chord-maj7`">maj7</label>
                     <input v-model="cadenceParams.chordSettings.maj7.weight" @change="chordSettingsUpdate(cadenceParams.chordSettings.maj7)" type="range" min="-1" max="0" step="0.1">
+                </div>
+                <div class="settings-row">
+                    <label for="`${index}-chord-min7`">min7</label>
+                    <input v-model="cadenceParams.chordSettings.min7.weight" @change="chordSettingsUpdate(cadenceParams.chordSettings.min7)" type="range" min="-1" max="0" step="0.1">
                 </div>
             </div>
             <div class="secondary-settings-wrapper">

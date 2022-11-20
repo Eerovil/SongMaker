@@ -526,7 +526,7 @@ export const buildTopMelody = (divisionedNotes: DivisionedRichnotes, mainParams:
         const cadenceDivision = division - params.authenticCadenceStartDivision;
         const neededRhythm = rhythmNeededDurations[cadenceDivision] || 100;
 
-        const lastBeatInCadence = params.beatsUntilCadenceEnd < 2
+        const lastBeatInCadence = params.beatsUntilAuthenticCadenceEnd < 2
         if (lastBeatInCadence) {
             continue;
         }

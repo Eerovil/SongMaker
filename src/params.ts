@@ -16,7 +16,7 @@ export class MainMusicParams {
             }
         }
         // this.melodyRhythm = "QQQQQQQQQQQQQQQQQQQQQQ"
-        this.melodyRhythm = "";
+        // this.melodyRhythm = "EEEEEEEEEEEEEEEEEEEEEEEEEEEEEEEEEEEE";
         // for (let i=0; i<20; i++) {
         //     const random = Math.random();
         //     if (random < 0.2) {
@@ -162,7 +162,7 @@ export class MusicParams {
                 enabled: true,
                 weight: 0
             },
-            aug: {
+            dim7: {
                 enabled: true,
                 weight: 0,
             },
@@ -171,6 +171,10 @@ export class MusicParams {
                 weight: 0,
             },
             dom7: {
+                enabled: true,
+                weight: 0,
+            },
+            min7: {
                 enabled: true,
                 weight: 0,
             },

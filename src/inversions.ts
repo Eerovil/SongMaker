@@ -61,12 +61,13 @@ export const getInversions = (values: {
         let inversionNames = ["root", "root-fifth", "first-root", "first-third", "first-fifth", "second"];
         let combinationCount = 3 * 2 * 1;
         if (chord.notes.length > 3) {
-            inversionNames = ["root", "first", "second", "third"];
+            inversionNames = ["root", "root-root", "root-third", "first", "first-root", "first-third", "second", "third", "third-root", "third-third"];
         }
 
         for (let skipFifthIndex = 0; skipFifthIndex < 2; skipFifthIndex++) {
         for (let inversionIndex=0; inversionIndex<inversionNames.length; inversionIndex++) {
         for (let combinationIndex=0; combinationIndex<combinationCount; combinationIndex++) {
+            let rating = 0;
             const skipFifth = skipFifthIndex == 1;
 
             // We try each inversion. Which is best?
@@ -121,6 +122,7 @@ export const getInversions = (values: {
                     leftOverIndexes = [0, 0, 2];  // Double the root
                 } else if (inversion == "first-third") {
                     leftOverIndexes = [0, 1, 2];  // Double the third
+                    rating += 1;
                 } else if (inversion == "first-fifth") {
                     leftOverIndexes = [0, 2, 2];  // Double the fifth
                 } else if (inversion == "second") {
@@ -128,7 +130,25 @@ export const getInversions = (values: {
                     leftOverIndexes = [0, 0, 1];  // Double the root
                 }
             } else if (chord.notes.length == 4) {
-                leftOverIndexes = [0, 1, 2, 3].filter(i => i != partToIndex[3]);
+                // Leave out the fifth, possibly
+                if (inversion == "root-root") {
+                    leftOverIndexes = [0, 1, 3];  // Double the root
+                } else if (inversion == "root-third") {
+                    leftOverIndexes = [1, 1, 3];  // Double the third
+                    rating += 1;
+                } else if (inversion == "first-root") {
+                    leftOverIndexes = [0, 0, 3];  // Double the root
+                } else if (inversion == "first-third") {
+                    leftOverIndexes = [0, 1, 3];  // Double the third
+                    rating += 1;
+                } else if (inversion == "third-root") {
+                    leftOverIndexes = [0, 0, 1];  // Double the root
+                } else if (inversion == "third-third") {
+                    leftOverIndexes = [0, 1, 1];  // Double the third
+                    rating += 1;
+                } else {
+                    leftOverIndexes = [0, 1, 2, 3].filter(i => i != partToIndex[3]);
+                }
             }
 
             if (skipFifth) {
@@ -264,7 +284,7 @@ export const getInversions = (values: {
                                     }),
                                 ],
                                 inversionName: inversionResult.inversionName + ` ${part0Octave}${part1Octave}${part2Octave}${part3Octave}` + " " + gToneString(part0Note) + " " + gToneString(part1Note) + " " + gToneString(part2Note) + " " + gToneString(part3Note),
-                                rating: 0,
+                                rating: rating,
                             });
                         }
                     }

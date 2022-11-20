@@ -23,6 +23,10 @@ export class Tension {
     voiceDirections: number = 0;
     overlapping: number = 0;
 
+    seventhTension: number = 0;
+
+    inversionTension: number = 0;
+
     forcedMelody: number = 0;
     nac?: NonChordTone;
 
@@ -55,6 +59,8 @@ export class Tension {
         tension += this.overlapping;
 
         tension += this.forcedMelody;
+        tension += this.seventhTension;
+        tension += this.inversionTension;
 
         this.totalTension = tension;
         return tension;
@@ -269,6 +275,28 @@ export const getTension = (tension: Tension, values: TensionParams): Tension => 
         tension.doubleLeadingTone += 10;
     }
 
+    // dominant 7th chord stuff
+    if (newChord?.chordType.includes('7')) {
+        // Never double the 7th
+        const seventhSemitone = newChord.notes[3].semitone;
+        const seventhCount = toSemitones.filter(semitone => semitone == seventhSemitone).length;
+        if (seventhCount > 1) {
+            tension.seventhTension += 10;
+        }
+    }
+    if (prevChord?.chordType.includes('7')) {
+        if (!newChord?.chordType.includes('7')) {
+            // 7th must resolve down
+            const seventhSemitone = prevChord.notes[3].semitone;
+            const seventGTone = fromGlobalSemitones.filter(gTone => gTone % 12 == seventhSemitone)[0];
+            const seventhResolvesTo = [seventGTone - 1, seventGTone - 2];
+            const seventhResolvesToCount = toGlobalSemitones.filter(gTone => seventhResolvesTo.includes(gTone)).length;
+            if (seventhResolvesToCount == 0) {
+                tension.seventhTension += 11;
+            }
+        }
+    }
+
     // Check directions
     const directionCounts = {
         "up": 0,
@@ -329,16 +357,30 @@ export const getTension = (tension: Tension, values: TensionParams): Tension => 
                     tension.parallelFifths += 10;
                     continue;
                 }
-                // Check if the interval is hidden
-                // const partIDirection = toGlobalSemitones[i] - fromGlobalSemitones[i];
-                // const partJDirection = toGlobalSemitones[j] - fromGlobalSemitones[j];
-                // if (Math.abs(partIDirection) > 2) {
-                //     // Upper part is making a jump
-                //     if (partJDirection < 0 && partIDirection < 0 || partJDirection > 0 && partIDirection > 0) {
-                //         tension.parallelFifths += 11;
-                //         continue;
-                //     }
-                // }
+            }
+        }
+    }
+    // Check if the soprano-bass interval is hidden
+    // i.e. parts 0 and 3 are moving in same direction
+    // And part 0 is making a jump
+    // And the resulting interval is a fifth/octave
+    const part0Direction = toGlobalSemitones[0] - fromGlobalSemitones[0];
+    const part3Direction = toGlobalSemitones[3] - fromGlobalSemitones[3];
+    if (Math.abs(part0Direction) > 2) {
+        // Upper part is making a jump
+        const interval = Math.abs(toGlobalSemitones[0] - toGlobalSemitones[3]) % 12;
+        if ((interval == 7 || interval == 0) && Math.sign(part0Direction) == Math.sign(part3Direction)) {
+            // Same direction and resulting interval is a fifth/octave
+            tension.parallelFifths += 11;
+        }
+    }
+    for (let i=0; i<3; i++) {
+        const toIntervalWithBass = Math.abs(toGlobalSemitones[i] - toGlobalSemitones[3]) % 12;
+        const fromInterValWithBass = Math.abs(fromGlobalSemitones[i] - fromGlobalSemitones[3]) % 12;
+        if (fromInterValWithBass == 6) {
+            if (toIntervalWithBass == 7) {
+                // Unequal fifths (diminished 5th to perfect 5th) with bass
+                tension.parallelFifths += 12;
             }
         }
     }

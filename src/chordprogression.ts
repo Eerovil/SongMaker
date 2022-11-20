@@ -195,6 +195,7 @@ export const chordProgressionTension = (tension: Tension, values: TensionParams)
             if (!inversionName || !inversionName.startsWith('second')) {
                 possibleToFunctions.dominant = false;
             }
+            tension.chordProgression += 5;  // Try to avoid I64
         }
         if (![0].includes(rootScaleIndex)) { // I
             possibleToFunctions.tonic = false;
@@ -217,6 +218,17 @@ export const chordProgressionTension = (tension: Tension, values: TensionParams)
         if (newChord.notes[0].semitone == prevPrevChord.notes[0].semitone) {
             // Same root as previous chord (Don't go back)
             tension.chordProgression += 5;
+        }
+    }
+
+    if (newChord) {
+        const rootSemitone = newChord.notes[0].semitone;
+        const rootScaleIndex = semitoneScaleIndex[rootSemitone];
+        if (newChord.chordType.includes('dom7')) {
+            // Only allow index ii and V for now.
+            if (![1, 4].includes(rootScaleIndex)) {
+                tension.chordProgression += 13;
+            }
         }
     }
 
