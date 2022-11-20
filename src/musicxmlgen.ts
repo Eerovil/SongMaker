@@ -164,21 +164,33 @@ function addRichNoteToMeasure(richNote: RichNote, measure: builder.XMLElement, s
     if (romanNumeral == undefined) {
       romanNumeral = '';
     }
-    if (richNote.chord.chordType == 'min') {
+    if (richNote.chord.chordType.includes('min')) {
       romanNumeral = romanNumeral.toLowerCase();
     }
-    if (richNote.chord.chordType == 'dim') {
+    if (richNote.chord.chordType.includes('dim')) {
       romanNumeral = romanNumeral.toLowerCase() + '°';
     }
-    if (richNote.chord.chordType == 'dom7') {
-      romanNumeral = romanNumeral + '7';
-    }
     if (richNote.inversionName) {
-      if (richNote.inversionName.startsWith('first')) {
-        romanNumeral = romanNumeral + '6';
-      }
-      if (richNote.inversionName.startsWith('second')) {
-        romanNumeral = romanNumeral + '64';
+      if (richNote.chord.chordType.includes('7')) {
+        if (richNote.inversionName.startsWith('first')) {
+          romanNumeral = romanNumeral + '65';
+        }
+        else if (richNote.inversionName.startsWith('second')) {
+          romanNumeral = romanNumeral + '43';
+        }
+        else if (richNote.inversionName.startsWith('third')) {
+          romanNumeral = romanNumeral + '42';
+        }
+        else {
+          romanNumeral = romanNumeral + '7';
+        }
+      } else {
+        if (richNote.inversionName.startsWith('first')) {
+          romanNumeral = romanNumeral + '6';
+        }
+        if (richNote.inversionName.startsWith('second')) {
+          romanNumeral = romanNumeral + '64';
+        }
       }
     }
 
@@ -214,6 +226,10 @@ function addRichNoteToMeasure(richNote: RichNote, measure: builder.XMLElement, s
     else if (chordTemplateKey == "dim") {
       chordType = 'diminished';
     }
+    else if (chordTemplateKey == "dim7") {
+      chordType = 'diminished-seventh';
+      kindText = "dim7";
+    }
     else if (chordTemplateKey == "aug") {
       chordType = 'augmented';
     }
@@ -223,6 +239,7 @@ function addRichNoteToMeasure(richNote: RichNote, measure: builder.XMLElement, s
     }
     else if (chordTemplateKey == "maj7") {
       chordType = 'major-seventh';
+      kindText = "maj7";
     }
     else if (chordTemplateKey == "min7") {
       chordType = 'minor-seventh';

@@ -167,8 +167,8 @@ export class MusicParams {
                 weight: 0,
             },
             maj7: {
-                enabled: true,
-                weight: 0,
+                enabled: false,
+                weight: -1,
             },
             dom7: {
                 enabled: true,

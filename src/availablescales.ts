@@ -20,10 +20,10 @@ const scalesForNotes = (notes: Note[], params: MusicParams): Scale[] => {
             for (let semitone=0; semitone < 12; semitone++) {
                 const scale = new Scale({key: semitone, template: ScaleTemplates[scaleSlug]})
                 const semitones = scale.notes.map(note => note.semitone);
-                const leadingTone = (scale.key - 1 + 24) % 12;
-                if (!semitones.includes(leadingTone)) {
-                    semitones.push(leadingTone);
-                }
+                // const leadingTone = (scale.key - 1 + 24) % 12;
+                // if (!semitones.includes(leadingTone)) {
+                //     semitones.push(leadingTone);
+                // }
                 scales.add({
                     key: semitone,
                     templateSlug: scaleSlug,

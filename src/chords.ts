@@ -39,6 +39,7 @@ const makeChords = async (mainParams: MainMusicParams, progressCallback: Nullabl
     let result: DivisionedRichnotes = {};
 
     let divisionBannedNotes: {[key: number]: Array<Array<Note>>} = {}
+    let divisionBanCount: {[key: number]: number} = {}
 
     for (let division = 0; division < maxBeats * BEAT_LENGTH; division += BEAT_LENGTH) {
         let prevResult = result[division - BEAT_LENGTH];
@@ -62,7 +63,7 @@ const makeChords = async (mainParams: MainMusicParams, progressCallback: Nullabl
         const beatsUntilLastChordInCadence = params.beatsUntilCadenceEnd;
 
 
-        console.groupCollapsed("division", division, prevChord ? prevChord.toString() : "null", " scale ", currentScale ? currentScale.toString() : "null");
+        console.groupCollapsed("division", division, prevChord ? prevChord.toString() : "null", " scale ", currentScale ? currentScale.toString() : "null", prevResult && prevResult[0]?.tension ? prevResult[0].tension.toPrint() : "");
         const currentBeat = Math.floor(division / BEAT_LENGTH);
         console.log("beatsUntilLastChordInCadence", beatsUntilLastChordInCadence);
 
@@ -304,9 +305,18 @@ const makeChords = async (mainParams: MainMusicParams, progressCallback: Nullabl
             }  // For voiceleading results end
         }  // While end
         if (goodChords.length == 0) {
+            let bestOfBadChords = null;
             for (const badChord of badChords) {
                 badChord.tension.print("Bad chord ", badChord.chord, " - ");
+                if (bestOfBadChords == null || badChord.tension.totalTension < bestOfBadChords.tension.totalTension) {
+                    bestOfBadChords = badChord;
+                }
             }
+            console.groupEnd();
+            console.groupCollapsed(
+                "No good chords found: ",
+                ((bestOfBadChords && bestOfBadChords.tension) ? ([bestOfBadChords.chord, bestOfBadChords.tension.toPrint()]) : "")
+            );
             await sleepMS(1);
             // Go back to previous chord, and make it again
             if (division >= BEAT_LENGTH) {
@@ -334,9 +344,22 @@ const makeChords = async (mainParams: MainMusicParams, progressCallback: Nullabl
                     }
                     divisionBannedNotes[division + BEAT_LENGTH] = divisionBannedNotes[division + BEAT_LENGTH] || [];
                     divisionBannedNotes[division + BEAT_LENGTH].push(newBannedNotes);
+                    divisionBanCount[division] = divisionBanCount[division] || 0;
+                    divisionBanCount[division]++;
+                    console.log("Too many bans, going back to division " + division + " ban count " + divisionBanCount[division]);
+                    if (divisionBanCount[division] > 4) {
+                        // We're stuck. Go back 4 beats and try again.
+                        division -= BEAT_LENGTH * 4;
+                        divisionBanCount[division] = divisionBanCount[division] || 0;
+                    }
+                    if (division < -1 * BEAT_LENGTH) {
+                        division = -1 * BEAT_LENGTH;
+                    }
+                    // Delete the result where we are going to and anything after it
                     delete result[division + BEAT_LENGTH];
-                    for (let i = division + BEAT_LENGTH; i < maxBeats * BEAT_LENGTH; i += 1) {
+                    for (let i = division + BEAT_LENGTH + 1; i < maxBeats * BEAT_LENGTH; i += 1) {
                         delete result[i];
+                        delete divisionBannedNotes[i];
                     }
                 }
             } else {

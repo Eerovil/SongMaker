@@ -50,11 +50,7 @@ export class Tension {
         tension += this.doubleLeadingTone;
         tension += this.leadingToneUp;
         tension += this.melodyTarget;
-        if (beatsUntilLastChordInCadence > 4) {
-            tension += this.melodyJump;
-        } else {
-            tension += this.melodyJump;
-        }
+        tension += this.melodyJump;
         tension += this.voiceDirections;
         tension += this.overlapping;
 
@@ -66,14 +62,19 @@ export class Tension {
         return tension;
     }
 
-    print(...args: any[]) {
-        // Print only positive values
+    toPrint() {
         const toPrint: {[key: string]: string} = {};
         for (const key in this) {
             if (this[key] && typeof this[key] == "number") {
                 toPrint[key] = (this[key] as unknown as number).toFixed(1);
             }
         }
+        return toPrint;
+    }
+
+    print(...args: any[]) {
+        const toPrint = this.toPrint();
+        // Print only positive values
         if (this.comment) {
             console.log(this.comment, ...args, toPrint);
         } else {
@@ -234,6 +235,16 @@ export const getTension = (tension: Tension, values: TensionParams): Tension => 
             }
         }
     }
+    if (inversionName && inversionName.startsWith('third') || (prevInversionName || "").startsWith('third')) {
+        for (let i=0; i<fromGlobalSemitones.length; i++) {
+            const fromSemitone = fromGlobalSemitones[i];
+            const toSemitone = toGlobalSemitones[i];
+            if (Math.abs(fromSemitone - toSemitone) > 2) {
+                tension.secondInversion += 101;
+            }
+        }
+    }
+
 
     if (inversionName && inversionName.startsWith('root')) {
         tension.secondInversion -= 0.1;  // Root inversions are great
@@ -247,7 +258,7 @@ export const getTension = (tension: Tension, values: TensionParams): Tension => 
         [currentScale.notes[4].semitone]: 4,  // G
         [currentScale.notes[5].semitone]: 5,  // A
         [currentScale.notes[6].semitone]: 6,  // H
-        [(currentScale.notes[0].semitone - 1 + 24) % 12]: 6  // Force add leading tone
+        // [(currentScale.notes[0].semitone - 1 + 24) % 12]: 6  // Force add leading tone
     }
 
     const leadingToneSemitone = currentScale.notes[0].semitone + 11;
