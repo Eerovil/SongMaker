@@ -30,6 +30,11 @@ export class Tension {
     forcedMelody: number = 0;
     nac?: NonChordTone;
 
+    bassScale: number = 0;
+    sopranoScale: number = 0;
+    otherScale: number = 0;
+    bassSopranoScale: number = 0;
+
     totalTension: number = 0;
 
     comment: string = "";
@@ -58,6 +63,9 @@ export class Tension {
         tension += this.seventhTension;
         tension += this.inversionTension;
 
+        tension -= this.bassScale;
+        tension -= this.bassSopranoScale;
+
         this.totalTension = tension;
         return tension;
     }
@@ -65,7 +73,7 @@ export class Tension {
     toPrint() {
         const toPrint: {[key: string]: string} = {};
         for (const key in this) {
-            if (this[key] && typeof this[key] == "number") {
+            if (`${this[key]}` != "0" && typeof this[key] == "number") {
                 toPrint[key] = (this[key] as unknown as number).toFixed(1);
             }
         }
@@ -294,6 +302,14 @@ export const getTension = (tension: Tension, values: TensionParams): Tension => 
         if (seventhCount > 1) {
             tension.seventhTension += 10;
         }
+        for (let i=0; i<toGlobalSemitones.length; i++) {
+            if (toGlobalSemitones[i] % 12 == seventhSemitone) {
+                if (Math.abs(fromGlobalSemitones[i] - toGlobalSemitones[i]) > 2) {
+                    // 7th is approached by leap!
+                    tension.seventhTension += 10;
+                }
+            }
+        }
     }
     if (prevChord?.chordType.includes('7')) {
         if (!newChord?.chordType.includes('7')) {
@@ -348,10 +364,10 @@ export const getTension = (tension: Tension, values: TensionParams): Tension => 
     if (directionCounts.down > 2 && directionCounts.up < 1) {
         tension.voiceDirections += 3;
     }
-    if (partDirection[0] == partDirection[3] && partDirection[0] != "same") {
-        tension.voiceDirections += 5;
-        // root and sopranos moving in same direction
-    }
+    // if (partDirection[0] == partDirection[3] && partDirection[0] != "same") {
+    //     tension.voiceDirections += 5;
+    //     // root and sopranos moving in same direction
+    // }
 
     // Parallel motion and hidden fifths
     for (let i=0; i<toGlobalSemitones.length; i++) {
@@ -455,6 +471,8 @@ export const getTension = (tension: Tension, values: TensionParams): Tension => 
         }
     }
 
+    // Prevent zig zaggin
+
     // 0 priimi
     // 1 pieni sekunti
     // 2 suuri sekunti
@@ -549,7 +567,7 @@ export const getTension = (tension: Tension, values: TensionParams): Tension => 
                 gTonesForThisPart.push(prevPassedFromGTones[i]);
             }
             gTonesForThisPart.push(fromGlobalSemitones[i]);
-            if (latestFromGlobalSemitones[i]) {
+            if (latestFromGlobalSemitones[i] && latestFromGlobalSemitones[i] != fromGlobalSemitones[i]) {
                 gTonesForThisPart.push(latestFromGlobalSemitones[i]);
             }
             gTonesForThisPart.push(toGlobalSemitones[i]);
@@ -609,6 +627,9 @@ export const getTension = (tension: Tension, values: TensionParams): Tension => 
                         // We're close to the target note, let's NOT a lot up
                         if (generalDirection >= 0) {
                             tension.melodyTarget += generalDirection;
+                        }
+                        if (finalDirection > 0) {
+                            tension.melodyTarget += finalDirection;
                         }
                     }
                 } else {

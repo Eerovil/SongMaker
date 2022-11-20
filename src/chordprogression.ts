@@ -238,6 +238,14 @@ export const chordProgressionTension = (tension: Tension, values: TensionParams)
                 tension.chordProgression += 13;
             }
         }
+        if (!wantedFunction || wantedFunction != 'dominant') {
+            if (newChord.chordType.includes('dom7')) {
+                tension.chordProgression += 15;
+            }
+            if (newChord.chordType.includes('dim7')) {
+                tension.chordProgression += 14;
+            }
+        }
     }
 
     if (newChord && prevChord) {
