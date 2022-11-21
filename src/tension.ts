@@ -451,9 +451,9 @@ export const getTension = (tension: Tension, values: TensionParams): Tension => 
             continue;
         }
         if (interval >= 5) {
-            tension.melodyJump += 2;
+            tension.melodyJump += 1;
         }
-        if (interval >= 7) {
+        if (interval > 7) {
             tension.melodyJump += 2;
         }
         if (interval >= 10) {  // 7th == 10
@@ -462,7 +462,7 @@ export const getTension = (tension: Tension, values: TensionParams): Tension => 
         }
         if (interval == 6 || interval == 8) // tritone (aug 4th) or aug 5th
         {
-            tension.melodyJump += 5;
+            tension.melodyJump += 10;
             continue;
         }
         if (interval == 7) {
@@ -548,8 +548,8 @@ export const getTension = (tension: Tension, values: TensionParams): Tension => 
                     // Not goinf back down/up...
                     if (interval <= 3) {
                         tension.melodyJump += 0.5 * multiplier;
-                    } else if (interval <= 4) {
-                        tension.melodyJump += 4 * multiplier;  // Not as bad
+                    } else if (interval <= 7) {
+                        tension.melodyJump += 2 * multiplier;  // Not as bad
                     } else {
                         tension.melodyJump += 100;  // Terrible
                     }
@@ -559,7 +559,9 @@ export const getTension = (tension: Tension, values: TensionParams): Tension => 
                     if (backInterval > 2) {
                         // Going back too much
                         if (interval <= 3) {
-                            tension.melodyJump += 5 * multiplier;
+                            tension.melodyJump += 0.5 * multiplier;
+                        } else if (interval <= 7) {
+                            tension.melodyJump += 2 * multiplier;  // Not as bad
                         } else {
                             tension.melodyJump += 100;
                         }
