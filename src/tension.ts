@@ -446,6 +446,10 @@ export const getTension = (tension: Tension, values: TensionParams): Tension => 
         if (interval >= 3) {
             tension.melodyJump += 0.5;
         }
+        if (interval == 12) {
+            tension.melodyJump += 0.5;
+            continue;
+        }
         if (interval >= 5) {
             tension.melodyJump += 2;
         }
@@ -534,14 +538,18 @@ export const getTension = (tension: Tension, values: TensionParams): Tension => 
                         continue;
                     }
                 }
+                if (interval == 12) {
+                    continue;
+                }
 
                 // Higher than that, no triad is possible.
+                const multiplier = (i == 0 || i == 3) ? 0.2 : 1;
                 if ((fromSemitone >= prevFromSemitone && toSemitone >= fromSemitone) || (fromSemitone <= prevFromSemitone && toSemitone <= fromSemitone)) {
                     // Not goinf back down/up...
                     if (interval <= 3) {
-                        tension.melodyJump += 0.5;
+                        tension.melodyJump += 0.5 * multiplier;
                     } else if (interval <= 4) {
-                        tension.melodyJump += 4;  // Not as bad
+                        tension.melodyJump += 4 * multiplier;  // Not as bad
                     } else {
                         tension.melodyJump += 100;  // Terrible
                     }
@@ -551,7 +559,7 @@ export const getTension = (tension: Tension, values: TensionParams): Tension => 
                     if (backInterval > 2) {
                         // Going back too much
                         if (interval <= 3) {
-                            tension.melodyJump += 5;
+                            tension.melodyJump += 5 * multiplier;
                         } else {
                             tension.melodyJump += 100;
                         }
@@ -603,14 +611,20 @@ export const getTension = (tension: Tension, values: TensionParams): Tension => 
 
                 let targetNote = semitoneLimit[1] - 4;
                 targetNote -= i * 2;
+                let targetLowNote = semitoneLimit[0] + 10;
+                targetLowNote += i * 2;
 
                 let targetNoteReached = false;
+                let targetLowNoteReached = false;
                 const authenticCadenceStartDivision = params.authenticCadenceStartDivision;
                 for (let div=beatDivision; div>authenticCadenceStartDivision; div--) {
                     const notes = (divisionedNotes || {})[div] || [];
                     for (const prevNote of notes.filter(richNote => richNote.partIndex == i)) {
-                        if (globalSemitone(prevNote.note) == targetNote) {
+                        if (globalSemitone(prevNote.note) >= targetNote) {
                             targetNoteReached = true;
+                        }
+                        if (globalSemitone(prevNote.note) <= targetLowNote) {
+                            targetLowNoteReached = true;
                         }
                     }
                 }
@@ -636,6 +650,31 @@ export const getTension = (tension: Tension, values: TensionParams): Tension => 
                     if (globalDirection <= 0 && finalDirection <= 0) {
                         // We're goin down, not good
                         tension.melodyTarget += -1 * globalDirection
+                    }
+                }
+                if (targetLowNoteReached) {
+                    tension.comment = "Target low note reached ";
+                    if (Math.abs(toGlobalSemitones[i] - targetLowNote) <= 2) {
+                        // We're close to the target note, let's NOT go down
+                        if (finalDirection < 0) {
+                            tension.melodyTarget += 10;
+                        }
+                    }
+                    if (Math.abs(toGlobalSemitones[i] - targetLowNote) <= 8) {
+                        // We're close to the target note, let's NOT a lot down
+                        if (generalDirection <= 0) {
+                            tension.melodyTarget += -1 * generalDirection;
+                        }
+                        if (finalDirection < 0) {
+                            tension.melodyTarget += -1 * finalDirection;
+                        }
+                    }
+                } else {
+                    if (globalDirection >= 0 && finalDirection >= 0) {
+                        if (targetNoteReached) {
+                            // We're goin up, not good
+                            tension.melodyTarget += globalDirection;
+                        }
                     }
                 }
                 break;

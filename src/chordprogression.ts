@@ -168,6 +168,7 @@ export const chordProgressionTension = (tension: Tension, values: TensionParams)
     const toScaleIndexes = toNotes.map(note => semitoneScaleIndex[note.semitone]);
 
     if (part0MustBeTonic && toScaleIndexes[0] != 0) {
+        tension.comment += "part 0 must be tonic! ";
         tension.cadence += 10;
     }
 
@@ -330,6 +331,13 @@ export const chordProgressionTension = (tension: Tension, values: TensionParams)
                     tension.cadence += 100;
                 }
             }
+        }
+    }
+
+    if (params.selectedCadence == "PAC") {
+        // Since PAC is so hard, lets loosen up the rules a bit
+        if (tension.cadence == 0) {
+            tension.cadence = -3;
         }
     }
 }

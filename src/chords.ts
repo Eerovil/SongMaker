@@ -19,8 +19,8 @@ import { goodSoundingScaleTension } from "./goodsoundingscale";
 
 const GOOD_CHORD_LIMIT = 200;
 const GOOD_CHORDS_PER_CHORD = 10;
-const BAD_CHORD_LIMIT = 1000;
-const BAD_CHORDS_PER_CHORD = 20;
+const BAD_CHORD_LIMIT = 100;
+const BAD_CHORDS_PER_CHORD = 5;
 
 
 const sleepMS = async (ms: number): Promise<null> => {
@@ -98,7 +98,7 @@ const makeChords = async (mainParams: MainMusicParams, progressCallback: Nullabl
             iterations++;
             newChord = randomGenerator.getChord();
             const chordLogger = new Logger();
-            if (iterations > 100000 || !newChord) {
+            if (iterations > 1000000 || !newChord) {
                 console.log("Too many iterations, going back");
                 break;
             }
@@ -292,7 +292,7 @@ const makeChords = async (mainParams: MainMusicParams, progressCallback: Nullabl
                     } else if (tensionResult.totalTension < 100 && badChords.length < BAD_CHORD_LIMIT) {
                         let chordCountInBadChords = 0;
                         for (const badChord of badChords) {
-                            if (badChord.chord == newChord.toString()) {
+                            if (badChord.chord.includes(newChord.toString())) {
                                 chordCountInBadChords++;
                             }
                         }
