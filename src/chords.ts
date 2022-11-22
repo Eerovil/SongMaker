@@ -17,10 +17,10 @@ import { chordProgressionTension } from "./chordprogression";
 import { MainMusicParams } from "./params";
 import { goodSoundingScaleTension } from "./goodsoundingscale";
 
-const GOOD_CHORD_LIMIT = 200;
-const GOOD_CHORDS_PER_CHORD = 10;
+const GOOD_CHORD_LIMIT = 1000;
+const GOOD_CHORDS_PER_CHORD = 100;
 const BAD_CHORD_LIMIT = 100;
-const BAD_CHORDS_PER_CHORD = 5;
+const BAD_CHORDS_PER_CHORD = 100;
 
 
 const sleepMS = async (ms: number): Promise<null> => {
@@ -38,6 +38,7 @@ const makeChords = async (mainParams: MainMusicParams, progressCallback: Nullabl
     const maxBeats = mainParams.getMaxBeats();
 
     let result: DivisionedRichnotes = {};
+    let originalScale: Scale;
 
     let divisionBannedNotes: {[key: number]: Array<Array<Note>>} = {}
     let divisionBanCount: {[key: number]: number} = {}
@@ -57,6 +58,22 @@ const makeChords = async (mainParams: MainMusicParams, progressCallback: Nullabl
                 currentScale = richNote.scale;
             }
         }
+        if (currentScale) {
+            try {
+                // @ts-ignore
+                if (!originalScale) {
+                    originalScale = currentScale
+                }
+            } catch (e) {
+                originalScale = currentScale
+            }
+        } else {
+            if (mainParams.forcedOriginalScale) {
+                currentScale = mainParams.forcedOriginalScale;
+            }
+        }
+        // @ts-ignore
+        originalScale = originalScale as Scale;
         // @ts-expect-error
         prevNotes = prevNotes;
 
@@ -72,7 +89,7 @@ const makeChords = async (mainParams: MainMusicParams, progressCallback: Nullabl
         let newChord: Nullable<Chord> = null;
 
         let goodChords: RichNote[][] = []
-        const badChords: {tension: Tension, chord: string}[] = []
+        const badChords: {tension: Tension, chord: string, scale: Scale}[] = []
 
         const randomNotes: Array<Note> = [];
 
@@ -98,7 +115,7 @@ const makeChords = async (mainParams: MainMusicParams, progressCallback: Nullabl
             iterations++;
             newChord = randomGenerator.getChord();
             const chordLogger = new Logger();
-            if (iterations > 1000000 || !newChord) {
+            if (iterations > 10000000 || !newChord) {
                 console.log("Too many iterations, going back");
                 break;
             }
@@ -110,10 +127,10 @@ const makeChords = async (mainParams: MainMusicParams, progressCallback: Nullabl
                     }
                 }
             }
-            if (mainParams.forcedChords && currentScale && newChord) {
+            if (mainParams.forcedChords && originalScale && newChord) {
                 const forcedChordNum = parseInt(mainParams.forcedChords[currentBeat]);
                 if (!isNaN(forcedChordNum)) {
-                    if (semitoneScaleIndex(currentScale)[newChord.notes[0].semitone] != (forcedChordNum - 1)) {
+                    if (semitoneScaleIndex(originalScale)[newChord.notes[0].semitone] != (forcedChordNum - 1)) {
                         continue;
                     }
                 }
@@ -131,6 +148,7 @@ const makeChords = async (mainParams: MainMusicParams, progressCallback: Nullabl
             if (currentScale && (maxBeats - currentBeat < 3 || beatsUntilLastChordInCadence < 3 || currentBeat < 5)) {
                 // Don't allow other scales than the current one
                 availableScales = availableScales.filter(s => s.scale.equals(currentScale as Scale));
+                console.log("availableScales", availableScales);
             }
             if (availableScales.length == 0) {
                 continue;
@@ -179,6 +197,7 @@ const makeChords = async (mainParams: MainMusicParams, progressCallback: Nullabl
                         beatDivision: division,
                         toNotes: randomNotes,
                         currentScale: availableScale.scale,
+                        originalScale: originalScale, 
                         beatsUntilLastChordInCadence,
                         beatsUntilLastChordInSong: maxBeats - currentBeat,
                         params,
@@ -199,26 +218,6 @@ const makeChords = async (mainParams: MainMusicParams, progressCallback: Nullabl
                         getTension(tensionResult, tensionParams);
                     }
 
-                    const modulationWeight = parseFloat((`${params.modulationWeight || "0"}`))
-                    tensionResult.modulation += availableScale.tension / Math.max(0.01, modulationWeight);
-                    if (currentScale && !availableScale.scale.equals(currentScale)) {
-                        tensionResult.modulation += 1 / Math.max(0.01, modulationWeight);
-                        if (modulationWeight == 0) {
-                            tensionResult.modulation += 100;
-                        }
-                        if (maxBeats - currentBeat < 3) {
-                            // Last 2 bars, don't change scale
-                            tensionResult.modulation += 100;
-                        }
-                        if (beatsUntilLastChordInCadence < 3) {
-                            // Don't change scale in last 2 beats of cadence
-                            tensionResult.modulation += 100;
-                        }
-                        if (currentBeat < 5) {
-                            // Don't change scale in first 5 beats
-                            tensionResult.modulation += 100;
-                        }
-                    }
                     let tension = tensionResult.getTotalTension({
                         params,
                         beatsUntilLastChordInCadence
@@ -289,7 +288,7 @@ const makeChords = async (mainParams: MainMusicParams, progressCallback: Nullabl
                             } as RichNote)
                             ));
                         }
-                    } else if (tensionResult.totalTension < 100 && badChords.length < BAD_CHORD_LIMIT) {
+                    } else if (tensionResult.totalTension < 100000 && badChords.length < BAD_CHORD_LIMIT) {
                         let chordCountInBadChords = 0;
                         for (const badChord of badChords) {
                             if (badChord.chord.includes(newChord.toString())) {
@@ -299,7 +298,8 @@ const makeChords = async (mainParams: MainMusicParams, progressCallback: Nullabl
                         if (chordCountInBadChords < BAD_CHORDS_PER_CHORD) {
                             badChords.push({
                                 chord: newChord.toString() + "," + inversionResult.inversionName,
-                                tension: tensionResult
+                                tension: tensionResult,
+                                scale: availableScale.scale,
                             });
                         }
                     }
@@ -309,7 +309,7 @@ const makeChords = async (mainParams: MainMusicParams, progressCallback: Nullabl
         if (goodChords.length == 0) {
             let bestOfBadChords = null;
             for (const badChord of badChords) {
-                badChord.tension.print("Bad chord ", badChord.chord, " - ");
+                badChord.tension.print("Bad chord ", badChord.chord, " - ", badChord.scale.toString(), " - ");
                 if (bestOfBadChords == null || badChord.tension.totalTension < bestOfBadChords.tension.totalTension) {
                     bestOfBadChords = badChord;
                 }
@@ -337,6 +337,7 @@ const makeChords = async (mainParams: MainMusicParams, progressCallback: Nullabl
                     delete result[i];
                 }
                 if (divisionBannedNotes[division + BEAT_LENGTH].length > 10 && result[division]) {
+                    return result;
                     // Too many bans, go back further. Remove these bans so they don't hinder later progress.
                     divisionBannedNotes[division + BEAT_LENGTH] = [];
                     division -= BEAT_LENGTH

@@ -1,3 +1,4 @@
+import { Scale, ScaleTemplates } from "musictheoryjs";
 import { BEAT_LENGTH } from "./utils";
 
 export class MainMusicParams {
@@ -6,8 +7,9 @@ export class MainMusicParams {
     cadences: Array<MusicParams> = [];
     testMode?: boolean = false;
     melodyRhythm: string = "";  // hidden from user for now
-    forcedMelody: number[];  // hidden from user for now
+    forcedMelody: number[] = [];  // hidden from user for now
     forcedChords: string = "";
+    forcedOriginalScale: Scale | null = null;
 
     constructor(params: Partial<MainMusicParams> | undefined = undefined) {
         if (params) {
@@ -33,7 +35,19 @@ export class MainMusicParams {
 
         // Do Re Mi Fa So La Ti Do
         // this.forcedMelody = "RRRRRRRRRRRRRRRRRRRR";
-        this.forcedMelody = [];
+        // this.forcedMelody = [
+        //     0,
+        //     1,
+        //     2,
+        //     3,
+        //     4,
+        //     5,
+        //     4,
+        //     3,
+        //     2,
+        //     1,
+        //     0,
+        // ];
         // let melody = [0];
         // for (let i=0; i<20; i++) {
         //     const upOrDown = Math.random() < 0.5 ? -1 : 1;
@@ -63,7 +77,8 @@ export class MainMusicParams {
         //         F pt
         // C maj   G
         //         A pt
-        // this.forcedChords = "11664455116655111166445511665511"
+        this.forcedChords = "116644551462"
+        this.forcedOriginalScale = new Scale({ key: 0, template: ScaleTemplates.major });
     }
 
     currentCadenceParams(division: number): MusicParams {

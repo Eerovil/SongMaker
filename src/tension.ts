@@ -54,7 +54,7 @@ export class Tension {
         tension += this.secondInversion;
         tension += this.doubleLeadingTone;
         tension += this.leadingToneUp;
-        tension += this.melodyTarget;
+        // tension += this.melodyTarget;
         tension += this.melodyJump;
         tension += this.voiceDirections;
         tension += this.overlapping;
@@ -98,6 +98,7 @@ export type TensionParams = {
     fromNotesOverride?: Array<Note>,
     toNotes: Array<Note>,
     currentScale: Scale,
+    originalScale: Scale,
     beatsUntilLastChordInCadence?: number,
     params: MusicParams,
     mainParams: MainMusicParams,

@@ -32,6 +32,7 @@ export const addForcedMelody = (values: TensionParams): ForcedMelodyResult => {
     if (!melodyExists) {
         return tension;
     }
+    debugger;
 
     const currentDivision = beatDivision;
     const cadenceDivision = currentDivision - params.cadenceStartDivision;

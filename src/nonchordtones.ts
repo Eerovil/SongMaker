@@ -703,6 +703,7 @@ export const buildTopMelody = (divisionedNotes: DivisionedRichnotes, mainParams:
                     beatDivision: division,
                     toNotes: nonChordToneNotes,
                     currentScale: currentScale,
+                    originalScale: currentScale,
                     params: params,
                     mainParams: mainParams,
                 })

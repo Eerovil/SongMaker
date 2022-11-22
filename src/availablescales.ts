@@ -73,32 +73,5 @@ export const getAvailableScales = (values: {
 
     logger.log("currentAvailableScales", currentAvailableScales)
 
-    // Go back a few chords and find the scales that are available.
-    for (let i = 1; i < 4; i++) {
-        const division = latestDivision - (i * BEAT_LENGTH)
-        if (!divisionedRichNotes[division]) {
-            continue;
-        }
-        const notes = divisionedRichNotes[division].map(richNote => richNote.note)
-        const availableScales = scalesForNotes(notes, params)
-        for (const potentialScale of ret) {
-            const index = availableScales.findIndex(item => item.equals(potentialScale.scale))
-            if (index == -1) {
-                // Scale wasn't available, increase tension
-                if (i == 1) {
-                    potentialScale.tension += 20  // Base of how long ago it was
-                } else if (i == 2) {
-                    potentialScale.tension += 10
-                } else if (i == 3) {
-                    potentialScale.tension += 5
-                } else if (i == 4) {
-                    potentialScale.tension += 1
-                }
-                logger.log("Scale ", potentialScale.scale.toString()," wasn't available at division ", division, ", increase tension");
-            }
-        }
-    }
-    logger.print("Available scales", ret)
-
     return ret.filter(item => item.tension < 10);
 }
