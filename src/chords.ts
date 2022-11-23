@@ -7,7 +7,7 @@ import { Logger } from "./mylogger";
 import { Chord, Nullable, DivisionedRichnotes, RichNote, BEAT_LENGTH, semitoneScaleIndex } from "./utils";
 import { RandomChordGenerator } from "./randomchords";
 import { getInversions } from "./inversions";
-import { getTension, Tension } from "./tension";
+import { getTension, makeTension, Tension, TensionError } from "./tension";
 import { addNoteBetween, buildTopMelody } from "./nonchordtones";
 import { addHalfNotes } from "./halfnotes";
 import { getAvailableScales } from "./availablescales";
@@ -19,9 +19,12 @@ import { goodSoundingScaleTension } from "./goodsoundingscale";
 
 const GOOD_CHORD_LIMIT = 1000;
 const GOOD_CHORDS_PER_CHORD = 100;
-const BAD_CHORD_LIMIT = 100;
-const BAD_CHORDS_PER_CHORD = 100;
+const BAD_CHORD_LIMIT = 200;
+const BAD_CHORDS_PER_CHORD = 2;
 
+type BadChord = {
+    tension: Tension, chord: string, scale: Scale
+}
 
 const sleepMS = async (ms: number): Promise<null> => {
     return new Promise(resolve => setTimeout(resolve, ms));
@@ -89,7 +92,7 @@ const makeChords = async (mainParams: MainMusicParams, progressCallback: Nullabl
         let newChord: Nullable<Chord> = null;
 
         let goodChords: RichNote[][] = []
-        const badChords: {tension: Tension, chord: string, scale: Scale}[] = []
+        const badChords: BadChord[] = []
 
         const randomNotes: Array<Note> = [];
 
@@ -107,6 +110,7 @@ const makeChords = async (mainParams: MainMusicParams, progressCallback: Nullabl
                 inversionName: prevInversionName,
                 tension: new Tension(),
                 scale: currentScale,
+                originalScale: originalScale,
             } as RichNote)));
             skipLoop = true;
         }
@@ -115,17 +119,9 @@ const makeChords = async (mainParams: MainMusicParams, progressCallback: Nullabl
             iterations++;
             newChord = randomGenerator.getChord();
             const chordLogger = new Logger();
-            if (iterations > 10000000 || !newChord) {
-                console.log("Too many iterations, going back");
+            if (iterations > 100000 || !newChord) {
+                console.log(`Too many iterations: ${iterations}, going back`);
                 break;
-            }
-            if (mainParams.forcedChords) {
-                if (currentBeat == 0) {
-                    if (newChord.notes[0].semitone != 0 || !newChord.toString().includes('maj')) {
-                        // Force C major scale
-                        continue;
-                    }
-                }
             }
             if (mainParams.forcedChords && originalScale && newChord) {
                 const forcedChordNum = parseInt(mainParams.forcedChords[currentBeat]);
@@ -148,47 +144,50 @@ const makeChords = async (mainParams: MainMusicParams, progressCallback: Nullabl
             if (currentScale && (maxBeats - currentBeat < 3 || beatsUntilLastChordInCadence < 3 || currentBeat < 5)) {
                 // Don't allow other scales than the current one
                 availableScales = availableScales.filter(s => s.scale.equals(currentScale as Scale));
-                console.log("availableScales", availableScales);
             }
             if (availableScales.length == 0) {
                 continue;
             }
-            allInversions = getInversions({
-                chord: newChord, prevNotes: prevNotes, beat: currentBeat, params, logger: new Logger(chordLogger),
-                beatsUntilLastChordInSong: maxBeats - currentBeat
-            })
+            for (const availableScale of availableScales) {
+                allInversions = getInversions({
+                    chord: newChord, prevNotes: prevNotes, beat: currentBeat, params, logger: new Logger(chordLogger),
+                    beatsUntilLastChordInSong: maxBeats - currentBeat
+                })
 
-            for (const inversionResult of allInversions) {
-                if (goodChords.length >= GOOD_CHORD_LIMIT) {
-                    break;
-                }
-                const inversionLogger = new Logger();
-                inversionLogger.title = ["Inversion ", `${inversionResult.inversionName}`];
-                randomNotes.splice(0, randomNotes.length);  // Empty this and replace contents
-                randomNotes.push(...inversionResult.notes);
-                if (bannedNotess && bannedNotess.length > 0) {
-                    let banned = true;
-                    for (const bannedNotes of bannedNotess) {
-                        if (bannedNotes.length != randomNotes.length) {
-                            continue;
-                        }
-                        banned = true;
-                        for (let i = 0; i < randomNotes.length; i++) {
-                            if (randomNotes[i].toString() != bannedNotes[i].toString()) {
-                                banned = false;
+                let stopInversionLoop = false
+                for (const inversionResult of allInversions) {
+                    if (stopInversionLoop) {
+                        break;
+                    }
+                    if (goodChords.length >= GOOD_CHORD_LIMIT) {
+                        break;
+                    }
+                    const inversionLogger = new Logger();
+                    inversionLogger.title = ["Inversion ", `${inversionResult.inversionName}`];
+                    randomNotes.splice(0, randomNotes.length);  // Empty this and replace contents
+                    randomNotes.push(...inversionResult.notes);
+                    if (bannedNotess && bannedNotess.length > 0) {
+                        let banned = true;
+                        for (const bannedNotes of bannedNotess) {
+                            if (bannedNotes.length != randomNotes.length) {
+                                continue;
+                            }
+                            banned = true;
+                            for (let i = 0; i < randomNotes.length; i++) {
+                                if (randomNotes[i].toString() != bannedNotes[i].toString()) {
+                                    banned = false;
+                                    break;
+                                }
+                            }
+                            if (banned) {
                                 break;
                             }
                         }
                         if (banned) {
-                            break;
+                            console.log("Banned notes", randomNotes.map(n => n.toString()), "bannedNotess", bannedNotess.map(n => n.map(n => n.toString())));
+                            continue;
                         }
                     }
-                    if (banned) {
-                        console.log("Banned notes", randomNotes.map(n => n.toString()), "bannedNotess", bannedNotess.map(n => n.map(n => n.toString())));
-                        continue;
-                    }
-                }
-                for (const availableScale of availableScales) {
                     if (goodChords.length >= GOOD_CHORD_LIMIT) {
                         break;
                     }
@@ -207,21 +206,36 @@ const makeChords = async (mainParams: MainMusicParams, progressCallback: Nullabl
                         newChord,
                     }
 
-                    const tensionResult = new Tension();
-                    tensionResult.inversionTension = inversionResult.rating;
-                    chordProgressionTension(tensionResult, tensionParams);
-                    goodSoundingScaleTension(tensionResult, tensionParams);
-                    if (tensionResult.getTotalTension({
+                    const tensionResult = makeTension();
+                    let tension;
+                    try {
+                        tensionResult.inversionTension = inversionResult.rating;
+                        chordProgressionTension(tensionResult, tensionParams);
+                        goodSoundingScaleTension(tensionResult, tensionParams);
+                        if (tensionResult.getTotalTension({
+                                params,
+                                beatsUntilLastChordInCadence
+                        }) < 10) {
+                            getTension(tensionResult, tensionParams);
+                        }
+
+                        tension = tensionResult.getTotalTension({
                             params,
                             beatsUntilLastChordInCadence
-                    }) < 10) {
-                        getTension(tensionResult, tensionParams);
+                        });
+                    } catch (e) {
+                        if (e instanceof TensionError) {
+                            // No worries, this chord/scale/inversion combination is just bad
+                            tension = 100;
+                        } else {
+                            throw e;
+                        }
                     }
 
-                    let tension = tensionResult.getTotalTension({
-                        params,
-                        beatsUntilLastChordInCadence
-                    });
+                    if (tensionResult.chordProgression >= 100) {
+                        // No point checking other inversions for this chord
+                        stopInversionLoop = true;
+                    }
 
                     if (progressCallback) {
                         const giveUP = progressCallback(null, null);
@@ -285,14 +299,19 @@ const makeChords = async (mainParams: MainMusicParams, progressCallback: Nullabl
                                 inversionName: inversionResult.inversionName,
                                 tension: tensionResult,
                                 scale: availableScale.scale,
+                                originalScale: originalScale,
                             } as RichNote)
                             ));
                         }
                     } else if (tensionResult.totalTension < 100000 && badChords.length < BAD_CHORD_LIMIT) {
                         let chordCountInBadChords = 0;
+                        let worstBadChord: BadChord | null = null;
                         for (const badChord of badChords) {
                             if (badChord.chord.includes(newChord.toString())) {
                                 chordCountInBadChords++;
+                                if (!worstBadChord || badChord.tension.totalTension > worstBadChord?.tension.totalTension) {
+                                    worstBadChord = badChord;
+                                }
                             }
                         }
                         if (chordCountInBadChords < BAD_CHORDS_PER_CHORD) {
@@ -301,19 +320,27 @@ const makeChords = async (mainParams: MainMusicParams, progressCallback: Nullabl
                                 tension: tensionResult,
                                 scale: availableScale.scale,
                             });
+                        } else if (worstBadChord != null && worstBadChord.tension.totalTension > tension) {
+                            // @ts-ignore
+                            const indexToReplace = badChords.findIndex(b => b.chord == worstBadChord.chord);
+                            badChords[indexToReplace] = {
+                                chord: newChord.toString() + "," + inversionResult.inversionName,
+                                tension: tensionResult,
+                                scale: availableScale.scale,
+                            };
                         }
                     }
                 }  // For available scales end
             }  // For voiceleading results end
         }  // While end
-        if (goodChords.length == 0) {
-            let bestOfBadChords = null;
-            for (const badChord of badChords) {
-                badChord.tension.print("Bad chord ", badChord.chord, " - ", badChord.scale.toString(), " - ");
-                if (bestOfBadChords == null || badChord.tension.totalTension < bestOfBadChords.tension.totalTension) {
-                    bestOfBadChords = badChord;
-                }
+        let bestOfBadChords = null;
+        for (const badChord of badChords) {
+            badChord.tension.print("Bad chord ", badChord.chord, " - ", badChord.scale.toString(), " - ");
+            if (bestOfBadChords == null || badChord.tension.totalTension < bestOfBadChords.tension.totalTension) {
+                bestOfBadChords = badChord;
             }
+        }
+        if (goodChords.length == 0) {
             console.groupEnd();
             console.groupCollapsed(
                 "No good chords found: ",
@@ -337,7 +364,6 @@ const makeChords = async (mainParams: MainMusicParams, progressCallback: Nullabl
                     delete result[i];
                 }
                 if (divisionBannedNotes[division + BEAT_LENGTH].length > 10 && result[division]) {
-                    return result;
                     // Too many bans, go back further. Remove these bans so they don't hinder later progress.
                     divisionBannedNotes[division + BEAT_LENGTH] = [];
                     division -= BEAT_LENGTH

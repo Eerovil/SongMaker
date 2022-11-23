@@ -24,18 +24,18 @@ export class RandomChordGenerator {
             this.usedChords = new Set();
         }
         this.availableChords = (this.availableChords || []).filter(chord => !(this.usedChords || new Set()).has(chord));
-        // First try to add the simplest chords
-        for (const simpleChordType of this.chordTypes.filter(chordType => ["maj", "min"].includes(chordType))) {
-            for (let randomRoot=0; randomRoot<12; randomRoot++) {
-                if (!this.usedChords.has(randomRoot + simpleChordType)) {
-                    this.availableChords.push(randomRoot + simpleChordType);
-                }
-            }
-        }
+        // // First try to add the simplest chords
+        // for (const simpleChordType of this.chordTypes.filter(chordType => ["maj", "min"].includes(chordType))) {
+        //     for (let randomRoot=0; randomRoot<12; randomRoot++) {
+        //         if (!this.usedChords.has(randomRoot + simpleChordType)) {
+        //             this.availableChords.push(randomRoot + simpleChordType);
+        //         }
+        //     }
+        // }
 
-        if (this.availableChords.length > 0) {
-            return;
-        }
+        // if (this.availableChords.length > 0) {
+        //     return;
+        // }
 
         for (let i=0; i<100; i++) {
             const randomType = this.chordTypes[Math.floor(Math.random() * this.chordTypes.length)];
@@ -61,7 +61,7 @@ export class RandomChordGenerator {
         }
         let iterations = 0;
         while (true) {
-            if (iterations++ > 100) {
+            if (iterations++ > 10000) {
                 return null;
             }
             if (this.availableChords && this.usedChords) {

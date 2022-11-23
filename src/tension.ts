@@ -5,6 +5,9 @@ import { MainMusicParams, MusicParams } from "./params";
 import { BEAT_LENGTH, Chord, DivisionedRichnotes, globalSemitone, gToneString, majScaleDifference, Nullable, semitoneDistance, startingNotes } from "./utils";
 
 
+export class TensionError extends Error {}
+
+
 export class Tension {
     notInScale: number = 0;
     modulation: number = 0;
@@ -39,8 +42,7 @@ export class Tension {
 
     comment: string = "";
 
-    getTotalTension(values: {params: MusicParams, beatsUntilLastChordInCadence: number}) {
-        const {params, beatsUntilLastChordInCadence} = values;
+    getTotalTension(values?: {params: MusicParams, beatsUntilLastChordInCadence: number}) {
         let tension = 0;
         tension += this.notInScale * 100;
         tension += this.modulation;
@@ -54,7 +56,7 @@ export class Tension {
         tension += this.secondInversion;
         tension += this.doubleLeadingTone;
         tension += this.leadingToneUp;
-        // tension += this.melodyTarget;
+        tension += this.melodyTarget;
         tension += this.melodyJump;
         tension += this.voiceDirections;
         tension += this.overlapping;
@@ -91,6 +93,31 @@ export class Tension {
     }
 }
 
+function wrapWithProxyCallback(obj: any, callback: Function): any {
+    return new Proxy(obj, {
+      get (target, key, receiver) {
+        const result = Reflect.get(target, key, receiver)
+        // wraps nested data with Proxy
+        if (typeof result === 'object' && result !== null) {
+          return wrapWithProxyCallback(result, callback)
+        }
+        return result
+      },
+      set (target, key, value, receiver) {
+        // calls callback on every set operation
+        callback(target, key, value /* and whatever else you need */)
+        return Reflect.set(target, key, value, receiver)
+      }
+    })
+  }
+
+export function makeTension(): Tension {
+    return wrapWithProxyCallback(new Tension(), (target: Tension, key: string, value: any) => {
+        if (target.getTotalTension() > 20) {
+            throw new TensionError("Tension too high");
+        }
+    });
+}
 
 export type TensionParams = {
     divisionedNotes?: DivisionedRichnotes,
@@ -274,7 +301,10 @@ export const getTension = (tension: Tension, values: TensionParams): Tension => 
     for (let i=0; i<fromGlobalSemitones.length; i++) {
         const fromGlobalSemitone = fromGlobalSemitones[i];
         if (fromGlobalSemitone % 12 == leadingToneSemitone) {
-            if (toGlobalSemitones[i] != fromGlobalSemitone + 1) {
+            if (toGlobalSemitones[i] == fromGlobalSemitone) {
+                // Staying at the leading tone is not bad
+                tension.leadingToneUp += 1;
+            } else if (toGlobalSemitones[i] != fromGlobalSemitone + 1) {
                 tension.leadingToneUp += 10;
                 if (i == 1 || i == 2) {
                     // not as bad
@@ -594,7 +624,6 @@ export const getTension = (tension: Tension, values: TensionParams): Tension => 
 
             const globalDirection = gTonesForThisPart[gTonesForThisPart.length - 1] - gTonesForThisPart[0];
             const finalDirection = gTonesForThisPart[gTonesForThisPart.length - 1] - gTonesForThisPart[gTonesForThisPart.length - 2];
-            tension.comment = "finalDirection: " + finalDirection + ", globalDirection: " + globalDirection + ", generalDirection: " + generalDirection;
 
             if (gTonesForThisPart[gTonesForThisPart.length - 1] != gTonesForThisPart[gTonesForThisPart.length - 2] && gTonesForThisPart[gTonesForThisPart.length - 1] == gTonesForThisPart[gTonesForThisPart.length - 3]) {
                 // We're going to the same note as before. That's bad.

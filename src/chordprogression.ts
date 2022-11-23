@@ -1,4 +1,5 @@
-import { Note, Scale } from "musictheoryjs";
+import { Note, Scale, ScaleTemplates } from "musictheoryjs";
+import { SourceMeasure } from "opensheetmusicdisplay";
 import { Tension, TensionParams } from "./tension";
 import { BEAT_LENGTH, Chord, DivisionedRichnotes, globalSemitone, gToneString, majScaleDifference, Nullable, semitoneDistance } from "./utils";
 
@@ -360,10 +361,15 @@ export const chordProgressionTension = (tension: Tension, values: TensionParams)
                             }
                         }
                         if (newChordTension < prevChordTension) {
+                            if (newChord.toString().includes('dom7')) {
+                                debugger;
+                            }
                             tension.chordProgression += 17;
                         }
                     }
                 }
+            } else if (progressions != null) {
+                tension.chordProgression += 111;
             }
 
             if (wantedFunction) {
@@ -373,7 +379,7 @@ export const chordProgressionTension = (tension: Tension, values: TensionParams)
                             tension.comment += `Wanted ${wantedFunction}`
                             tension.cadence += 100;
                         } else {
-                            tension.cadence += 5;  // Dominant is
+                            tension.cadence += 1;  // Dominant is
                         }
                     }
                 }
@@ -404,39 +410,73 @@ export const chordProgressionTension = (tension: Tension, values: TensionParams)
         return tension;
     }
     let tensionResult = {
-        chordProgression: 100,
+        chordProgression: 112,
         cadence: 0,
         comment: ""
     };
-    let prevChordIsTonic = false;
-    let newChordIsDominant = false;
+    let prevChordIsTonicized = false;
+    let newChordIsSecondaryDominant = false;
+    const cadenceIsNear = wantedFunction || (beatsUntilLastChordInCadence || 0) < 5;
     if (prevChord && prevScale) {
-        const prevChordFunctions = getPossibleFunctions(prevChord, prevScale);
-        if (prevChordFunctions.possibleToFunctions.includes("tonic")) {
-            prevChordIsTonic = true;
+        if (prevChord.notes[0].semitone == prevScale.notes[0].semitone) {
+            prevChordIsTonicized = true;
         }
     }
-    if (newChord && currentScale) {
-        const newChordFunctions = getPossibleFunctions(newChord, currentScale);
-        if (newChordFunctions.possibleToFunctions.includes("dominant")) {
-            newChordIsDominant = true;
+    if (newChord && currentScale && originalScale) {
+        // Chord must have at least one note not in the original scale
+        if (newChord.notes.some(note => !originalScale.notes.some(scaleNote => scaleNote.semitone == note.semitone))) {
+            const newChordFunctions = getPossibleFunctions(newChord, currentScale);
+            if (newChordFunctions.possibleToFunctions.includes("dominant") || newChordFunctions.rootScaleIndex == 1) {
+                newChordIsSecondaryDominant = true;
+            }
         }
     }
 
-    if (newChord && prevScale && currentScale.toString() != originalScale.toString() && originalScale.toString() == prevScale.toString()) {
-        if (!wantedFunction && newChordIsDominant) {
+    if (prevScale && currentScale.toString() != originalScale.toString() && originalScale.toString() != prevScale.toString() && currentScale.toString() != prevScale.toString()) {
+        // Can't modulate during a modulation
+    } else if (newChord && prevScale && currentScale.toString() != originalScale.toString() && originalScale.toString() == prevScale.toString()) {
+        if (!cadenceIsNear && newChordIsSecondaryDominant && !prevChordIsTonicized) {
             // Check if this chord would allow moving to a new scale temporarily (a dominant function at most)
             // The tension is now actually between the tonicized chord and the previous chord, *in the previous scale*!
-            const fifthDownFromNewChordRoot = (newChord.notes[0].semitone - 7 + 24) % 12;
-            const tonicizedChord = buildTriadOn(fifthDownFromNewChordRoot, prevScale);
-            if (tonicizedChord) {
-                tensionResult = getChordsTension(tonicizedChord, prevChord, prevPrevChord, prevScale);
-                //console.log("Tension from tonicized chord", tensionResult, "to", tonicizedChord.toString(), "from", prevChord?.toString(), "in", prevScale.toString());
+            let handled = false;
+            if (['dom7'].includes(newChord.chordType)) {
+                const fifthDownFromNewChordRoot = (newChord.notes[0].semitone - 7 + 24) % 12;
+                const tonicizedChord = buildTriadOn(fifthDownFromNewChordRoot, prevScale);
+                const tonicizedChordIsIOfCurrentScale = tonicizedChord?.notes[0].semitone == currentScale.notes[0].semitone;
+                if (tonicizedChord && tonicizedChordIsIOfCurrentScale && ['maj', 'min'].includes(tonicizedChord.chordType)) {
+                    handled = true;
+                    tensionResult = getChordsTension(tonicizedChord, prevChord, prevPrevChord, prevScale);
+                    //console.log("Tension from tonicized chord", tensionResult, "to", tonicizedChord.toString(), "from", prevChord?.toString(), "in", prevScale.toString());
+                }
+            }
+            if (!handled) {
+                if (['dim7'].includes(newChord.chordType)) {
+                    const semitoneUpFromNewChordRoot = (newChord.notes[0].semitone + 1 + 24) % 12;
+                    const tonicizedChord = buildTriadOn(semitoneUpFromNewChordRoot, prevScale);
+                    const tonicizedChordIsIOfCurrentScale = tonicizedChord?.notes[0].semitone == currentScale.notes[0].semitone;
+                    if (tonicizedChord && tonicizedChordIsIOfCurrentScale && ['maj', 'min'].includes(tonicizedChord.chordType)) {
+                        handled = true;
+                        tensionResult = getChordsTension(tonicizedChord, prevChord, prevPrevChord, prevScale);
+                        //console.log("Tension from tonicized chord", tensionResult, "to", tonicizedChord.toString(), "from", prevChord?.toString(), "in", prevScale.toString());
+                    }
+                }
+            }
+            if (!handled) {
+                if (['min7'].includes(newChord.chordType)) {
+                    const twoSemitonesDownFromNewChordRoot = (newChord.notes[0].semitone - 2 + 24) % 12;
+                    const tonicizedChord = buildTriadOn(twoSemitonesDownFromNewChordRoot, prevScale);
+                    const tonicizedChordIsIOfCurrentScale = tonicizedChord?.notes[0].semitone == currentScale.notes[0].semitone;
+                    if (tonicizedChord && tonicizedChordIsIOfCurrentScale && ['maj', 'min'].includes(tonicizedChord.chordType)) {
+                        handled = true;
+                        tensionResult = getChordsTension(tonicizedChord, prevChord, prevPrevChord, prevScale);
+                        //console.log("Tension from tonicized chord", tensionResult, "to", tonicizedChord.toString(), "from", prevChord?.toString(), "in", prevScale.toString());
+                    }
+                }
             }
         }
-    } else if (!wantedFunction && newChord && prevScale && currentScale.toString() != originalScale.toString() && currentScale.toString() == prevScale.toString()) {
+    } else if (!cadenceIsNear && newChord && prevScale && currentScale.toString() != originalScale.toString() && currentScale.toString() == prevScale.toString()) {
         // If we are here, the modulated progression is going on still. If prevChord is a tonic, we can't allow anything in this new scale.
-        if (prevChordIsTonic) {
+        if (prevChordIsTonicized) {
             tensionResult = {
                 chordProgression: 101,
                 comment: "Tonicized chord reached, can't allow anything in this new scale",
@@ -447,7 +487,7 @@ export const chordProgressionTension = (tension: Tension, values: TensionParams)
         }
     } else if (!wantedFunction && newChord && prevScale && currentScale.toString() == originalScale.toString() && currentScale.toString() != prevScale.toString()) {
         // If we are here, the modulated progression is over. If prevChord is a tonic in the previous scale, we can continue in the original scale.
-        if (prevChordIsTonic) {
+        if (prevChordIsTonicized && newChord.notes.every(note => currentScale.notes.some(scaleNote => scaleNote.semitone == note.semitone))) {
             tensionResult = getChordsTension(newChord, prevChord, prevPrevChord, currentScale);
         } else {
             tensionResult = {
@@ -456,10 +496,12 @@ export const chordProgressionTension = (tension: Tension, values: TensionParams)
                 cadence: 0,
             }
         }
+    } else if (wantedFunction && prevScale && (prevScale.toString() != originalScale.toString())) {
+        // Oh noes, we are in a modulated progression and the cadence started. This will not do
     } else {
         tensionResult = getChordsTension(newChord, prevChord, prevPrevChord, currentScale);
     }
     tension.chordProgression = tensionResult.chordProgression;
     tension.comment += tensionResult.comment;
-    tension.cadence = tensionResult.cadence;
+    tension.cadence += tensionResult.cadence;
 }

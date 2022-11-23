@@ -142,6 +142,7 @@ function addRichNoteToMeasure(richNote: RichNote, measure: builder.XMLElement, s
     return;
   }
   richNote.scale = scaleToScale(richNote.scale);
+  richNote.originalScale = scaleToScale(richNote.originalScale);
   richNote.chord = chordToChord(richNote.chord);
   const duration = richNoteDuration(richNote);
   let beamNumber = 1;
@@ -191,6 +192,12 @@ function addRichNoteToMeasure(richNote: RichNote, measure: builder.XMLElement, s
         if (richNote.inversionName.startsWith('second')) {
           romanNumeral = romanNumeral + '64';
         }
+      }
+    }
+    if (richNote.originalScale && richNote.scale.notes[0].semitone != richNote.originalScale.notes[0].semitone) {
+      const currentScaleScaleIndex = richNote.originalScale.notes.map(n => n.semitone).indexOf(richNote.scale.notes[0].semitone);
+      if (currentScaleScaleIndex >= 0) {
+        romanNumeral = romanNumeral + '/' + numberToRoman[currentScaleScaleIndex];
       }
     }
 
@@ -615,13 +622,13 @@ export function toXml(divisionedNotes: DivisionedRichnotes, mainParams: MainMusi
     if (
       divisionedNotes[division] &&
       divisionedNotes[division][0] &&
-      divisionedNotes[division][0].scale != undefined &&
+      divisionedNotes[division][0].originalScale != undefined &&
       // @ts-ignore
-      !currentScale.equals(divisionedNotes[division][0].scale)
+      !currentScale.equals(divisionedNotes[division][0].originalScale)
     ) {
       keyChange = getKeyChange(currentScale, divisionedNotes[division][0]);
       // @ts-ignore
-      currentScale = divisionedNotes[division][0].scale;
+      currentScale = divisionedNotes[division][0].originalScale;
       if (keyChange && keyChange.fifths === 0 && keyChange.cancel === 0) {
         keyChange = undefined;
       }

@@ -77,7 +77,7 @@ export class MainMusicParams {
         //         F pt
         // C maj   G
         //         A pt
-        this.forcedChords = "116644551462"
+        // this.forcedChords = "362516662"
         this.forcedOriginalScale = new Scale({ key: 0, template: ScaleTemplates.major });
     }
 
@@ -124,7 +124,7 @@ export class MusicParams {
 
     baseTension?: number = 0.3;
     barsPerCadence: number = 2
-    tempo?: number = 40;
+    tempo?: number = 30;
     halfNotes?: boolean = true;
     sixteenthNotes?: number = 0.2;
     eighthNotes?: number = 0.4;

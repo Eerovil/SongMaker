@@ -213,6 +213,7 @@ export type RichNote = {
     chord?: Chord,
     partIndex: number,
     scale: Scale,
+    originalScale: Scale,
     beam?: string,
     tie?: string,
     tension?: Tension,
