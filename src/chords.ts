@@ -20,7 +20,7 @@ import { goodSoundingScaleTension } from "./goodsoundingscale";
 const GOOD_CHORD_LIMIT = 1000;
 const GOOD_CHORDS_PER_CHORD = 100;
 const BAD_CHORD_LIMIT = 200;
-const BAD_CHORDS_PER_CHORD = 2;
+const BAD_CHORDS_PER_CHORD = 10;
 
 type BadChord = {
     tension: Tension, chord: string, scale: Scale
@@ -105,7 +105,7 @@ const makeChords = async (mainParams: MainMusicParams, progressCallback: Nullabl
             goodChords.push(prevNotes.map((note, index) => ({
                 note: note,
                 duration: BEAT_LENGTH,
-                chord: newChord,
+                chord: prevChord,
                 partIndex: index,
                 inversionName: prevInversionName,
                 tension: new Tension(),
@@ -408,17 +408,27 @@ const makeChords = async (mainParams: MainMusicParams, progressCallback: Nullabl
         }
 
         // Choose the best chord from goodChords
-        let bestChord = goodChords[0];
+        let bestChords: RichNote[][] = [];
+        let worstBestTension: number = 999;
         let bestTension = 999;
         for (const chord of goodChords) {
             if (chord[0].tension != undefined) {
-                if (chord[0].tension.totalTension < bestTension) {
-                    bestChord = chord;
+                if (chord[0].tension.totalTension < worstBestTension) {
+                    if (bestChords.length > 10) {
+                        const indexToReplace = bestChords.findIndex(b => b[0].tension.totalTension == worstBestTension);
+                        bestChords[indexToReplace] = chord;
+                    } else {
+                        bestChords.push(chord);
+                    }
                     bestTension = chord[0].tension.totalTension;
+                    worstBestTension = bestChords.reduce((a, b) => a[0].tension.totalTension > b[0].tension.totalTension ? a : b)[0].tension.totalTension;
                 }
-                chord[0].tension.print(chord[0].chord ? chord[0].chord.toString() : "?Chord?", chord[0].inversionName, "best tension: ", bestTension, ": ", bestChord)
+                chord[0].tension.print(chord[0].chord ? chord[0].chord.toString() : "?Chord?", chord[0].inversionName, "best tension: ", bestTension)
             }
         }
+
+        const bestChord = bestChords[Math.floor(Math.random() * bestChords.length)];
+        console.log("Best chord: ", bestChord[0].chord.toString(), bestChord[0].inversionName, bestChord[0].tension.totalTension);
 
         result[division] = bestChord;
         if (bestChord[0]?.tension?.nac) {

@@ -210,13 +210,13 @@ export type RichNote = {
     originalNote?: Note,
     duration: number,
     freq?: number,
-    chord?: Chord,
+    chord: Chord,
     partIndex: number,
     scale: Scale,
     originalScale: Scale,
     beam?: string,
     tie?: string,
-    tension?: Tension,
+    tension: Tension,
     inversionName?: string,
 }
 

@@ -187,42 +187,42 @@ export const chordProgressionTension = (tension: Tension, values: TensionParams)
         const rootSemitone = chord.notes[0].semitone;
         const rootScaleIndex = semitoneScaleIndex[rootSemitone];
 
-        const possibleToFunctions: {[key: string]: boolean} = {
-            'tonic': true,
-            'sub-dominant': true,
-            'dominant': true,
+        const possibleToFunctions: {[key: string]: number} = {
+            'tonic': 0,
+            'sub-dominant': 0,
+            'dominant': 0,
         }
         if (rootScaleIndex == undefined) {
-            possibleToFunctions.tonic = false;
-            possibleToFunctions['sub-dominant'] = false;
-            possibleToFunctions.dominant = false;
+            possibleToFunctions.tonic = 100;
+            possibleToFunctions['sub-dominant'] = 100;
+            possibleToFunctions.dominant = 100;
         }
         if (![1, 3].includes(rootScaleIndex)) { // ii, IV
-            possibleToFunctions["sub-dominant"] = false;
+            possibleToFunctions["sub-dominant"] = 100;
         }
         if (![0, 4, 6].includes(rootScaleIndex)) { // V, vii, I64
-            possibleToFunctions.dominant = false;
+            possibleToFunctions.dominant = 100;
         } else if (rootScaleIndex == 0) {
             // If I is not second inversion, it's not dominant
             if (!inversionName || !inversionName.startsWith('second')) {
-                possibleToFunctions.dominant = false;
+                possibleToFunctions.dominant = 100;
             }
             tension.chordProgression += 6;  // Try to avoid I64
         }
         if (![0].includes(rootScaleIndex)) { // I
-            possibleToFunctions.tonic = false;
+            possibleToFunctions.tonic = 100;
         }
         // Can't have tonic with non-scale notes
         if (chord.notes.some(note => semitoneScaleIndex[note.semitone] == undefined)) {
-            possibleToFunctions.tonic = false;
+            possibleToFunctions.tonic = 100;
         }
         // Cant have tonic in second inversion.
         if (inversionName && inversionName.startsWith('second')) {
-            possibleToFunctions.tonic = false;
+            possibleToFunctions.tonic = 10;
         }
         return {
             rootScaleIndex,
-            possibleToFunctions: Object.keys(possibleToFunctions).filter(key => possibleToFunctions[key]),
+            possibleToFunctions: possibleToFunctions,
         };
     }
 
@@ -276,7 +276,7 @@ export const chordProgressionTension = (tension: Tension, values: TensionParams)
                 tension.chordProgression += 1;
                 if (newChord.notes[0].semitone == prevPrevChord.notes[0].semitone) {
                     // Same root as previous chord
-                    tension.chordProgression += 100;
+                    tension.chordProgression += 113;
                 }
             }
             if (newChord.notes[0].semitone == prevPrevChord.notes[0].semitone) {
@@ -323,8 +323,9 @@ export const chordProgressionTension = (tension: Tension, values: TensionParams)
                         good = true;
                         break;
                     }
-                    if (typeof progression == "string" && toFunctions.possibleToFunctions && toFunctions.possibleToFunctions.includes(progression)) {
+                    if (typeof progression == "string" && toFunctions.possibleToFunctions && toFunctions.possibleToFunctions[progression] != 100) {
                         good = true;
+                        tension.chordProgression += toFunctions.possibleToFunctions[progression];
                         if (progression == "dominant") {
                             dominantToDominant = true;
                         }
@@ -332,7 +333,7 @@ export const chordProgressionTension = (tension: Tension, values: TensionParams)
                     }
                 }
                 if (!good) {
-                    tension.chordProgression += 100;
+                    tension.chordProgression += 114;
                 } else {
                     // If we're moving from "dominant" to "dominant", we need to prevent "lessening the tension"
                     if (dominantToDominant) {
@@ -361,9 +362,6 @@ export const chordProgressionTension = (tension: Tension, values: TensionParams)
                             }
                         }
                         if (newChordTension < prevChordTension) {
-                            if (newChord.toString().includes('dom7')) {
-                                debugger;
-                            }
                             tension.chordProgression += 17;
                         }
                     }
@@ -374,8 +372,8 @@ export const chordProgressionTension = (tension: Tension, values: TensionParams)
 
             if (wantedFunction) {
                 if (wantedFunction == "sub-dominant") {
-                    if (!possibleToFunctions.includes("sub-dominant")) {// && !possibleToFunctions.dominant) {
-                        if (!possibleToFunctions.includes("dominant")) {
+                    if (possibleToFunctions["sub-dominant"] == 100) {
+                        if (possibleToFunctions["dominant"] == 100) {
                             tension.comment += `Wanted ${wantedFunction}`
                             tension.cadence += 100;
                         } else {
@@ -384,13 +382,13 @@ export const chordProgressionTension = (tension: Tension, values: TensionParams)
                     }
                 }
                 if (wantedFunction == "dominant") {
-                    if (!possibleToFunctions.includes("dominant")) {
+                    if (possibleToFunctions["dominant"] == 100) {
                         tension.comment += `Wanted ${wantedFunction}`
                         tension.cadence += 100;
                     }
                 }
                 if (wantedFunction == "tonic") {
-                    if (!possibleToFunctions.includes("tonic")) {
+                    if (possibleToFunctions["tonic"] > 0) {
                         tension.comment += `Wanted ${wantedFunction}`
                         tension.cadence += 100;
                     }
@@ -403,9 +401,6 @@ export const chordProgressionTension = (tension: Tension, values: TensionParams)
             if (tension.cadence == 0) {
                 tension.cadence = -3;
             }
-        }
-        if (tension.chordProgression == 24) {
-            debugger;
         }
         return tension;
     }
@@ -426,7 +421,7 @@ export const chordProgressionTension = (tension: Tension, values: TensionParams)
         // Chord must have at least one note not in the original scale
         if (newChord.notes.some(note => !originalScale.notes.some(scaleNote => scaleNote.semitone == note.semitone))) {
             const newChordFunctions = getPossibleFunctions(newChord, currentScale);
-            if (newChordFunctions.possibleToFunctions.includes("dominant") || newChordFunctions.rootScaleIndex == 1) {
+            if (newChordFunctions.possibleToFunctions.dominant < 100 || newChordFunctions.rootScaleIndex == 1) {
                 newChordIsSecondaryDominant = true;
             }
         }
@@ -474,9 +469,9 @@ export const chordProgressionTension = (tension: Tension, values: TensionParams)
                 }
             }
         }
-    } else if (!cadenceIsNear && newChord && prevScale && currentScale.toString() != originalScale.toString() && currentScale.toString() == prevScale.toString()) {
+    } else if (newChord && prevScale && currentScale.toString() != originalScale.toString() && currentScale.toString() == prevScale.toString()) {
         // If we are here, the modulated progression is going on still. If prevChord is a tonic, we can't allow anything in this new scale.
-        if (prevChordIsTonicized) {
+        if (prevChordIsTonicized || cadenceIsNear) {
             tensionResult = {
                 chordProgression: 101,
                 comment: "Tonicized chord reached, can't allow anything in this new scale",

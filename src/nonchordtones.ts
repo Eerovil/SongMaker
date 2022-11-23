@@ -61,6 +61,7 @@ export const addNoteBetween = (nac: NonChordTone, division: number, nextDivision
             chord: beatRichNote.chord,
             scale: beatRichNote.scale,
             originalScale: beatRichNote.originalScale,
+            tension: new Tension(),
             partIndex: partIndex,
         }
         // Add new tone to division
@@ -85,6 +86,7 @@ export const addNoteBetween = (nac: NonChordTone, division: number, nextDivision
                 chord: beatRichNote.chord,
                 scale: beatRichNote.scale,
                 originalScale: beatRichNote.originalScale,
+                tension: new Tension(),
                 partIndex: partIndex,
             }
             divisionedNotes[division + divisionDiff / 2].push(newRandomRichNote);
@@ -98,6 +100,7 @@ export const addNoteBetween = (nac: NonChordTone, division: number, nextDivision
                 chord: beatRichNote.chord,
                 scale: beatRichNote.scale,
                 originalScale: beatRichNote.originalScale,
+                tension: new Tension(),
                 partIndex: partIndex,
             }
             divisionedNotes[division + divisionDiff / 2].push(newRandomRichNote);
@@ -108,6 +111,7 @@ export const addNoteBetween = (nac: NonChordTone, division: number, nextDivision
                 chord: beatRichNote.chord,
                 scale: beatRichNote.scale,
                 originalScale: beatRichNote.originalScale,
+                tension: new Tension(),
                 partIndex: partIndex,
             }
             divisionedNotes[division + divisionDiff * 0.75].push(newRandomRichNote2);
