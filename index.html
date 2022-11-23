@@ -266,6 +266,19 @@
                 </div>
             </div>
         </div>
+        <div class="main-settings-wrapper">
+            <h2>Lisäasetukset</h2>
+            <div class="secondary-settings-wrapper" style="width: 100%;">
+                <div class="settings-row">
+                    <label for="melody-rhythm">Melodiarytmi (esim. EEQ on 8th, 8th, 4th)</label>
+                    <input v-model="params.melodyRhythm" id="melody-rhythm" style="width: 100%">
+                </div>
+                <div class="settings-row">
+                    <label for="forced-chords">Pakotettu sointukulku</label>
+                    <input v-model="params.forcedChords" id="forced-chords" style="width: 100%">
+                </div>
+            </div>
+        </div>
         <div>
             <button @click="saveParams(true)">Aja koko sävellys</button>
             <button onclick="newMelody()">Aja vain välinuotit</button>

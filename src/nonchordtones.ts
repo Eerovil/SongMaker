@@ -532,6 +532,7 @@ export const buildTopMelody = (divisionedNotes: DivisionedRichnotes, mainParams:
         ];
         const params = mainParams.currentCadenceParams(division);
         const cadenceDivision = division - params.authenticCadenceStartDivision;
+        console.log("Cadence division", cadenceDivision, "division", division, "authenticCadenceStartDivision", params.authenticCadenceStartDivision);
         const neededRhythm = rhythmNeededDurations[cadenceDivision] || 100;
 
         const lastBeatInCadence = params.beatsUntilAuthenticCadenceEnd < 2

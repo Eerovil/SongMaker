@@ -18,7 +18,7 @@ export class MainMusicParams {
             }
         }
         // this.melodyRhythm = "QQQQQQQQQQQQQQQQQQQQQQ"
-        // this.melodyRhythm = "EEEEEEEEEEEEEEEEEEEEEEEEEEEEEEEEEEEE";
+        this.melodyRhythm = "EEEEQQEEEEQQEEQEEQEEQEEQ";
         // for (let i=0; i<20; i++) {
         //     const random = Math.random();
         //     if (random < 0.2) {
@@ -86,12 +86,15 @@ export class MainMusicParams {
         const bar = Math.floor(beat / this.beatsPerBar);
         let counter = 0;  // The beat we're at in the loop
         let authenticCadenceStartBar = 0;
+        let prevCadence = "";
+
         for (const cadenceParams of this.cadences) {
-            // Loop cadences in orders
-            counter += cadenceParams.barsPerCadence;
-            if (["PAC", "IAC"].includes(cadenceParams.selectedCadence)) {
+            // Loop cadences in order
+            if (["PAC", "IAC"].includes(prevCadence)) {
                 authenticCadenceStartBar = counter;
             }
+            prevCadence = cadenceParams.selectedCadence;
+            counter += cadenceParams.barsPerCadence;
             if (bar < counter) {  // We have passed the given division. The previous cadence is the one we want
                 cadenceParams.beatsUntilCadenceEnd = counter * this.beatsPerBar - beat;
                 if (["PAC", "IAC"].includes(cadenceParams.selectedCadence)) {

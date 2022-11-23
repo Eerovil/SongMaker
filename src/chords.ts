@@ -484,7 +484,7 @@ export function makeMelody(divisionedNotes: DivisionedRichnotes, mainParams: Mai
     }
 
     // const divisionedNotes: DivisionedRichnotes = newVoiceLeadingNotes(chords, params);
-    // buildTopMelody(divisionedNotes, mainParams);
+    buildTopMelody(divisionedNotes, mainParams);
     // addEighthNotes(divisionedNotes, params)
     // addHalfNotes(divisionedNotes, mainParams)
 }

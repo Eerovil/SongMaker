@@ -474,7 +474,7 @@ export function toXml(divisionedNotes: DivisionedRichnotes, mainParams: MainMusi
       sysID: 'http://www.musicxml.org/dtds/partwise.dtd'
     }
   );
-  root.ele({ 'work': { 'work-title': "My song" } });
+  root.ele({ 'work': { 'work-title': " " } });
   const firstParams = mainParams.currentCadenceParams(0);
   const partList = root.ele({ 'part-list': {} });
   let parts;
