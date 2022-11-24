@@ -18,7 +18,7 @@ export class MainMusicParams {
             }
         }
         // this.melodyRhythm = "QQQQQQQQQQQQQQQQQQQQQQ"
-        this.melodyRhythm = "EEEEQQEEEEQQEEQEEQEEQEEQ";
+        // this.melodyRhythm = "EEEEQQEEEEQQEEQEEQEEQEEQ";
         // for (let i=0; i<20; i++) {
         //     const random = Math.random();
         //     if (random < 0.2) {

@@ -473,19 +473,26 @@ export const getTension = (tension: Tension, values: TensionParams): Tension => 
     // Melody tension
     // Avoid jumps that are aug or 7th or higher
     for (let i=0; i<fromGlobalSemitones.length; i++) {
+        let melodyJumpMultiplier = 1;
+        if (i == 0) {
+            melodyJumpMultiplier = 0.1;
+        }
+        if (i == 3) {
+            melodyJumpMultiplier = 0.3;
+        }
         const interval = Math.abs(fromGlobalSemitones[i] - toGlobalSemitones[i]);
         if (interval >= 3) {
-            tension.melodyJump += 0.5;
+            tension.melodyJump += 0.5 * melodyJumpMultiplier;
         }
         if (interval == 12) {
-            tension.melodyJump += 0.5;
+            tension.melodyJump += 0.5 * melodyJumpMultiplier;
             continue;
         }
         if (interval >= 5) {
-            tension.melodyJump += 1;
+            tension.melodyJump += 1 * melodyJumpMultiplier;
         }
         if (interval > 7) {
-            tension.melodyJump += 2;
+            tension.melodyJump += 2 * melodyJumpMultiplier;
         }
         if (interval >= 10) {  // 7th == 10
             tension.melodyJump += 100;
@@ -493,15 +500,15 @@ export const getTension = (tension: Tension, values: TensionParams): Tension => 
         }
         if (interval == 6 || interval == 8) // tritone (aug 4th) or aug 5th
         {
-            tension.melodyJump += 10;
+            tension.melodyJump += 100 * melodyJumpMultiplier;
             continue;
         }
         if (interval == 7) {
-            tension.melodyJump += 1;
+            tension.melodyJump += 1 * melodyJumpMultiplier;
             continue;
         }
         if (interval == 9) {
-            tension.melodyJump += 2;
+            tension.melodyJump += 2 * melodyJumpMultiplier;
             continue;
         }
     }
@@ -522,7 +529,6 @@ export const getTension = (tension: Tension, values: TensionParams): Tension => 
     // 11 suuri septimi
     // 12 oktaavi
 
-    // Was there a jump before?
     if (latestNotes && latestNotes.length == 4) {
         const latestFromGlobalSemitones = latestNotes.map((n) => globalSemitone(n));
         for (let i=0; i<fromGlobalSemitones.length; i++) {
@@ -625,10 +631,18 @@ export const getTension = (tension: Tension, values: TensionParams): Tension => 
             const globalDirection = gTonesForThisPart[gTonesForThisPart.length - 1] - gTonesForThisPart[0];
             const finalDirection = gTonesForThisPart[gTonesForThisPart.length - 1] - gTonesForThisPart[gTonesForThisPart.length - 2];
 
-            if (gTonesForThisPart[gTonesForThisPart.length - 1] != gTonesForThisPart[gTonesForThisPart.length - 2] && gTonesForThisPart[gTonesForThisPart.length - 1] == gTonesForThisPart[gTonesForThisPart.length - 3]) {
-                // We're going to the same note as before. That's bad.
-                // Zig zagging
-                tension.melodyTarget += 2;
+            if (gTonesForThisPart.length >= 3) {
+                if (gTonesForThisPart[gTonesForThisPart.length - 1] != gTonesForThisPart[gTonesForThisPart.length - 2] && gTonesForThisPart[gTonesForThisPart.length - 1] == gTonesForThisPart[gTonesForThisPart.length - 3]) {
+                    // We're going to the same note as before. That's bad.
+                    // Zig zagging
+                    tension.melodyTarget += 5;
+                }
+            }
+            if (gTonesForThisPart.length >= 4) {
+                if (gTonesForThisPart[0] == gTonesForThisPart[2] && gTonesForThisPart[1] == gTonesForThisPart[3] && gTonesForThisPart[0] != gTonesForThisPart[1]) {
+                    // Even worse zig zag
+                    tension.melodyTarget += 10;
+                }
             }
 
             if (i == 0) {
@@ -681,7 +695,7 @@ export const getTension = (tension: Tension, values: TensionParams): Tension => 
                 } else {
                     if (globalDirection <= 0 && finalDirection <= 0) {
                         // We're goin down, not good
-                        tension.melodyTarget += -1 * globalDirection
+                        tension.melodyTarget += -1 * globalDirection * 2
                     }
                 }
                 if (targetLowNoteReached) {
@@ -705,9 +719,12 @@ export const getTension = (tension: Tension, values: TensionParams): Tension => 
                     if (globalDirection >= 0 && finalDirection >= 0) {
                         if (targetNoteReached) {
                             // We're goin up, not good
-                            tension.melodyTarget += globalDirection;
+                            tension.melodyTarget += globalDirection * 2;
                         }
                     }
+                }
+                if (generalDirection == 0) {
+                    tension.melodyTarget += 1;
                 }
                 break;
             }

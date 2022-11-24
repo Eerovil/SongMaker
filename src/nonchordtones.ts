@@ -544,6 +544,7 @@ export const buildTopMelody = (divisionedNotes: DivisionedRichnotes, mainParams:
         const thisNotes: Note[] = [];
         const nextNotes: Note[] = [];
         let currentScale: Scale;
+        let originalScale: Scale;
 
         for (const richNote of divisionedNotes[division - BEAT_LENGTH] || []) {
             if (richNote.note) {
@@ -555,6 +556,7 @@ export const buildTopMelody = (divisionedNotes: DivisionedRichnotes, mainParams:
                 prevNotes[richNote.partIndex] = richNote.note;
                 if (richNote.scale) {
                     currentScale = richNote.scale;
+                    originalScale = richNote.originalScale;
                 }
             }
         }
@@ -566,6 +568,8 @@ export const buildTopMelody = (divisionedNotes: DivisionedRichnotes, mainParams:
 
         // @ts-ignore
         currentScale = currentScale;
+        // @ts-ignore
+        originalScale = originalScale;
 
         for (let partIndex = 0; partIndex < 4; partIndex++) {
             // Change limits, new notes must also be betweeen the other part notes
@@ -642,11 +646,13 @@ export const buildTopMelody = (divisionedNotes: DivisionedRichnotes, mainParams:
             // Try to find a way to ad 8th notes this beat.
 
             const nonChordToneChoiceFuncs: {[key: string]: Function} = {
+                chordNote: () => {chordNote(nacParams)},
                 appogiatura: () => appogiatura(nacParams),
                 neighborGroup: () => neighborGroup(nacParams),
                 suspension: () => suspension(nacParams),
                 escapeTone: () => escapeTone(nacParams),
                 passingTone: () => passingTone(nacParams),
+                accentedPassingTone: () => accentedPassingTone(nacParams),
                 neighborTone: () => neighborTone(nacParams),
                 retardation: () => retardation(nacParams),
                 anticipation: () => anticipation(nacParams),
@@ -654,12 +660,13 @@ export const buildTopMelody = (divisionedNotes: DivisionedRichnotes, mainParams:
             }
 
             let iterations = 0;
-            let nonChordTone = null;
+            let nonChordTone: NonChordTone | null = null;
             const usedChoices = new Set();
+            const goodChoices = [];
             while (true) {
                 iterations++;
                 if (iterations > 1000) {
-                    throw new Error("Too many iterations in 8th note generation");
+                    break;
                 }
 
                 let nonChordToneChoices: {[key: string]: NonChordTone} = {}
@@ -703,8 +710,15 @@ export const buildTopMelody = (divisionedNotes: DivisionedRichnotes, mainParams:
                 // Now we need to check voice leading from before and after
                 const nonChordToneNotes: Note[] = [...thisNotes];
 
-                if (nonChordTone.strongBeat) {
-                    nonChordToneNotes[partIndex] = nonChordTone.note;
+                nonChordToneNotes[partIndex] = nonChordTone.note;
+                if (originalScale && nonChordTone.note) {
+                    // @ts-ignore
+                    if (originalScale.notes.every(note => note.semitone != nonChordTone.note.semitone)) {
+                        // The non chord tone is not in the original scale
+                        // We can't use it
+                        nonChordTone = null;
+                        continue;
+                    }
                 }
                 const tensionResult = new Tension();
                 getTension(tensionResult, {
@@ -721,10 +735,19 @@ export const buildTopMelody = (divisionedNotes: DivisionedRichnotes, mainParams:
                 tension += tensionResult.parallelFifths;
                 tension += tensionResult.spacingError;
                 if (tension < 10) {
-                    break;
+                    goodChoices.push({
+                        nac: nonChordTone,
+                        tension,
+                    })
                 }
                 console.log("Tension too high for non chord tone", tension, nonChordTone, tensionResult, usingKey);
                 usedChoices.add(usingKey);
+            }
+
+            if (goodChoices.length > 0) {
+                // Select the best choice
+                goodChoices.sort((a, b) => a.tension - b.tension);
+                nonChordTone = goodChoices[0].nac;
             }
 
             if (!nonChordTone) {
